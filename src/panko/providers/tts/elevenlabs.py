@@ -11,12 +11,17 @@ from panko.providers.base import TTS, Audio
 class ElevenLabs(TTS):
     needs = ("ELEVENLABS_API_KEY",)
 
-    def speak(self, text, variety, out) -> Audio | None:
-        voice = self.cfg.get(f"voice_{variety}")
-        if not voice:
+    def voices(self, variety):
+        return list(self.cfg.get(f"voices_{variety}", []))
+
+    def speak(self, text, variety, out, voice=None) -> Audio | None:
+        names = self.voices(variety)
+        name = voice or (names[0] if names else None)
+        vid = self.cfg.get("voice_ids", {}).get(name, name)
+        if not vid:
             return None
         r = httpx.post(
-            f"https://api.elevenlabs.io/v1/text-to-speech/{voice}",
+            f"https://api.elevenlabs.io/v1/text-to-speech/{vid}",
             params={"output_format": self.cfg.get("format", "mp3_44100_128")},
             headers={"xi-api-key": secret("ELEVENLABS_API_KEY")},
             json={"text": text, "model_id": self.cfg.get("model", "eleven_v3"), "language_code": "ar"},
@@ -24,4 +29,4 @@ class ElevenLabs(TTS):
         )
         r.raise_for_status()
         out.write_bytes(r.content)
-        return Audio(path=out, source=f"ElevenLabs {self.cfg.get('model')}, voice {self.cfg.get('voice_name', voice)} (synthetic)", native=False)
+        return Audio(path=out, source=f"{name} (ElevenLabs)", native=False)

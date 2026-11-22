@@ -107,7 +107,7 @@ def _word_back(top: str = "") -> str:
 
 WORD_TEMPLATES = [
     {"Name": "1 Recognition",
-     "Front": '<div class="ar word">{{WordPrompt}}</div>',
+     "Front": '<div class="ar word">{{WordPrompt}}</div>{{#Audio}}<div>{{Audio}}</div>{{/Audio}}',
      "Back": _word_back()},
     {"Name": "2 Production",
      "Front": '{{#EnableProduction}}{{#Image}}<div class="pic">{{Image}}</div>{{/Image}}<div class="prompt">{{Gloss}}</div>{{/EnableProduction}}',
@@ -162,7 +162,7 @@ def _phrase_back(top: str = "") -> str:
 
 PHRASE_TEMPLATES = [
     {"Name": "1 Recognition",
-     "Front": '<div class="ar phrase">{{PhrasePrompt}}</div>',
+     "Front": '<div class="ar phrase">{{PhrasePrompt}}</div>{{#Audio}}<div>{{Audio}}</div>{{/Audio}}',
      "Back": _phrase_back()},
     {"Name": "2 Production",
      "Front": '{{#EnableProduction}}{{#Image}}<div class="pic">{{Image}}</div>{{/Image}}<div class="prompt">{{Translation}}</div>{{/EnableProduction}}',

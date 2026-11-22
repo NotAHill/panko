@@ -13,7 +13,7 @@ from panko.providers.base import TTS, Audio
 class AzureTTS(TTS):
     needs = ("AZURE_SPEECH_KEY", "AZURE_SPEECH_REGION")
 
-    def speak(self, text, variety, out) -> Audio | None:
+    def speak(self, text, variety, out, voice=None) -> Audio | None:
         voice = self.cfg.get(f"voice_{variety}")
         if not voice:
             return None

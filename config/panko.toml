@@ -10,12 +10,16 @@ allow_placeholder = false
 
 [audio.elevenlabs]
 model = "eleven_v3"
-# George (built-in). Moroccan library voices (Badr, Ghalia...) need a paid plan:
-# free accounts can't use library voices through the API.
-voice_darija = "JBFqnCBsd6RMkjVDRZzb"
-voice_fusha = "JBFqnCBsd6RMkjVDRZzb"
-voice_name = "George"
 format = "mp3_44100_128"
+# Voices per variety, in order. The headword is read by every voice listed;
+# examples take turns. Names map to IDs below.
+voices_darija = ["Badr", "Ghalia"]
+voices_fusha = ["George"]
+
+[audio.elevenlabs.voice_ids]
+Badr = "pNCAEmZFNur1TpjR9TC0"     # Moroccan Darija, man, warm narrator
+Ghalia = "ugVysa6SU3kBjf7zmeSV"   # Moroccan Darija, woman, warm narrator
+George = "JBFqnCBsd6RMkjVDRZzb"   # built-in; interim for Fusha
 
 [audio.azure]
 voice_darija = "ar-MA-MounaNeural"

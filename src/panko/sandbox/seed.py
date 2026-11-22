@@ -14,13 +14,14 @@ import json
 from panko.cards import render as R
 from panko.cards.render import Entry, Example, Related
 from panko.config import ROOT
-from panko.media.audio import no_voice
+from panko.media.audio import Narrator, Silent
 
 P = "_panko_proto_"
 MEDIA = ROOT / "assets" / "sandbox" / "media"
 LESSON = "Lesson with Oussama, 21 Nov 2026"
 SHEET_M6 = "Teacher sheet: Module 6, Mol l-7anut"
-_voice = no_voice  # set per call by darija_words(voice=...) etc.
+SILENT = Silent()
+_voice: Narrator = SILENT  # set per call by darija_words(voice=...) etc.
 
 
 def img(slug: str, ext: str = "jpg") -> str:
@@ -30,14 +31,14 @@ def img(slug: str, ext: str = "jpg") -> str:
 def _voice_all(f: dict, text_field: str, entry: Entry) -> None:
     """Fill headword + example audio from the provider chain, when one is ready."""
     variety = f.get("Register", "").lower()
-    v = _voice(f[text_field].rstrip(".؟?"), variety)
-    if v:
-        f["Audio"] = f"[sound:{v.filename}]"
-        f["AudioSource"] = entry.audio_source = v.source
-    for e in entry.examples:
-        if e.cite:  # scripture: real recitation only, never TTS
-            continue
-        ve = _voice(e.ar, variety)
+    n = _voice.count(variety)
+    # headword: every voice once (e.g. man then woman); examples: voices take turns
+    said = [v for v in (_voice.say(f[text_field].rstrip(".؟?"), variety, slot) for slot in range(n)) if v]
+    if said:
+        f["Audio"] = "".join(f"[sound:{v.filename}]" for v in said)
+        f["AudioSource"] = entry.audio_source = " + ".join(v.source for v in said)
+    for i, e in enumerate(x for x in entry.examples if not x.cite):  # scripture: real recitation only
+        ve = _voice.say(e.ar, variety, i % n) if n else None
         if ve:
             e.audio = ve.filename
 
@@ -67,7 +68,7 @@ def phrase(fields: dict, entry: Entry, tags=()) -> dict:
     return {"fields": f, "tags": list(tags)}
 
 
-def darija_words(voice=no_voice):
+def darija_words(voice: Narrator = SILENT):
     global _voice
     _voice = voice
     return [
@@ -75,7 +76,7 @@ def darija_words(voice=no_voice):
               "Translit": "kanapi", "TranslitAlt": "kanāpi", "Register": "Darija", "POS": "noun",
               "Gloss": "sofa, couch", "GlossNote": "from French canapé", "Gender": "masculine",
               "Image": img("sofa"), "ImageSource": credit("sofa"),
-              "EnableProduction": "y", "EnableListening": "y", "PankoID": "proto-w-0001"},
+              "EnableProduction": "y", "PankoID": "proto-w-0001"},
              Entry(examples=[
                  Example("التلفاز قدام الكنابي.", "t-tilfaz 9eddam l-kanapi", "The TV is in front of the sofa.", source=LESSON),
                  Example("كنقلب على كنابي كبير.", "kan9elleb 3la kanapi kbir", "I'm looking for a big sofa.", source=LESSON)],
@@ -89,7 +90,7 @@ def darija_words(voice=no_voice):
               "Translit": "khzana", "TranslitAlt": "xzāna", "Register": "Darija", "POS": "noun",
               "Gloss": "wardrobe, cupboard", "Gender": "feminine",
               "Image": img("wardrobe"), "ImageSource": credit("wardrobe"),
-              "EnableProduction": "y", "EnableListening": "y", "PankoID": "proto-w-0002"},
+              "EnableProduction": "y", "PankoID": "proto-w-0002"},
              Entry(examples=[
                  Example("الخزانة ورا الباب.", "l-khzana wra l-bab", "The wardrobe is behind the door.", source=LESSON),
                  Example("الخزانة الكبيرة فين نحطها؟", "l-khzana l-kbira fin n7ettha?", "Where do I put the big wardrobe?", source=LESSON)],
@@ -102,7 +103,7 @@ def darija_words(voice=no_voice):
         word({"Word": "تخفيض", "WordBare": "تخفيض", "WordPrompt": "تخفيض",
               "Translit": "takhfid", "TranslitAlt": "təxfīḍ", "Register": "Darija", "POS": "noun",
               "Gloss": "discount", "Image": img("discount"), "ImageSource": credit("discount"),
-              "EnableProduction": "y", "EnableListening": "y", "PankoID": "proto-w-0003"},
+              "EnableProduction": "y", "PankoID": "proto-w-0003"},
              Entry(examples=[
                  Example("واش تقدر تدير ليا تخفيض؟", "wach t9der tdir liya takhfid?", "Can you give me a discount?", source=LESSON),
                  Example("غادي ندير ليك تخفيض ديال مية درهم.", "ghadi ndir lik takhfid dyal mya dirham",
@@ -116,7 +117,7 @@ def darija_words(voice=no_voice):
         word({"Word": "حدا", "WordBare": "حدا", "WordPrompt": "حدا",
               "Translit": "7da", "TranslitAlt": "ḥda", "Register": "Darija", "POS": "preposition",
               "Gloss": "next to, beside", "Image": img("nextto", "svg"),
-              "ImageSource": "Panko diagram", "EnableProduction": "y", "EnableListening": "y", "PankoID": "proto-w-0004"},
+              "ImageSource": "Panko diagram", "EnableProduction": "y", "PankoID": "proto-w-0004"},
              Entry(examples=[
                  Example("حط الكرسي حدا الحيط.", "7ett l-korsi 7da l-7it", "Put the chair next to the wall.", source=LESSON)],
                  related=[Related("قدام", "in front of", "9eddam"), Related("ورا", "behind", "wra"),
@@ -128,7 +129,7 @@ def darija_words(voice=no_voice):
     ]
 
 
-def darija_phrases(voice=no_voice):
+def darija_phrases(voice: Narrator = SILENT):
     global _voice
     _voice = voice
     return [
@@ -137,7 +138,7 @@ def darija_phrases(voice=no_voice):
                 "Register": "Darija", "Translation": "I'm looking for a mirror for my room.",
                 "Literal": "I'm searching on a mirror for my room", "Image": img("mirror"), "ImageSource": credit("mirror"),
                 "UsageHTML": "How to open a request in a shop.",
-                "EnableProduction": "y", "EnableListening": "y", "PankoID": "proto-p-0001"},
+                "EnableProduction": "y", "PankoID": "proto-p-0001"},
                Entry(related=[Related("كنقلب على", "I'm looking for", "kan9elleb 3la"),
                               Related("مراية", "mirror", "mraya"), Related("غرفة", "room", "ghorfa")],
                      word_sources=[LESSON], image_source=credit("mirror")),
@@ -148,7 +149,7 @@ def darija_phrases(voice=no_voice):
                 "Register": "Darija", "Translation": "Can I pay by card?",
                 "Literal": "can I pay with the card?", "Image": img("cardpay"), "ImageSource": credit("cardpay"),
                 "UsageHTML": "واش turns a sentence into a yes/no question.",
-                "EnableProduction": "y", "EnableListening": "y", "PankoID": "proto-p-0002"},
+                "EnableProduction": "y", "PankoID": "proto-p-0002"},
                Entry(related=[Related("نقدر", "I can", "n9der"), Related("نخلص", "I pay", "nkhelless"),
                               Related("الكارت", "card", "l-kart")],
                      word_sources=[LESSON], image_source=credit("cardpay")),
@@ -159,14 +160,14 @@ def darija_phrases(voice=no_voice):
                 "Register": "Darija", "Translation": "Put it on my tab.", "Literal": "write it on me in the notebook",
                 "UsageHTML": "At the corner shop when buying on credit. The karni is the shopkeeper's notebook of what "
                              "regulars owe; pay on the day you said you would.",
-                "EnableProduction": "y", "EnableListening": "y", "PankoID": "proto-p-0003"},
+                "EnableProduction": "y", "PankoID": "proto-p-0003"},
                Entry(related=[Related("الكارني", "the shop's credit notebook", "l-karni")],
                      word_sources=[SHEET_M6 + ", §3"]),
                ["topic::shopping", "src::teacher::m06-hanout"]),
     ]
 
 
-def fusha_words(voice=no_voice):
+def fusha_words(voice: Narrator = SILENT):
     global _voice
     _voice = voice
     return [

@@ -2,6 +2,8 @@
 
 ## Changes in v0.3 (2026-11-23)
 - Production front = picture (if any) + English. The picture-only card is retired.
+- Recognition front = Arabic + audio. The separate Listening card is retired.
+- Darija audio uses two voices: the headword is read by both, and examples alternate.
 - Decks: `<Variety>::Words` and `<Variety>::Phrases`, plus tags `kind::word` / `kind::phrase`.
 - Scripture examples show their reference under the example ("Quran 16:75 (An-Nahl)").
 - Card direction is pinned LTR; only Arabic text is RTL.

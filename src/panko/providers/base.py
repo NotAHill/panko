@@ -34,7 +34,12 @@ class Image:
 
 
 class TTS(Provider):
-    def speak(self, text: str, variety: str, out: Path) -> Audio | None:
+    def voices(self, variety: str) -> list[str]:
+        """Voice names for a variety, in order (headword uses all, examples rotate)."""
+        v = self.cfg.get(f"voice_{variety}")
+        return [v] if v else []
+
+    def speak(self, text: str, variety: str, out: Path, voice: str | None = None) -> Audio | None:
         raise NotImplementedError
 
 

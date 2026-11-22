@@ -46,7 +46,7 @@ lives in `config/panko.toml`, so changing it needs no code.
 flowchart TB
     subgraph Audio["Audio (word + examples)"]
         direction LR
-        a1[native<br/>teacher clip / Peace Corps]:::part --> a2[ElevenLabs v3<br/>voice: George]:::built --> a3[Azure<br/>ar-MA / ar-SA]:::part
+        a1[native<br/>teacher clip / Peace Corps]:::part --> a2[ElevenLabs v3<br/>Darija: Badr + Ghalia<br/>Fusha: George]:::built --> a3[Azure<br/>ar-MA / ar-SA]:::part
     end
     subgraph Pictures
         direction LR

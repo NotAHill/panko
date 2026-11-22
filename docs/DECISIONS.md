@@ -2,6 +2,16 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-23 · Darija voices: Badr and Ghalia (ElevenLabs v3, Starter plan).**
+Out of a six-voice audition, both were understood as Darija by speech-to-text, and only Badr was heard as كنابي exactly.
+The headword is read by both (man, then woman), and examples alternate between them, so you hear
+two speakers without doubling the cost. Fusha keeps the built-in George for now. Voices are listed by name in
+`config/panko.toml`; `uv run panko voices` re-runs the audition.
+
+**2026-11-23 · Recognition front = Arabic + audio; no separate Listening card.**
+You asked for hearing and reading together. `EnableListening` stays unused (the template is kept,
+because removing it would force a full sync). On the back, the word plays again.
+
 **2026-11-23 · Anki's page direction is pinned to LTR in CSS.**
 Anki picks the direction from the first letter on the card. Once the badge was gone, the back
 started with Arabic, so the English turned RTL (full stops at the start, Sources arrow flipped).
@@ -19,7 +29,7 @@ the sandbox decks are `Panko Darija::Words` and the like.
 "Quran 16:75 (An-Nahl)" shows under the verse. This is content, not provenance. Audio for verses
 will come from real recitation.
 
-**2026-11-23 · Interim Darija voice: ElevenLabs v3, built-in voice "George".**
+**2026-11-23 · (Superseded by Badr + Ghalia.) Interim Darija voice: ElevenLabs v3, built-in voice "George".**
 Free ElevenLabs accounts can't use library voices (Badr, Ghalia… the Moroccan ones) or voice
 design through the API. George round-tripped through ElevenLabs speech-to-text almost word for
 word, so he reads it as Darija rather than MSA, but the accent isn't Moroccan. Switch by

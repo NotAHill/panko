@@ -13,6 +13,6 @@ from panko.providers.base import TTS, Audio
 class NativeAudio(TTS):
     index: dict[str, tuple[Path, str]] = {}
 
-    def speak(self, text, variety, out) -> Audio | None:
+    def speak(self, text, variety, out, voice=None) -> Audio | None:
         hit = self.index.get(text)
         return Audio(path=hit[0], source=hit[1], native=True) if hit else None

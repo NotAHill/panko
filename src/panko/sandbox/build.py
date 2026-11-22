@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import base64
 import json
+import re
 
 from panko.anki import mcp_client as mcp
 from panko.cards import note_types as T
@@ -45,15 +46,24 @@ def push_models():
             print(f"created {name}; will_force_full_sync={r.get('will_force_full_sync')}")
 
 
-def push_media():
-    files = sorted(f for d in (seed.MEDIA, audio.MEDIA) if d.exists()
-                   for f in d.iterdir() if f.name.startswith(seed.P) and f.suffix != ".txt")
+def referenced(batches) -> set[str]:
+    blob = json.dumps([n for *_, notes, _ in batches for n in notes], ensure_ascii=False)
+    return set(re.findall(rf"({re.escape(seed.P)}[\w.-]+?\.(?:mp3|jpg|png|svg))", blob))
+
+
+def push_media(batches):
+    """Store only the media the notes use, and remove sandbox media they no longer use."""
+    used = referenced(batches)
+    files = sorted(f for d in (seed.MEDIA, audio.MEDIA) if d.exists() for f in d.iterdir() if f.name in used)
     for f in files:
         try:
             tool("store_media_file", {"filename": f.name, "path": str(f)})
         except RuntimeError:
             tool("store_media_file", {"filename": f.name, "data": base64.b64encode(f.read_bytes()).decode()})
-    print("media stored:", len(files))
+    stale = [n for n in tool("get_media_files_names", {"pattern": f"{seed.P}*"})["files"] if n not in used]
+    for n in stale:
+        tool("delete_media_file", {"filename": n})
+    print(f"media stored: {len(files)}, stale removed: {len(stale)}")
 
 
 def reset_notes():
@@ -63,11 +73,8 @@ def reset_notes():
     print("deleted sandbox notes:", len(ids))
 
 
-def voice(text, variety):
-    return audio.speak(text, variety, prefix=seed.P)
-
-
 def build_notes():
+    voice = audio.Narrator(prefix=seed.P)
     """Generate notes (and their audio) before touching Anki, so media can be pushed first."""
     return [(DARIJA_WORDS, T.WORD_MODEL, seed.darija_words(voice), ["register::darija", "kind::word", "panko::needs-review"]),
             (DARIJA_PHRASES, T.PHRASE_MODEL, seed.darija_phrases(voice), ["register::darija", "kind::phrase", "panko::needs-review"]),
@@ -94,7 +101,7 @@ def main(argv=None):
     push_models()
     for d in DECKS:
         tool("create_deck", {"deck_name": d})
-    push_media()
+    push_media(batches)
     if a.reset:
         reset_notes()
     push_notes(batches)

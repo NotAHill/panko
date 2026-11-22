@@ -1,1 +1,4 @@
-{"version": "0.0.1", "configurations": [{"name": "card-preview", "runtimeExecutable": "python3", "runtimeArgs": ["-m", "http.server", "8765", "-d", "cache/preview"], "port": 8765}]}
+{"version": "0.0.1", "configurations": [
+  {"name": "card-preview", "runtimeExecutable": "python3", "runtimeArgs": ["-m", "http.server", "8765", "-d", "cache/preview"], "port": 8765},
+  {"name": "voices", "runtimeExecutable": "python3", "runtimeArgs": ["-m", "http.server", "8766", "-d", "cache/voices"], "port": 8766}
+]}

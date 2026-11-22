@@ -4,10 +4,10 @@ Update the **Now** section at the end of every work session: it's what a fresh s
 (or one after context compaction) reads first.
 
 ## Now (2026-11-23)
-- Sandbox v0.3 in Anki: decks `Panko Darija::Words`, `Panko Darija::Phrases`, `Panko Fusha::Words` (26 cards). The old empty `Panko Sandbox` deck can be deleted by hand.
-- Audio: ElevenLabs v3 with the built-in voice George (free plan, 489 of 10,000 characters used). Moroccan library voices need a paid plan.
+- Sandbox v0.3 in Anki: decks `Panko Darija::Words`, `Panko Darija::Phrases`, `Panko Fusha::Words` (19 cards; recognition fronts carry audio, no Listening cards). The old empty `Panko Sandbox` deck can be deleted by hand.
+- Audio: ElevenLabs Starter plan. Darija = Badr + Ghalia, Fusha = George (interim). `uv run panko voices` auditions voices.
 - Pictures: real photos for all concrete words. "Next to" is an interim diagram. The karni phrase has no picture yet; it needs an image-generation key (OpenAI, Gemini or Recraft).
-- Waiting on: the user's listening verdict on George; image-gen key; v0.3 phone check.
+- Waiting on: image-gen key; v0.3 phone check (audio on recognition fronts, LTR fix).
 - Next: vision-model picture picking + generation fallback; start Phase 2 (Panko store).
 
 ## Phases
