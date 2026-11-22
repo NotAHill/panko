@@ -143,6 +143,7 @@ Matching what you asked for: cards are **auto-added**, failures are **tagged and
 | **anki-llm** (MIT, CLI) | The closest thing to Panko: file-based config, picking which cards to import, rollback. No dictionary checks, no document sources. Worth studying. |
 | **Smart Notes** (add-on) | Prompts chained per field and a solid TTS provider layer. It enriches existing notes; it doesn't create cards from sources. |
 | **Yomitan / asbplayer / Migaku** | Mining one sentence at a time, focused on Japanese. No LLM grounding, and weak for Arabic. |
+| **Cappa** (a friend's project, MIT, Windows only) | A see-through overlay that reads the subtitles printed in any video, makes each word clickable and mines one card per click (sentence, screenshot, an audio clip you can trim on a waveform). Arabic is Fusha only (OCR, CAMeL calima-msa-r13, Google Translate and Google TTS), with no Darija and no LLM. Worth reusing for the media source: `cappa/source/` (yt-dlp captions, WebVTT parsing, matching on-screen lines to the caption track, ffmpeg cuts; plain Python that runs anywhere), `cappa/flashcard/edit.py` for cutting teacher and Peace Corps clips, and its slim CAMeL install (`--no-deps`, no PyTorch) for Phase 5. Don't copy its Anki writer: it adds fields to its note type (a full sync) and never updates a note once it's in. |
 | **AnkiMorphs** | Tracked which words you know ("i+1"). **Archived Oct 2026**, so this niche is now empty. |
 | Web AI generators (Quizgecko, StudyFetch…) | Generic, not language-aware, often lock you in. |
 
@@ -334,4 +335,4 @@ Every source feeds the same pipeline through its own **source adapter**. Panko r
 - LLM diacritization (LREC 2026): https://aclanthology.org/2026.lrec-1.40/ · SHAMS (Levantine): https://arxiv.org/abs/2610.01427
 - QARI-OCR: https://arxiv.org/abs/2506.02295 · Azure Arabic voices: https://learn.microsoft.com/en-us/azure/ai-services/speech-service/language-support?tabs=tts
 - AnkiMobile harakat clipping: https://forums.ankiweb.net/t/arabic-diacritic-when-shaddah-another-the-display-on-ankimobile-ios-gets-cut-off/67313
-- anki-llm: https://github.com/raine/anki-llm · AnkiMorphs (archived): https://github.com/mortii/anki-morphs
+- anki-llm: https://github.com/raine/anki-llm · Cappa: https://github.com/bmakh9748/Cappa · AnkiMorphs (archived): https://github.com/mortii/anki-morphs
