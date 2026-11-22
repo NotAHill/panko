@@ -11,8 +11,8 @@ allow_placeholder = false
 [audio.elevenlabs]
 model = "eleven_v3"
 format = "mp3_44100_128"
-# Voices per variety, in order. The headword is read by every voice listed;
-# examples take turns. Names map to IDs below.
+# Voices per variety, in order. The headword and every example are read by every
+# voice listed (one tap plays them in turn). Names map to IDs below.
 voices_darija = ["Badr", "Ghalia"]
 voices_fusha = ["George"]
 

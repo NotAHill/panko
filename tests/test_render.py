@@ -34,3 +34,26 @@ def test_html_is_escaped():
 def test_scripture_cite_shows_under_example():
     html = R.examples([R.Example("ضَرَبَ اللَّهُ مَثَلًا", "", "", cite="Quran 16:75")])
     assert '<div class="cite">Quran 16:75</div>' in html
+
+
+def test_example_with_two_voices_has_one_button_two_audios():
+    html = R.examples([R.Example("a", "b", "c", audio=["m.mp3", "f.mp3"])])
+    assert html.count('class="say"') == 1
+    assert html.index("m.mp3") < html.index("f.mp3")
+
+
+def test_every_example_is_read_by_every_voice():
+    from panko.cards.build import to_note
+    from panko.media.audio import Narrator, Voiced
+
+    class Two(Narrator):
+        def count(self, variety):
+            return 2
+
+        def say(self, text, variety, slot=0):
+            return Voiced(f"{slot}-{len(text)}.mp3", "v")
+
+    e = {"id": "dw-1", "kind": "word", "variety": "darija", "ar": "كلب", "gloss": "dog",
+         "examples": [{"ar": "شفت كلب", "en": "I saw a dog"}]}
+    html = to_note(e, Two())["fields"]["ExamplesHTML"]
+    assert "0-7.mp3" in html and "1-7.mp3" in html

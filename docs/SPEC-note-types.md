@@ -3,7 +3,7 @@
 ## Changes in v0.3 (2026-11-23)
 - Production front = picture (if any) + English. The picture-only card is retired.
 - Recognition front = Arabic + audio. The separate Listening card is retired.
-- Darija audio uses two voices: the headword is read by both, and examples alternate.
+- Darija audio uses two voices: the headword and every example are read by both (man, then woman); one tap on an example's ▶ plays both in turn.
 - Every word and phrase, Darija or Fusha, makes two cards: recognition (Arabic + audio) and production (picture + English). Plural / verb-form / root cards are off; that information is on the back.
 - Decks: `Panko Sandbox::Darija` and `Panko Sandbox::Fusha` for now; words vs phrases is a tag (`kind::word` / `kind::phrase`).
 - Synonyms: only the everyday word gets a production card; the rest are recognition only (`"cards": ["recognition"]`).

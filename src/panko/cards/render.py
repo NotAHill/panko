@@ -12,7 +12,7 @@ class Example:
     ar: str
     tl: str            # main transliteration (teacher's Arabizi for Darija)
     en: str
-    audio: str = ""    # media filename (.mp3), played with a tap, never autoplayed
+    audio: str | list[str] = ""   # media filename(s) (.mp3), played in turn with one tap, never autoplayed
     source: str = ""   # shown only in the Sources section
     cite: str = ""     # shown under the example (scripture references, e.g. "Quran 16:75")
 
@@ -33,11 +33,14 @@ class Entry:
     image_source: str = ""
 
 
-def say_button(audio: str) -> str:
-    if not audio:
+def say_button(audio: str | list[str]) -> str:
+    """One play button; with several files (one per voice) a tap plays them one after another."""
+    files = [audio] if isinstance(audio, str) else list(audio)
+    files = [f for f in files if f]
+    if not files:
         return ""
-    return (f'<span class="say" role="button" aria-label="play">'
-            f'<audio preload="none" src="{escape(audio)}"></audio></span>')
+    return ('<span class="say" role="button" aria-label="play">'
+            + "".join(f'<audio preload="none" src="{escape(f)}"></audio>' for f in files) + "</span>")
 
 
 def examples(exs: list[Example]) -> str:

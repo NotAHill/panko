@@ -23,14 +23,12 @@ def _examples(entry) -> list[R.Example]:
 
 
 def _voice(entry, exs: list[R.Example], narrator: Narrator) -> tuple[str, str]:
-    """Headword read by every voice; examples take turns. Scripture is never voiced."""
+    """Headword and every example are read by every voice (man, then woman). Scripture is never voiced."""
     variety = entry["variety"]
     n = narrator.count(variety)
     said = [v for v in (narrator.say(entry["ar"].rstrip(".؟?"), variety, s) for s in range(n)) if v]
-    for i, e in enumerate(x for x in exs if not x.cite and not x.audio):
-        v = narrator.say(e.ar, variety, i % n) if n else None
-        if v:
-            e.audio = v.filename
+    for e in (x for x in exs if not x.cite and not x.audio):
+        e.audio = [v.filename for v in (narrator.say(e.ar, variety, s) for s in range(n)) if v]
     return "".join(f"[sound:{v.filename}]" for v in said), " + ".join(v.source for v in said)
 
 

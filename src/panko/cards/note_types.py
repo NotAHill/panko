@@ -69,16 +69,21 @@ details.srcs summary { cursor: pointer; }
 details.srcs ul { margin: 6px 0 0; padding-left: 18px; }
 """
 
-# Example audio: tapping .say plays its <audio> child. Anki's own [sound:] tags
+# Example audio: tapping .say plays its <audio> children one after another (one per voice). Anki's own [sound:] tags
 # autoplay, so only the headword uses those. Audio must be mp3: desktop Anki's
 # web view can't decode AAC/m4a.
 PLAY_JS = r"""<script>
 document.querySelectorAll('.say').forEach(function (b) {
   b.onclick = function (e) {
     e.preventDefault(); e.stopPropagation();
-    var a = b.querySelector('audio'); if (!a) return;
-    a.currentTime = 0; a.play(); b.classList.add('on');
-    a.onended = function () { b.classList.remove('on'); };
+    var list = b.querySelectorAll('audio'); if (!list.length) return;
+    document.querySelectorAll('.say audio').forEach(function (x) { x.pause(); x.onended = null; });
+    document.querySelectorAll('.say.on').forEach(function (x) { x.classList.remove('on'); });
+    b.classList.add('on');
+    (function play(i) {
+      if (i >= list.length) { b.classList.remove('on'); return; }
+      var a = list[i]; a.currentTime = 0; a.onended = function () { play(i + 1); }; a.play();
+    })(0);
   };
 });
 </script>"""
