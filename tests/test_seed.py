@@ -18,7 +18,8 @@ def test_seed_media_files_exist():
             assert (seed.MEDIA / f).exists(), f
 
 
-def test_fusha_words_make_one_card():
-    # Fusha: recognition only (Arabic + audio); grammar lives on the back, not in extra cards
+def test_fusha_words_match_darija_cards():
+    # recognition (always) + production (picture + English); grammar lives on the back, not in extra cards
     for n in seed.fusha_words():
-        assert not [k for k, v in n["fields"].items() if k.startswith("Enable") and v], n["fields"]["Word"]
+        on = {k for k, v in n["fields"].items() if k.startswith("Enable") and v}
+        assert on == {"EnableProduction"}, (n["fields"]["Word"], on)

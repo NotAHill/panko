@@ -177,7 +177,7 @@ def fusha_words(voice: Narrator = SILENT):
               "Root": "م ث ل", "Pattern": "فَعَّلَ", "VerbForm": "II",
               "Present": "يُمَثِّلُ", "Imperative": "مَثِّلْ", "Masdar": "تَمْثِيل",
               "Image": img("actor"), "ImageSource": credit("actor"),
-              "PankoID": "proto-w-0101"},
+              "EnableProduction": "y", "PankoID": "proto-w-0101"},
              Entry(examples=[
                  Example("يُمَثِّلُ الوَفْدُ بِلادَهُ في المُؤْتَمَرِ.", "yumaththilu l-wafdu bilādahu fī l-muʾtamar",
                          "The delegation represents its country at the conference.",
@@ -194,7 +194,7 @@ def fusha_words(voice: Narrator = SILENT):
               "Translit": "qiṭʿa", "Register": "Fusha", "POS": "noun",
               "Gloss": "piece", "Root": "ق ط ع", "Pattern": "فِعْلَة", "Gender": "feminine", "Plural": "قِطَع",
               "Image": img("piece"), "ImageSource": credit("piece"),
-              "PankoID": "proto-w-0102"},
+              "EnableProduction": "y", "PankoID": "proto-w-0102"},
              Entry(examples=[
                  Example("أَكَلْتُ قِطْعَةً مِنَ الخُبْزِ.", "akaltu qiṭʿatan mina l-khubz", "I ate a piece of bread.",
                          source="written by Panko, not yet checked")],

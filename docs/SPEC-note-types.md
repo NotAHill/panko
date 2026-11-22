@@ -4,7 +4,7 @@
 - Production front = picture (if any) + English. The picture-only card is retired.
 - Recognition front = Arabic + audio. The separate Listening card is retired.
 - Darija audio uses two voices: the headword is read by both, and examples alternate.
-- Fusha words make one card (recognition: Arabic + audio). Plural / verb-form / root cards are off; that information is on the back. Darija words make two cards (recognition, production); phrases make two.
+- Every word and phrase, Darija or Fusha, makes two cards: recognition (Arabic + audio) and production (picture + English). Plural / verb-form / root cards are off; that information is on the back.
 - Decks: `<Variety>::Words` and `<Variety>::Phrases`, plus tags `kind::word` / `kind::phrase`.
 - Scripture examples show their reference under the example ("Quran 16:75 (An-Nahl)").
 - Card direction is pinned LTR; only Arabic text is RTL.
