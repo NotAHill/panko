@@ -26,10 +26,14 @@ PHRASE_FIELDS = [
 ]
 
 CSS = r"""
+/* Anki picks the page direction from the first letter on the card, so a back that
+   starts with Arabic turned the English RTL. Pin LTR; only .ar is RTL. */
+html, body, #qa, .card { direction: ltr; }
 .card { font-family: -apple-system, "Helvetica Neue", "Segoe UI", Roboto, sans-serif;
   font-size: 18px; line-height: 1.45; text-align: center; padding: 20px 16px; }
 .ar { font-family: "Noto Naskh Arabic", "Geeza Pro", "Al Nile", "Traditional Arabic", serif;
   direction: rtl; unicode-bidi: isolate; line-height: 2; }
+.en, .tl, .gloss, .gnote, .gram, .block, .ex-tl, .ex-en, .cite, .prompt, table.rel, details.srcs { direction: ltr; unicode-bidi: isolate; }
 .word { font-size: 48px; }
 .phrase { font-size: 32px; }
 .prompt { font-size: 32px; margin-top: 24px; }
@@ -49,6 +53,7 @@ CSS = r"""
 .ex-ar { font-size: 24px; text-align: right; line-height: 1.7; }
 .ex-tl { font-size: 14px; opacity: .6; }
 .ex-en { font-size: 16px; }
+.cite { font-size: 13px; opacity: .55; margin-top: 2px; }
 .say { display: inline-block; width: 26px; height: 26px; margin-right: 8px; vertical-align: middle;
   border-radius: 50%; border: 1px solid rgba(128,128,128,.5); cursor: pointer; position: relative; }
 .say::after { content: ""; position: absolute; left: 10px; top: 7px; border-style: solid;
@@ -105,7 +110,7 @@ WORD_TEMPLATES = [
      "Front": '<div class="ar word">{{WordPrompt}}</div>',
      "Back": _word_back()},
     {"Name": "2 Production",
-     "Front": '{{#EnableProduction}}<div class="prompt">{{Gloss}}</div>{{/EnableProduction}}',
+     "Front": '{{#EnableProduction}}{{#Image}}<div class="pic">{{Image}}</div>{{/Image}}<div class="prompt">{{Gloss}}</div>{{/EnableProduction}}',
      "Back": _word_back()},
     {"Name": "3 Listening",
      "Front": '{{#EnableListening}}{{#Audio}}<div class="prompt">{{Audio}}</div>{{/Audio}}{{/EnableListening}}',
@@ -160,7 +165,7 @@ PHRASE_TEMPLATES = [
      "Front": '<div class="ar phrase">{{PhrasePrompt}}</div>',
      "Back": _phrase_back()},
     {"Name": "2 Production",
-     "Front": '{{#EnableProduction}}<div class="prompt">{{Translation}}</div>{{/EnableProduction}}',
+     "Front": '{{#EnableProduction}}{{#Image}}<div class="pic">{{Image}}</div>{{/Image}}<div class="prompt">{{Translation}}</div>{{/EnableProduction}}',
      "Back": _phrase_back()},
     {"Name": "3 Listening",
      "Front": '{{#EnableListening}}{{#Audio}}<div class="prompt">{{Audio}}</div>{{/Audio}}{{/EnableListening}}',

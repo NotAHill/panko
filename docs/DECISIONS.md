@@ -2,6 +2,29 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-23 · Anki's page direction is pinned to LTR in CSS.**
+Anki picks the direction from the first letter on the card. Once the badge was gone, the back
+started with Arabic, so the English turned RTL (full stops at the start, Sources arrow flipped).
+Only `.ar` elements are RTL now.
+
+**2026-11-23 · Production fronts show the picture + English; no separate picture-only card.**
+A picture alone was ambiguous. `EnablePicture` stays unused (the template is kept, because removing it would force a full sync).
+
+**2026-11-23 · Words and phrases go in separate subdecks: `<Variety>::Words` and `<Variety>::Phrases`.**
+Each gets its own daily limits, and slower phrase reviews don't crowd out vocabulary. There are also
+`kind::word` and `kind::phrase` tags for searching. The Anki MCP add-on allows only two deck levels, so
+the sandbox decks are `Panko Darija::Words` and the like.
+
+**2026-11-23 · Scripture is cited under the example, and never voiced by TTS.**
+"Quran 16:75 (An-Nahl)" shows under the verse. This is content, not provenance. Audio for verses
+will come from real recitation.
+
+**2026-11-23 · Interim Darija voice: ElevenLabs v3, built-in voice "George".**
+Free ElevenLabs accounts can't use library voices (Badr, Ghalia… the Moroccan ones) or voice
+design through the API. George round-tripped through ElevenLabs speech-to-text almost word for
+word, so he reads it as Darija rather than MSA, but the accent isn't Moroccan. Switch by
+changing `voice_darija` once on a paid plan.
+
 **2026-11-22 · Example audio is tap-to-play mp3, word audio is a `[sound:]` tag.**
 Anki autoplays every `[sound:]` tag on a side, so examples can't use them. A small
 template script plays an `<audio>` element on tap. It must be mp3: desktop Anki's web

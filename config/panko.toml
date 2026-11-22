@@ -10,8 +10,11 @@ allow_placeholder = false
 
 [audio.elevenlabs]
 model = "eleven_v3"
-voice_darija = ""   # voice ID from the ElevenLabs voice library (pick a Moroccan voice)
-voice_fusha = ""
+# George (built-in). Moroccan library voices (Badr, Ghalia...) need a paid plan:
+# free accounts can't use library voices through the API.
+voice_darija = "JBFqnCBsd6RMkjVDRZzb"
+voice_fusha = "JBFqnCBsd6RMkjVDRZzb"
+voice_name = "George"
 format = "mp3_44100_128"
 
 [audio.azure]

@@ -14,6 +14,7 @@ class Example:
     en: str
     audio: str = ""    # media filename (.mp3), played with a tap, never autoplayed
     source: str = ""   # shown only in the Sources section
+    cite: str = ""     # shown under the example (scripture references, e.g. "Quran 16:75")
 
 
 @dataclass
@@ -42,7 +43,8 @@ def say_button(audio: str) -> str:
 def examples(exs: list[Example]) -> str:
     return "".join(
         f'<div class="ex"><div class="ar ex-ar">{escape(e.ar)}{say_button(e.audio)}</div>'
-        f'<div class="ex-tl">{escape(e.tl)}</div><div class="ex-en">{escape(e.en)}</div></div>'
+        f'<div class="ex-tl">{escape(e.tl)}</div><div class="ex-en">{escape(e.en)}</div>'
+        + (f'<div class="cite">{escape(e.cite)}</div>' if e.cite else "") + '</div>'
         for e in exs
     )
 
@@ -74,8 +76,8 @@ def grammar(pos: str = "", gender: str = "", plural: str = "", root: str = "", f
 def sources(entry: Entry) -> str:
     items = list(entry.word_sources)
     for i, e in enumerate(entry.examples, 1):
-        if e.source:
-            items.append(f"Example {i}: {e.source}")
+        if e.source or e.cite:
+            items.append(f"Example {i}: {e.source or e.cite}")
     if entry.audio_source:
         items.append(f"Audio: {entry.audio_source}")
     if entry.image_source:

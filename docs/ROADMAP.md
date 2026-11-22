@@ -3,16 +3,18 @@
 Update the **Now** section at the end of every work session: it's what a fresh session
 (or one after context compaction) reads first.
 
-## Now (2026-11-22)
-- Sandbox v0.2 is live in Anki (`Panko Sandbox::Darija`, `::Fusha`, 21 cards) with the redesigned layout.
-- Waiting on: your feedback on v0.2 cards; an ElevenLabs key in `.env` plus a Moroccan voice ID in `config/panko.toml`.
-- Next: wire the audio chain into the sandbox builder; A/B ElevenLabs vs Azure on ~10 Darija words; picture picking by a vision model instead of by hand.
+## Now (2026-11-23)
+- Sandbox v0.3 in Anki: decks `Panko Darija::Words`, `Panko Darija::Phrases`, `Panko Fusha::Words` (26 cards). The old empty `Panko Sandbox` deck can be deleted by hand.
+- Audio: ElevenLabs v3 with the built-in voice George (free plan, 489 of 10,000 characters used). Moroccan library voices need a paid plan.
+- Pictures: real photos for all concrete words. "Next to" is an interim diagram. The karni phrase has no picture yet; it needs an image-generation key (OpenAI, Gemini or Recraft).
+- Waiting on: the user's listening verdict on George; image-gen key; v0.3 phone check.
+- Next: vision-model picture picking + generation fallback; start Phase 2 (Panko store).
 
 ## Phases
 | # | Phase | Status |
 |---|---|---|
 | 0 | Card design in a sandbox (note types, templates, real pictures) | in progress (v0.2) |
-| 1 | Provider layer: audio, pictures, LLM, behind swappable chains | skeleton done; ElevenLabs/Azure/gpt-image untested (no keys) |
+| 1 | Provider layer: audio, pictures, LLM, behind swappable chains | ElevenLabs working (cached); Azure + image generation untested (no keys) |
 | 2 | Panko store (SQLite) as source of truth; re-render notes from it | not started |
 | 3 | Source adapters: teacher PDFs (vision LLM), Granola transcripts, Peace Corps | not started |
 | 4 | Lesson recording (two tracks) + guided speech-to-text + teacher clips | not started; needs teacher's consent |

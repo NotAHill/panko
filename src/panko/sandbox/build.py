@@ -12,10 +12,15 @@ import json
 
 from panko.anki import mcp_client as mcp
 from panko.cards import note_types as T
+from panko.media import audio
 from panko.sandbox import seed
 
-DECK_DARIJA = "Panko Sandbox::Darija"
-DECK_FUSHA = "Panko Sandbox::Fusha"
+# Words and phrases in separate subdecks: separate daily limits, and phrases
+# (slower to review) don't crowd out vocabulary. Moving cards keeps history.
+DARIJA_WORDS = "Panko Darija::Words"
+DARIJA_PHRASES = "Panko Darija::Phrases"
+FUSHA_WORDS = "Panko Fusha::Words"
+DECKS = (DARIJA_WORDS, DARIJA_PHRASES, FUSHA_WORDS)
 
 
 def tool(name, args):
@@ -41,7 +46,8 @@ def push_models():
 
 
 def push_media():
-    files = sorted(f for f in seed.MEDIA.iterdir() if f.name.startswith(seed.P))
+    files = sorted(f for d in (seed.MEDIA, audio.MEDIA) if d.exists()
+                   for f in d.iterdir() if f.name.startswith(seed.P) and f.suffix != ".txt")
     for f in files:
         try:
             tool("store_media_file", {"filename": f.name, "path": str(f)})
@@ -51,16 +57,24 @@ def push_media():
 
 
 def reset_notes():
-    ids = tool("find_notes", {"query": '"deck:Panko Sandbox" tag:panko::prototype', "limit": 500})["noteIds"]
+    ids = tool("find_notes", {"query": 'tag:panko::prototype', "limit": 500})["noteIds"]
     if ids:
         tool("delete_notes", {"notes": ids, "confirmDeletion": True})
     print("deleted sandbox notes:", len(ids))
 
 
-def push_notes():
-    batches = [(DECK_DARIJA, T.WORD_MODEL, seed.darija_words(), ["register::darija", "panko::needs-review"]),
-               (DECK_DARIJA, T.PHRASE_MODEL, seed.darija_phrases(), ["register::darija", "panko::needs-review"]),
-               (DECK_FUSHA, T.WORD_MODEL, seed.fusha_words(), ["register::fusha"])]
+def voice(text, variety):
+    return audio.speak(text, variety, prefix=seed.P)
+
+
+def build_notes():
+    """Generate notes (and their audio) before touching Anki, so media can be pushed first."""
+    return [(DARIJA_WORDS, T.WORD_MODEL, seed.darija_words(voice), ["register::darija", "kind::word", "panko::needs-review"]),
+            (DARIJA_PHRASES, T.PHRASE_MODEL, seed.darija_phrases(voice), ["register::darija", "kind::phrase", "panko::needs-review"]),
+            (FUSHA_WORDS, T.WORD_MODEL, seed.fusha_words(voice), ["register::fusha", "kind::word"])]
+
+
+def push_notes(batches):
     all_fields = {T.WORD_MODEL: T.WORD_FIELDS, T.PHRASE_MODEL: T.PHRASE_FIELDS}
     for deck, model, notes, tags in batches:
         notes = [{**n, "fields": {f: n["fields"].get(f, "") for f in all_fields[model]}} for n in notes]
@@ -75,14 +89,15 @@ def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--reset", action="store_true", help="delete and re-add sandbox notes")
     a = ap.parse_args(argv)
+    batches = build_notes()
     mcp.init()
     push_models()
-    for d in (DECK_DARIJA, DECK_FUSHA):
+    for d in DECKS:
         tool("create_deck", {"deck_name": d})
     push_media()
     if a.reset:
         reset_notes()
-    push_notes()
+    push_notes(batches)
 
 
 if __name__ == "__main__":

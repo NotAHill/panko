@@ -29,3 +29,8 @@ def test_grammar_is_readable():
 
 def test_html_is_escaped():
     assert "&lt;b&gt;" in R.examples([R.Example("<b>", "", "")])
+
+
+def test_scripture_cite_shows_under_example():
+    html = R.examples([R.Example("ضَرَبَ اللَّهُ مَثَلًا", "", "", cite="Quran 16:75")])
+    assert '<div class="cite">Quran 16:75</div>' in html

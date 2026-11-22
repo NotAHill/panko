@@ -24,4 +24,4 @@ class ElevenLabs(TTS):
         )
         r.raise_for_status()
         out.write_bytes(r.content)
-        return Audio(path=out, source=f"ElevenLabs {self.cfg.get('model')} (synthetic)", native=False)
+        return Audio(path=out, source=f"ElevenLabs {self.cfg.get('model')}, voice {self.cfg.get('voice_name', voice)} (synthetic)", native=False)

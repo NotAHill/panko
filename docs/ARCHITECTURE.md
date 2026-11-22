@@ -46,7 +46,7 @@ lives in `config/panko.toml`, so changing it needs no code.
 flowchart TB
     subgraph Audio["Audio (word + examples)"]
         direction LR
-        a1[native<br/>teacher clip / Peace Corps]:::part --> a2[ElevenLabs v3]:::part --> a3[Azure<br/>ar-MA / ar-SA]:::part
+        a1[native<br/>teacher clip / Peace Corps]:::part --> a2[ElevenLabs v3<br/>voice: George]:::built --> a3[Azure<br/>ar-MA / ar-SA]:::part
     end
     subgraph Pictures
         direction LR
@@ -133,4 +133,5 @@ reaches every card without touching review history. Panko never writes `MyNotes`
 | `src/panko/cards/render.py` | entry data → card HTML |
 | `src/panko/anki/mcp_client.py` | talks to the Anki MCP Server add-on |
 | `src/panko/media/pictures.py` | picture search + contact sheet for picking |
+| `src/panko/media/audio.py` | walks the audio chain, caches results in `cache/media/` |
 | `src/panko/sandbox/` | seed data + builder for the `Panko Sandbox` decks |

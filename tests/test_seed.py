@@ -14,5 +14,5 @@ def test_seed_fields_exist_and_ids_unique():
 def test_seed_media_files_exist():
     import re
     for n in seed.darija_words() + seed.darija_phrases() + seed.fusha_words():
-        for f in re.findall(r'(_panko_proto_[\w.]+\.(?:jpg|mp3))', str(n["fields"])):
+        for f in re.findall(r'(_panko_proto_[\w.]+\.(?:jpg|svg|mp3))', str(n["fields"])):
             assert (seed.MEDIA / f).exists(), f

@@ -33,3 +33,4 @@ Arabic. Single user. They review on Anki desktop, AnkiMobile and AnkiWeb.
 ## Housekeeping
 - Update `docs/ROADMAP.md` "Now" and add to `docs/DECISIONS.md` when something is decided.
 - Secrets go in `.env` (git-ignored); list new ones in `.env.example`.
+- Worktrees for parallel agents go on the external SSD: `/Volumes/external_ssd/worktrees/panko/<branch>`. The internal disk is nearly full.

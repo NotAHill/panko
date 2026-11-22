@@ -16,7 +16,7 @@ def test_templates_only_reference_existing_fields():
 
 def test_fronts_give_no_hints():
     prod = next(t for t in T.WORD_TEMPLATES if t["Name"] == "2 Production")["Front"]
-    assert fields_used(prod) == {"EnableProduction", "Gloss"}
+    assert fields_used(prod) == {"EnableProduction", "Image", "Gloss"}  # picture + English only
 
 
 def test_register_is_never_shown():

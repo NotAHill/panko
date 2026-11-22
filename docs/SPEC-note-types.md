@@ -1,5 +1,11 @@
 # Panko: Note Type Spec v0.2 (draft)
 
+## Changes in v0.3 (2026-11-23)
+- Production front = picture (if any) + English. The picture-only card is retired.
+- Decks: `<Variety>::Words` and `<Variety>::Phrases`, plus tags `kind::word` / `kind::phrase`.
+- Scripture examples show their reference under the example ("Quran 16:75 (An-Nahl)").
+- Card direction is pinned LTR; only Arabic text is RTL.
+
 ## Changes in v0.2 (2026-11-22, from your v0.1 phone test)
 These override anything below that disagrees.
 - **No register badge.** The deck (Darija / Fusha) says which variety a card is. `Register` stays as a field (for search/sorting) but is never shown.
