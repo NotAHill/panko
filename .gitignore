@@ -1,0 +1,12 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+dist/
+# generated media cache (re-creatable from providers)
+cache/
+# raw lesson recordings stay local
+recordings/
+.DS_Store

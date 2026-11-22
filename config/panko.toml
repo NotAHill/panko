@@ -1,0 +1,36 @@
+# Which provider does each job. Lists are tried in order: the first provider
+# that returns a result wins. Swap or reorder names here; no code changes needed.
+# Provider names map to classes in src/panko/providers/.
+
+[audio]
+# native = real human audio we already have (teacher clip, Peace Corps recording).
+chain = ["native", "elevenlabs", "azure"]
+# never fall back to a voice that speaks the wrong variety
+allow_placeholder = false
+
+[audio.elevenlabs]
+model = "eleven_v3"
+voice_darija = ""   # voice ID from the ElevenLabs voice library (pick a Moroccan voice)
+voice_fusha = ""
+format = "mp3_44100_128"
+
+[audio.azure]
+voice_darija = "ar-MA-MounaNeural"
+voice_fusha = "ar-SA-HamedNeural"
+
+[images]
+# source = picture cropped from the material the word came from
+chain = ["source", "commons", "openverse", "generate"]
+
+[images.generate]
+provider = "openai"      # openai | recraft | gemini
+model = "gpt-image-1"
+style = "clean flat illustration, single object, plain light background, no text"
+
+[llm]
+provider = "anthropic"
+model = "claude-opus-5-5"
+
+[anki]
+backend = "mcp"          # mcp (Anki MCP Server add-on) | pylib (Anki closed; used for migrations)
+url = "http://127.0.0.1:3141/"
