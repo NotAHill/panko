@@ -19,7 +19,10 @@ uv run panko providers  # shows which providers are ready
 Anki must be running with the [Anki MCP Server add-on](https://ankiweb.net/shared/info/124672614) installed. Then:
 
 ```bash
-uv run panko sandbox --reset   # rebuild the Panko Sandbox decks
+uv run panko seed              # load sandbox entries into the store
+uv run panko ingest FILE.json  # new words -> inbox
+uv run panko activate --batch 1
+uv run panko sync              # render + push to Anki, in place
 ```
 
 ## Develop

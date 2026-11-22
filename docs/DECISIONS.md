@@ -2,6 +2,25 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-22 · Words and phrases are told apart by tag, not deck. Everything sits under `Panko Sandbox` for now.**
+Decks are a scheduling choice; tags are free and filterable. Decks: `Panko Sandbox::Darija` and
+`Panko Sandbox::Fusha`, tags `kind::word` / `kind::phrase`. Supersedes the Words/Phrases decks.
+
+**2026-11-22 · The Panko store (SQLite, `data/panko.db`) is the source of truth; Anki notes are rendered from it.**
+Each entry is a JSON record keyed by a stable ID (`dw-00001`); the note's `PankoID` matches it. Sync renders the
+note, compares a hash, and updates changed notes in place, so review history survives any design change. Sources and
+sightings (who said what, where) are stored apart from entries, which is how a later source adds an example to a
+word you already have instead of making a duplicate. Duplicates are matched on bare Arabic (no harakat, unified alef,
+article stripped).
+
+**2026-11-22 · Ingested words land in an inbox and go to Anki in small batches.**
+`panko ingest` adds new items as candidates; `panko activate` promotes them. This keeps each day's new cards to a
+handful and leaves room to fix pictures before cards appear. Everything ingested is tagged `panko::needs-review`
+until checked.
+
+**2026-11-22 · Until there is an Anthropic API key, Claude writes the extraction file in chat.**
+The ingest step reads a JSON file (source + items) either way, so automating it later changes nothing downstream.
+
 **2026-11-23 · Fusha words get the same two cards as Darija: Arabic + audio, and picture + English.**
 The plural, verb-form and root cards repeated the same word several times a day, so they're off. The picture, grammar line
 (plural, present · imperative · masdar, root) and examples are on the back. The extra templates stay

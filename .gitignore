@@ -10,3 +10,6 @@ cache/
 # raw lesson recordings stay local
 recordings/
 .DS_Store
+
+# personal data: Panko store and raw sources (lesson transcripts, PDFs, recordings)
+data/

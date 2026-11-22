@@ -14,7 +14,10 @@ Arabic. Single user. They review on Anki desktop, AnkiMobile and AnkiWeb.
 - `uv sync --all-extras`, `uv run pytest -q`, `uv run ruff check .`
 - `uv run panko providers`: which providers are ready.
 - `uv run panko voices [--all]`: audition ElevenLabs Moroccan voices (paid plan); writes `cache/voices/index.html`.
-- `uv run panko sandbox [--reset]`: push templates/CSS/media/notes to the sandbox decks (Anki must be open with the MCP add-on on 127.0.0.1:3141).
+- `uv run panko seed`: load the hand-written sandbox entries into the store (`data/panko.db`).
+- `uv run panko ingest PATH`: add an extraction JSON's new items to the inbox; `panko inbox` lists them; `panko activate [ids] [--batch N]` promotes them.
+- `uv run panko sync`: render active entries and push templates/CSS/media/notes to Anki, updating notes in place (Anki must be open with the MCP add-on on 127.0.0.1:3141).
+- Personal data (transcripts, extractions, the store, ingested pictures) lives in `data/`, which is git-ignored.
 
 ## Hard rules
 - **Never cause a full sync casually.** Adding/removing/reordering fields or card templates, deleting a note type, or Change Note Type forces one. Template and CSS edits don't. Field lists in `note_types.py` are frozen (a test guards them).

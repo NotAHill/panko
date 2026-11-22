@@ -13,18 +13,20 @@ chain"* or *"add YouTube as a source"*. Box names match names in the code and in
 flowchart TB
     subgraph Sources
         direction LR
-        L[Lessons<br/>recording + Granola]:::plan
+        L[Lessons<br/>recording + Granola]:::part
         T[Teacher sheets<br/>PDF]:::plan
         PC[Peace Corps<br/>book + audio]:::plan
         M[Film / TV clips]:::plan
         D[Old Anki decks]:::plan
     end
-    Sources --> IN[Candidate inbox<br/>new words not yet in Panko]:::plan
-    IN --> B[Card builder]:::part
+    Sources --> X[Extraction JSON<br/>Claude, by hand for now]:::part
+    X --> IN[Candidate inbox<br/>new words not yet in Panko]:::built
+    IN -- panko activate --> S[(Panko store)]:::built
+    S --> B[Card builder]:::built
     B --> V{Verified?}:::plan
     V -- yes --> W[Anki writer]:::built
     V -- doubtful --> W
-    V -. doubtful .-> F[tag panko::needs-review]:::plan
+    V -. doubtful .-> F[tag panko::needs-review]:::built
     W --> A[(Anki desktop)]:::built
     A <--> AW[(AnkiWeb)] <--> AM[(AnkiMobile)]
 
@@ -111,15 +113,16 @@ sequenceDiagram
 
 ```mermaid
 flowchart LR
-    db[(Panko store<br/>entries, sources, media)]:::plan -- render --> n[Anki note fields]:::built
-    n -- your edits, e.g. MyNotes --> db
+    db[(Panko store<br/>data/panko.db<br/>entries, sources, sightings)]:::built -- render + sync in place --> n[Anki note fields]:::built
+    n -. your edits, e.g. MyNotes .-> db
+    med[data/media<br/>pictures + credits]:::built --> n
     cfg[config/panko.toml<br/>.env keys]:::built --> db
 
     classDef built fill:#d3f9d8,stroke:#2b8a3e,color:#000
     classDef plan fill:#f1f3f5,stroke:#868e96,color:#000
 ```
 
-Panko's store is the source of truth for everything it generates. The panel fields
+The dotted arrow is planned: reading your Anki edits back into the store. Panko's store is the source of truth for everything it generates. The panel fields
 (`ExamplesHTML`, `LinksHTML`, ...) are re-rendered from it, so a design change
 reaches every card without touching review history. Panko never writes `MyNotes`.
 
@@ -134,4 +137,8 @@ reaches every card without touching review history. Panko never writes `MyNotes`
 | `src/panko/anki/mcp_client.py` | talks to the Anki MCP Server add-on |
 | `src/panko/media/pictures.py` | picture search + contact sheet for picking |
 | `src/panko/media/audio.py` | walks the audio chain, caches results in `cache/media/` |
-| `src/panko/sandbox/` | seed data + builder for the `Panko Sandbox` decks |
+| `src/panko/store/` | SQLite store: entries, sources, sightings, Anki links; Arabic normalisation for dedup |
+| `src/panko/ingest/` | extraction JSON → candidates (inbox); `activate` promotes them |
+| `src/panko/cards/build.py` | store entry → Anki note (fields, deck, tags, audio) |
+| `src/panko/anki/sync.py` | pushes models, media and notes; updates changed notes in place |
+| `src/panko/sandbox/seed.py` | the 9 hand-written sandbox entries (`panko seed`) |
