@@ -6,10 +6,10 @@ Update the **Now** section at the end of every work session: it's what a fresh s
 ## Now (2026-11-22, evening)
 - **Panko store built** (`data/panko.db`, SQLite, git-ignored). Anki notes are rendered from it and synced in place. Commands: `panko seed`, `panko ingest PATH [--verdicts F...] [--overrides F]`, `panko inbox`, `panko activate [ids] [--batch N]`, `panko sync`.
 - Decks: `Panko Sandbox::Darija` and `Panko Sandbox::Fusha`; words vs phrases is a tag (`kind::word` / `kind::phrase`). The empty decks `Panko Darija::Words`, `Panko Darija::Phrases`, `Panko Fusha::Words` can be deleted by hand.
-- In Anki: 9 sandbox entries, batch 1 (12 furniture nouns) and batch 2 (44 house & rooms entries: nouns, adjectives, phrases; 83 cards) and batch 3 (74 shopping / corner-shop / souk entries, 147 cards). Photos for concrete nouns and item phrases (`data/media/`); دار "house" still has no picture.
-- **Inbox: 298 candidates** (294 words, 125 phrases): 49 from the 21 Nov lesson, 370 from six teacher PDFs and Oussama's notes (`data/sources/teacher/`). Every item was checked against Routledge's *Introductory Course in Moroccan Arabic*, DODa and the web (`verify-out-*.json`); fixes applied, 14 non-everyday synonyms get the recognition card only, 4 unconfirmed idioms tagged `panko::doubtful`. Findings for the learner: `data/sources/teacher/CHECK-REPORT.md`.
+- In Anki: 9 sandbox entries, batch 1 (12 furniture nouns) and batch 2 (44 house & rooms entries: nouns, adjectives, phrases; 83 cards) and batch 3 (74 shopping / corner-shop / souk entries, 147 cards), batch 4 (51 emotions & character entries, 100 cards; the 4 doubtful idioms held back). Photos for concrete nouns and item phrases (`data/media/`); دار "house" still has no picture.
+- **Inbox: 247 candidates** (294 words, 125 phrases): 49 from the 21 Nov lesson, 370 from six teacher PDFs and Oussama's notes (`data/sources/teacher/`). Every item was checked against Routledge's *Introductory Course in Moroccan Arabic*, DODa and the web (`verify-out-*.json`); fixes applied, 14 non-everyday synonyms get the recognition card only, 4 unconfirmed idioms tagged `panko::doubtful`. Findings for the learner: `data/sources/teacher/CHECK-REPORT.md`.
 - Waiting on: the learner asking Oussama about the doubtful items (tsuffet, mkachkach, mberred s-soug, tiyyer liya l-ferkh, damani l-7al, kanachha); an image-gen key; an `ANTHROPIC_API_KEY` to automate extraction.
-- Next: batch 4 (emotions), then verbs, food, grammar words; pictures per batch. Add `activate --topic`.
+- Next: batch 5 (daily verbs), then food, grammar words, numbers/time; pictures per batch. Add `activate --topic`.
 
 ## Phases
 | # | Phase | Status |
