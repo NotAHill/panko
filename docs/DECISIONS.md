@@ -2,6 +2,12 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-23 · Fusha words get one card: Arabic + audio on the front.**
+The plural, verb-form and root cards repeated the same word several times a day. The goal for Fusha is
+reading (Quran, texts), so the one card tests Arabic → meaning. The picture, grammar line
+(plural, present · imperative · masdar, root) and examples are on the back. The extra templates stay
+unused; removing them would force a full sync.
+
 **2026-11-23 · Darija voices: Badr and Ghalia (ElevenLabs v3, Starter plan).**
 Out of a six-voice audition, both were understood as Darija by speech-to-text, and only Badr was heard as كنابي exactly.
 The headword is read by both (man, then woman), and examples alternate between them, so you hear

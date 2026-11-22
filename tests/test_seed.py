@@ -16,3 +16,9 @@ def test_seed_media_files_exist():
     for n in seed.darija_words() + seed.darija_phrases() + seed.fusha_words():
         for f in re.findall(r'(_panko_proto_[\w.]+\.(?:jpg|svg|mp3))', str(n["fields"])):
             assert (seed.MEDIA / f).exists(), f
+
+
+def test_fusha_words_make_one_card():
+    # Fusha: recognition only (Arabic + audio); grammar lives on the back, not in extra cards
+    for n in seed.fusha_words():
+        assert not [k for k, v in n["fields"].items() if k.startswith("Enable") and v], n["fields"]["Word"]
