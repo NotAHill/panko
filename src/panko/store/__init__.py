@@ -80,6 +80,7 @@ class Store:
         """Insert or replace an entry (dict with id, kind, variety, ar + content)."""
         e = dict(entry)
         eid, kind, variety, ar = e.pop("id"), e.pop("kind"), e.pop("variety"), e.pop("ar")
+        e.pop("status", None)  # status lives in its own column only
         old = self.get(eid)
         st = status or (old["status"] if old else "candidate")
         self.db.execute(
@@ -126,8 +127,8 @@ class Store:
 
     @staticmethod
     def _row(r) -> dict:
-        return {"id": r["id"], "kind": r["kind"], "variety": r["variety"], "ar": r["ar"], "status": r["status"],
-                **json.loads(r["data"])}
+        data = {k: v for k, v in json.loads(r["data"]).items() if k != "status"}
+        return {**data, "id": r["id"], "kind": r["kind"], "variety": r["variety"], "ar": r["ar"], "status": r["status"]}
 
     # ---- sources & sightings
     def add_source(self, sid: str, kind: str, title: str, date: str = "", path: str = "", trust: int = 50):

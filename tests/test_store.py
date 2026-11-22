@@ -36,3 +36,13 @@ def test_homographs_with_different_pos_stay_apart(tmp_path):
     assert s.find("دار", "darija", "verb") is None
     assert s.find("الدار", "darija", "noun")["id"] == "dw-1"
     assert s.find("دار", "darija")["id"] == "dw-1"
+
+
+def test_saving_a_read_entry_keeps_its_status(tmp_path):
+    from panko.store import Store
+    s = Store(tmp_path / "p.db")
+    s.put({"id": "dw-1", "kind": "word", "variety": "darija", "ar": "زربية"})
+    e = s.get("dw-1")            # read while a candidate
+    s.set_status("dw-1", "active")
+    s.put(e)                     # save the stale copy
+    assert s.get("dw-1")["status"] == "active"
