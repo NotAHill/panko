@@ -2,6 +2,11 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-22 · Your existing Darija cards are a source like any other, and get checked.**
+Shared-deck cards are unverified, so they go through extraction and the same check (Routledge, DODa, web) before
+anything becomes a Panko card. Studied notes keep their history through the Phase 6 migration; unstudied ones are
+mined and later retired.
+
 **2026-11-22 · Homographs are allowed in Anki; PankoID identifies a note.**
 Anki rejects a note whose first field repeats another's ("duplicate"). Darija has real homographs (دار "house",
 دار/يدير "to do", دار/يدور "to turn"), so sync adds notes with duplicates allowed and finds them by `PankoID`.
