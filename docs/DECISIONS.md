@@ -2,6 +2,28 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-22 · Cards with no real picture get a generated drawing that helps you remember the word.**
+Verbs, adjectives and abstract words rarely have a usable photo, so most of them had no picture. Now
+`panko draw FILE` asks OpenAI's gpt-image-2 (low quality: in a test it looked as good as medium for these, at
+about a ninth of the cost) for a hand-drawn ink-and-watercolour picture-dictionary drawing: one clear scene that shows
+the exact sense ("to borrow": money moving towards the person), with no writing. Every woman and girl wears a
+hijab and modest clothes (your wish, for religious reasons), and no clichés like fezzes. The house style lives in
+`config/panko.toml`; per-word scene prompts are written by Claude (`data/sources/decks/DRAW-BRIEF.md`), and
+words a picture wouldn't help (grammar particles, very abstract words) are skipped. Real pictures still come first,
+and a generated one never replaces one. It's credited as "Illustration generated (model)" in Sources.
+
+**2026-11-22 · Stage 2 of the old decks keeps only words common in DODa.**
+Dave's Darija, Casablanca 1–2 and Darija hold ~5,400 headwords Panko doesn't have yet, many of them rare or
+one-off sentences. Only rows with at least 10 hits in DODa's 86k-sentence corpus or a DODa word-list entry,
+and at most six words long, go through extraction (1,763 rows), so effort and audio go to vocabulary you'll meet.
+The rest stay in the deck exports and can be revisited.
+
+**2026-11-22 · Long deck sentences become examples, never fronts.**
+A long sentence makes a poor card (hard to recall whole from English) but is often the best example there is: real
+Darija someone wrote down. So sentences longer than a short phrase, and sentences the extraction dropped as too long,
+are checked for being natural and correctly translated, then attached as an example to a word they contain. They show
+on that word's back and are read by both voices. Unnatural or unconfirmable ones are still dropped.
+
 **2026-11-22 · Every example is read by both voices; one tap plays Badr, then Ghalia.**
 With examples alternating, a card with one example only ever had the man's voice. Now the headword and every
 example get both voices, and one ▶ tap plays them in turn. The template script plays the `<audio>` elements in a

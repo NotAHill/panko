@@ -55,3 +55,48 @@ if __name__ == "__main__":
     cs = candidates(q)
     (d / f"{slug}.json").write_text(json.dumps(cs, indent=1, ensure_ascii=False))
     print(contact_sheet(cs, d / f"{slug}.jpg"), len(cs))
+
+
+GEN_PREFIX = "_panko_proto_gen_"
+
+
+def draw(prompts: dict[str, str], force: bool = False, workers: int = 6, store=None, out: Path | None = None,
+         gen=None) -> dict[str, str]:
+    """Generate a memorable illustration for each entry id in `prompts` ({id: what to draw}) and set it as the
+    entry's picture. Entries that already have a picture are skipped unless `force`. Returns {id: file | error}."""
+    import subprocess
+    from concurrent.futures import ThreadPoolExecutor
+
+    from panko.config import ROOT, settings
+    from panko.providers.imagegen import Generate
+    from panko.store import Store
+
+    st = store or Store()
+    out = out or ROOT / "data" / "media"
+    model = settings()["images"]["generate"].get("model", "")
+    gen = gen or Generate({})
+    todo = {i: p for i, p in prompts.items() if p and (force or not (st.get(i) or {}).get("image"))}
+
+    def one(item):
+        eid, prompt = item
+        name = f"{GEN_PREFIX}{eid}.jpg"
+        png = out / f"{GEN_PREFIX}{eid}.png"
+        try:
+            gen.generate(prompt, png)
+            subprocess.run(["sips", "-s", "format", "jpeg", "-s", "formatOptions", "80", "-Z", "640",
+                            str(png), "--out", str(out / name)], check=True, capture_output=True)
+            png.unlink()
+            return eid, name, prompt
+        except Exception as e:  # noqa: BLE001
+            return eid, None, f"error: {e}"
+
+    res = {}
+    with ThreadPoolExecutor(workers) as ex:
+        for eid, name, info in ex.map(one, todo.items()):
+            if name:
+                e = st.get(eid)
+                e["image"] = {"file": name, "credit": f"Illustration generated ({model})", "prompt": info}
+                st.put(e)
+            res[eid] = name or info
+            print(eid, res[eid], flush=True)
+    return res

@@ -16,6 +16,7 @@ Arabic. Single user. They review on Anki desktop, AnkiMobile and AnkiWeb.
 - `uv run panko voices [--all]`: audition ElevenLabs Moroccan voices (paid plan); writes `cache/voices/index.html`.
 - `uv run panko seed`: load the hand-written sandbox entries into the store (`data/panko.db`).
 - `uv run panko ingest PATH`: add an extraction JSON's new items to the inbox; `panko inbox` lists them; `panko activate [ids] [--batch N]` promotes them.
+- `uv run panko draw FILE`: generate a drawing for each `{entry id: scene}` in FILE (OpenAI, style in `config/panko.toml`; skips entries that have a picture unless `--force`). Scene prompts: `data/sources/decks/DRAW-BRIEF.md`.
 - `uv run panko sync`: render active entries and push templates/CSS/media/notes to Anki, updating notes in place (Anki must be open with the MCP add-on on 127.0.0.1:3141).
 - Personal data (transcripts, extractions, the store, ingested pictures) lives in `data/`, which is git-ignored.
 
@@ -30,7 +31,7 @@ Arabic. Single user. They review on Anki desktop, AnkiMobile and AnkiWeb.
 - No provenance in the card body. Sources only in the collapsed Sources section.
 - Fronts show only the prompt. No hints, no notes, no "say it in…".
 - No register badge: the deck says Darija or Fusha.
-- Examples are required. Real pictures preferred; generate only when none is found.
+- Examples are required. Real pictures preferred; generate only when none is found. Generated pictures help you remember the word (not realism); every woman and girl wears a hijab and modest clothes; no fez clichés; no text.
 - Transliteration: the teacher's Arabizi first (3/7/9), scholarly second.
 - Avoid vendor lock-in: put the best tool per job behind a provider chain.
 

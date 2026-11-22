@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import time
 
 import httpx
 
@@ -26,9 +27,14 @@ class Generate(ImageGen):
         cfg = settings()["images"]["generate"]
         full = f"{prompt}. {cfg.get('style', '')}"
         if self.backend == "openai":
-            r = httpx.post("https://api.openai.com/v1/images/generations", timeout=180,
-                           headers={"Authorization": f"Bearer {secret('OPENAI_API_KEY')}"},
-                           json={"model": cfg.get("model", "gpt-image-1"), "prompt": full, "size": "1024x1024"})
+            body = {"model": cfg.get("model", "gpt-image-2"), "prompt": full, "size": cfg.get("size", "1024x1024"),
+                    "quality": cfg.get("quality", "low")}
+            for attempt in range(5):
+                r = httpx.post("https://api.openai.com/v1/images/generations", timeout=300,
+                               headers={"Authorization": f"Bearer {secret('OPENAI_API_KEY')}"}, json=body)
+                if r.status_code not in (429, 500, 502, 503):
+                    break
+                time.sleep(10 * (attempt + 1))
             r.raise_for_status()
             out.write_bytes(base64.b64decode(r.json()["data"][0]["b64_json"]))
             return Image(path=out, source=f"Generated ({cfg.get('model')})", generated=True, meta={"prompt": full})

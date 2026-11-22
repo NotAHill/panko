@@ -17,7 +17,7 @@ flowchart TB
         T[Teacher sheets<br/>PDF + notes]:::part
         PC[Peace Corps<br/>book + audio]:::plan
         M[Film / TV clips]:::plan
-        D[Old Darija decks<br/>stage 1 in, stage 2 pending]:::part
+        D[Old Darija decks<br/>stage 1 in Anki, stage 2 in inbox]:::part
     end
     Sources --> X[Extraction JSON<br/>Claude, by hand for now]:::part
     X --> C{Checked<br/>Routledge, DODa, web}:::part
@@ -52,7 +52,7 @@ flowchart TB
     end
     subgraph Pictures
         direction LR
-        p1[source<br/>crop from the PDF/clip]:::part --> p2[Wikimedia Commons]:::built --> p3[Openverse]:::built --> p4[generate<br/>gpt-image / Recraft / Nano Banana]:::part
+        p1[source<br/>crop from the PDF/clip]:::part --> p2[Wikimedia Commons]:::built --> p3[Openverse]:::built --> p4[generate<br/>gpt-image-2 drawings<br/>panko draw]:::built
     end
     subgraph Text["Writing + checking"]
         direction LR
@@ -135,7 +135,7 @@ reaches every card without touching review history. Panko never writes `MyNotes`
 | `src/panko/cards/note_types.py` | Anki fields, card templates, CSS |
 | `src/panko/cards/render.py` | entry data → card HTML |
 | `src/panko/anki/mcp_client.py` | talks to the Anki MCP Server add-on |
-| `src/panko/media/pictures.py` | picture search + contact sheet for picking |
+| `src/panko/media/pictures.py` | picture search + contact sheet for picking; `draw` = generated drawings (`panko draw`) |
 | `src/panko/media/audio.py` | walks the audio chain, caches results in `cache/media/` |
 | `src/panko/store/` | SQLite store: entries, sources, sightings, Anki links; Arabic normalisation for dedup |
 | `src/panko/ingest/` | extraction JSON → candidates (inbox); `activate` promotes them |

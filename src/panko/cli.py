@@ -20,6 +20,9 @@ def main(argv=None):
     a = sub.add_parser("activate", help="turn candidates into cards on next sync")
     a.add_argument("ids", nargs="*")
     a.add_argument("--batch", type=int)
+    d = sub.add_parser("draw", help="generate memorable illustrations from a JSON file {entry id: what to draw}")
+    d.add_argument("path")
+    d.add_argument("--force", action="store_true", help="replace pictures entries already have")
     args = ap.parse_args(argv)
 
     if args.cmd == "providers":
@@ -54,5 +57,12 @@ def main(argv=None):
         from panko.ingest import activate
         from panko.store import Store
         print("activated:", activate(Store(), args.ids or None, args.batch))
+    elif args.cmd == "draw":
+        import json
+        from pathlib import Path
+
+        from panko.media.pictures import draw
+        r = draw(json.loads(Path(args.path).read_text()), force=args.force)
+        print(f"drew {sum(not v.startswith('error') for v in r.values())}, failed {sum(v.startswith('error') for v in r.values())}")
     else:
         ap.print_help()

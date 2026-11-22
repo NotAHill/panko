@@ -31,8 +31,15 @@ chain = ["source", "commons", "openverse", "generate"]
 
 [images.generate]
 provider = "openai"      # openai | recraft | gemini
-model = "gpt-image-1"
-style = "clean flat illustration, single object, plain light background, no text"
+model = "gpt-image-2"   # low quality looks as good as medium for these and costs ~1/9 (test 2026-11-22)
+quality = "low"
+# A picture-dictionary drawing that helps you remember the word, not a realistic photo.
+style = """Simple hand-drawn picture-dictionary illustration: ink lines with soft watercolour, warm muted colours, \
+plain off-white paper background, simple uncluttered composition with only the props the idea needs, \
+one clear idea that shows the meaning at a glance, memorable and a little playful. \
+Everyday modern Moroccan life where it fits: people in ordinary modest clothes (shirts, trousers, \
+sometimes a djellaba); every woman and girl wears a hijab that covers her hair, no fez, no decorative pots, lanterns or tagines unless the idea needs them. \
+No text, no letters, no numbers, no speech bubbles with words."""
 
 [llm]
 provider = "anthropic"
