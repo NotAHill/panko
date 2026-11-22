@@ -46,3 +46,24 @@ def test_saving_a_read_entry_keeps_its_status(tmp_path):
     s.set_status("dw-1", "active")
     s.put(e)                     # save the stale copy
     assert s.get("dw-1")["status"] == "active"
+
+
+def test_studied_deck_items_are_not_activated(tmp_path):
+    st = Store(tmp_path / "t.db")
+    x = {"source": {"id": "deck-x", "kind": "deck", "title": "Old deck"}, "items": [
+        {"kind": "word", "variety": "darija", "ar": "كلب", "gloss": "dog", "pos": "noun", "batch": 1,
+         "origin": {"deck": "x", "nid": 1, "studied": True}},
+        {"kind": "word", "variety": "darija", "ar": "مش", "gloss": "cat", "pos": "noun", "batch": 1,
+         "origin": {"deck": "x", "nid": 2, "studied": False}}]}
+    (tmp_path / "x.json").write_text(json.dumps(x))
+    ingest(tmp_path / "x.json", st)
+    assert [st.get(i)["ar"] for i in activate(st, batch=1)] == ["مش"]
+
+
+def test_homograph_flag_keeps_entries_apart(tmp_path):
+    st = Store(tmp_path / "t.db")
+    x = {"source": {"id": "s", "kind": "deck", "title": "S"}, "items": [
+        {"kind": "word", "variety": "darija", "ar": "وصل", "gloss": "to arrive", "pos": "verb"},
+        {"kind": "word", "variety": "darija", "ar": "وصّل", "gloss": "to drop off", "pos": "verb", "homograph": True}]}
+    (tmp_path / "x.json").write_text(json.dumps(x))
+    assert len(ingest(tmp_path / "x.json", st)["new"]) == 2

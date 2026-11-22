@@ -2,6 +2,15 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-22 · Old deck notes: extracted and checked in one pass, in stages; studied ones are never re-added.**
+The six old Darija decks hold ~9,900 notes, not ~110. Stage 1 is the notes you studied, the Peace Corps Darija
+Dictionary and Most Used Moroccan (~1,080 rows). Rows are pre-matched against the store and DODa by script
+(word lists and the 86k-sentence corpus), so the web is only needed for unattested items. Because the deck is
+the least trusted source, extraction and checking happen together (`data/sources/decks/DECK-BRIEF.md`).
+Each entry keeps `origin` (deck, note id, studied). `activate` skips entries from studied notes: Phase 6
+converts those old notes in place so their review history survives, instead of adding a second note.
+Stage 2 (Dave's Darija, Casablanca 1–2, Darija: ~8,900 rows) waits for your go-ahead.
+
 **2026-11-22 · Your existing Darija cards are a source like any other, and get checked.**
 Shared-deck cards are unverified, so they go through extraction and the same check (Routledge, DODa, web) before
 anything becomes a Panko card. Studied notes keep their history through the Phase 6 migration; unstudied ones are

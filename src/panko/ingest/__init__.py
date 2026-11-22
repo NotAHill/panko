@@ -7,6 +7,8 @@ An extraction is JSON:
 
 Items Panko already has get a sighting (and the sentence as an extra example if it's new).
 New items become candidates. `activate` promotes candidates to active so they sync to Anki.
+An item from an old Anki deck carries `origin` {"deck", "nid", "studied"}; studied ones are never
+activated, because Phase 6 converts the old note in place so its review history survives.
 Today the extraction is written by Claude in chat; an LLM provider can write the same file later.
 """
 from __future__ import annotations
@@ -18,7 +20,7 @@ from panko.store import Store
 
 ENTRY_KEYS = {"kind", "variety", "ar", "tl", "tl_alt", "gloss", "gloss_note", "pos", "gender", "plural", "root",
               "pattern", "form", "present", "imperative", "masdar", "examples", "related", "notes", "usage", "literal",
-              "tags", "cards", "image", "ar_prompt", "ar_bare", "batch", "region", "check"}
+              "tags", "cards", "image", "ar_prompt", "ar_bare", "batch", "region", "check", "origin"}
 
 
 def ingest(path: Path | str, store: Store | None = None, verdicts: dict | None = None,
@@ -34,7 +36,8 @@ def ingest(path: Path | str, store: Store | None = None, verdicts: dict | None =
     new, known = [], []
     for it in x["items"]:
         said = it.get("said") or {}
-        existing = store.find(it["ar"], it["variety"], it.get("pos"))
+        # `homograph`: same bare letters and POS as another entry but a different word (وصل wSel / وصّل weSSel)
+        existing = None if it.get("homograph") else store.find(it["ar"], it["variety"], it.get("pos"))
         if existing:
             eid = existing["id"]
             if said.get("ar") and all(e["ar"] != said["ar"] for e in existing.get("examples", [])):
@@ -51,13 +54,16 @@ def ingest(path: Path | str, store: Store | None = None, verdicts: dict | None =
             eid = store.put(e, status="candidate")
             new.append(it["ar"])
         store.add_sighting(eid, src["id"], it.get("role", "taught"), it.get("speaker", "teacher"),
-                           said.get("ar", ""), said.get("tl", ""), said.get("en", ""))
+                           said.get("ar", ""), said.get("tl", ""), said.get("en", ""),
+                           json.dumps(it["origin"]) if it.get("origin") else "")
     return {"source": src["id"], "new": new, "known": known}
 
 
 def activate(store: Store, ids: list[str] | None = None, batch: int | None = None) -> list[str]:
     done = []
     for e in store.entries("candidate"):
+        if (e.get("origin") or {}).get("studied"):
+            continue  # studied old-deck notes are migrated with their history (Phase 6), not re-added
         if (ids and e["id"] in ids) or (batch is not None and e.get("batch") == batch):
             store.set_status(e["id"], "active")
             done.append(e["id"])
