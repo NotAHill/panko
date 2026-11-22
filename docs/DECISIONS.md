@@ -2,13 +2,17 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-22 · Homographs are allowed in Anki; PankoID identifies a note.**
+Anki rejects a note whose first field repeats another's ("duplicate"). Darija has real homographs (دار "house",
+دار/يدير "to do", دار/يدور "to turn"), so sync adds notes with duplicates allowed and finds them by `PankoID`.
+
 **2026-11-22 · Every ingested item is checked before it becomes a card; the checks are kept.**
 You weren't sure some of the teacher's words were authentic or used everywhere. Each item is checked against
 Routledge's *Introductory Course in Moroccan Arabic*, DODa (Darija Open Dataset, incl. its sentence corpus),
 Wiktionary and the web, and gets a verdict (ok, fix, regional, uncommon, doubtful, drop) with evidence.
 `panko ingest --verdicts` applies them: fixes replace fields, a short usage note goes on the card back ("the
 everyday word is ساروت sarut"), unconfirmed items get `panko::doubtful`. The verdict is stored on the entry.
-Hand-made `--overrides` win over verdicts (a checker once confused دار/يدير "to do" with دار/يدور "to turn").
+Hand-made `--overrides` win over verdicts. Keys are bare Arabic + part of speech, so two same-POS homographs from different sources (دار/يدور "to turn", دار/يدير "to do") collide in one key; split those by hand.
 
 **2026-11-22 · In a set of synonyms, only the everyday word gets a production card.**
 "Window" can't have two right answers on the English front. The everyday word (شرجم, ساروت, نعس, بيت…) gets both

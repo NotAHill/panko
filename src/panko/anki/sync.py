@@ -80,7 +80,8 @@ def sync(store: Store | None = None, narrator: audio.Narrator | None = None) -> 
             nid = found[0] if found else None
         if nid is None:
             tool("add_note", {"deck_name": note["deck"], "model_name": note["model"],
-                              "fields": {**note["fields"], "MyNotes": ""}, "tags": note["tags"]})
+                              "fields": {**note["fields"], "MyNotes": ""}, "tags": note["tags"],
+                              "allow_duplicate": True})  # homographs (دار house / to do / to turn); PankoID is the key
             nid = tool("find_notes", {"query": f'"PankoID:{eid}"'})["noteIds"][0]
             store.set_link(eid, nid, h)
             added += 1
