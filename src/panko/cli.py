@@ -14,6 +14,8 @@ def main(argv=None):
     sub.add_parser("sync", help="push active entries to Anki (updates notes in place)")
     i = sub.add_parser("ingest", help="load an extraction JSON into the store")
     i.add_argument("path")
+    i.add_argument("--verdicts", nargs="*", default=[], help="verification JSON files to apply first")
+    i.add_argument("--overrides", help="hand-made overrides JSON {key: {field: value} | {drop: true}}")
     sub.add_parser("inbox", help="list candidates waiting to become cards")
     a = sub.add_parser("activate", help="turn candidates into cards on next sync")
     a.add_argument("ids", nargs="*")
@@ -35,8 +37,13 @@ def main(argv=None):
         from panko.anki.sync import sync
         sync()
     elif args.cmd == "ingest":
+        import json
+        from pathlib import Path
+
         from panko.ingest import ingest
-        r = ingest(args.path)
+        from panko.ingest.verify import load_verdicts
+        ov = json.loads(Path(args.overrides).read_text()) if args.overrides else None
+        r = ingest(args.path, verdicts=load_verdicts(args.verdicts), overrides=ov)
         print(f"{r['source']}: {len(r['new'])} new candidates, {len(r['known'])} already known: {', '.join(r['known'])}")
     elif args.cmd == "inbox":
         from panko.store import Store

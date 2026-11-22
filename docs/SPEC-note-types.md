@@ -6,6 +6,7 @@
 - Darija audio uses two voices: the headword is read by both, and examples alternate.
 - Every word and phrase, Darija or Fusha, makes two cards: recognition (Arabic + audio) and production (picture + English). Plural / verb-form / root cards are off; that information is on the back.
 - Decks: `Panko Sandbox::Darija` and `Panko Sandbox::Fusha` for now; words vs phrases is a tag (`kind::word` / `kind::phrase`).
+- Synonyms: only the everyday word gets a production card; the rest are recognition only (`"cards": ["recognition"]`).
 - Scripture examples show their reference under the example ("Quran 16:75 (An-Nahl)").
 - Card direction is pinned LTR; only Arabic text is RTL.
 

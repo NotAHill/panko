@@ -94,9 +94,14 @@ class Store:
         r = self.db.execute("SELECT * FROM entries WHERE id=?", (eid,)).fetchone()
         return self._row(r) if r else None
 
-    def find(self, ar: str, variety: str) -> dict | None:
-        r = self.db.execute("SELECT * FROM entries WHERE variety=? AND ar_key=?", (variety, key(ar))).fetchone()
-        return self._row(r) if r else None
+    def find(self, ar: str, variety: str, pos: str | None = None) -> dict | None:
+        """The entry with this Arabic (normalised). With `pos`, homographs of another part of speech
+        don't match, so دار "house" and دار "to do" stay separate entries."""
+        rows = self.db.execute("SELECT * FROM entries WHERE variety=? AND ar_key=?", (variety, key(ar))).fetchall()
+        for r in map(self._row, rows):
+            if not pos or not r.get("pos") or r["pos"] == pos:
+                return r
+        return None
 
     def entries(self, status: str | None = "active", variety: str | None = None) -> list[dict]:
         q, args = "SELECT * FROM entries WHERE 1=1", []

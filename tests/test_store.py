@@ -27,3 +27,12 @@ def test_ingest_new_vs_known(tmp_path):
     assert len(s.sightings("x1")) == 1
     assert activate(s, batch=1) == ["dw-00001"]
     assert ingest(p, s)["new"] == []   # idempotent
+
+
+def test_homographs_with_different_pos_stay_apart(tmp_path):
+    from panko.store import Store
+    s = Store(tmp_path / "p.db")
+    s.put({"id": "dw-1", "kind": "word", "variety": "darija", "ar": "دار", "pos": "noun"}, status="active")
+    assert s.find("دار", "darija", "verb") is None
+    assert s.find("الدار", "darija", "noun")["id"] == "dw-1"
+    assert s.find("دار", "darija")["id"] == "dw-1"

@@ -14,19 +14,19 @@ flowchart TB
     subgraph Sources
         direction LR
         L[Lessons<br/>recording + Granola]:::part
-        T[Teacher sheets<br/>PDF]:::plan
+        T[Teacher sheets<br/>PDF + notes]:::part
         PC[Peace Corps<br/>book + audio]:::plan
         M[Film / TV clips]:::plan
         D[Old Anki decks]:::plan
     end
     Sources --> X[Extraction JSON<br/>Claude, by hand for now]:::part
-    X --> IN[Candidate inbox<br/>new words not yet in Panko]:::built
+    X --> C{Checked<br/>Routledge, DODa, web}:::part
+    C -- ok / fixed --> IN[Candidate inbox<br/>new words not yet in Panko]:::built
+    C -. doubtful .-> IN
     IN -- panko activate --> S[(Panko store)]:::built
     S --> B[Card builder]:::built
-    B --> V{Verified?}:::plan
-    V -- yes --> W[Anki writer]:::built
-    V -- doubtful --> W
-    V -. doubtful .-> F[tag panko::needs-review]:::built
+    B --> W[Anki writer]:::built
+    B -. doubtful .-> F[tag panko::doubtful]:::built
     W --> A[(Anki desktop)]:::built
     A <--> AW[(AnkiWeb)] <--> AM[(AnkiMobile)]
 
@@ -139,6 +139,7 @@ reaches every card without touching review history. Panko never writes `MyNotes`
 | `src/panko/media/audio.py` | walks the audio chain, caches results in `cache/media/` |
 | `src/panko/store/` | SQLite store: entries, sources, sightings, Anki links; Arabic normalisation for dedup |
 | `src/panko/ingest/` | extraction JSON → candidates (inbox); `activate` promotes them |
+| `src/panko/ingest/verify.py` | applies check verdicts + overrides to items before ingest |
 | `src/panko/cards/build.py` | store entry → Anki note (fields, deck, tags, audio) |
 | `src/panko/anki/sync.py` | pushes models, media and notes; updates changed notes in place |
 | `src/panko/sandbox/seed.py` | the 9 hand-written sandbox entries (`panko seed`) |

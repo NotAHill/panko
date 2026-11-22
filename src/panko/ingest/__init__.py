@@ -18,18 +18,23 @@ from panko.store import Store
 
 ENTRY_KEYS = {"kind", "variety", "ar", "tl", "tl_alt", "gloss", "gloss_note", "pos", "gender", "plural", "root",
               "pattern", "form", "present", "imperative", "masdar", "examples", "related", "notes", "usage", "literal",
-              "tags", "cards", "image", "ar_prompt", "ar_bare", "batch"}
+              "tags", "cards", "image", "ar_prompt", "ar_bare", "batch", "region", "check"}
 
 
-def ingest(path: Path | str, store: Store | None = None) -> dict:
+def ingest(path: Path | str, store: Store | None = None, verdicts: dict | None = None,
+           overrides: dict | None = None) -> dict:
+    """`verdicts`/`overrides`: see panko.ingest.verify. They're applied to the items first."""
+    from panko.ingest.verify import apply
+
     store = store or Store()
     x = json.loads(Path(path).read_text())
+    x["items"] = apply(x["items"], verdicts, overrides)
     src = x["source"]
     store.add_source(src["id"], src["kind"], src["title"], src.get("date", ""), src.get("path", ""), src.get("trust", 50))
     new, known = [], []
     for it in x["items"]:
         said = it.get("said") or {}
-        existing = store.find(it["ar"], it["variety"])
+        existing = store.find(it["ar"], it["variety"], it.get("pos"))
         if existing:
             eid = existing["id"]
             if said.get("ar") and all(e["ar"] != said["ar"] for e in existing.get("examples", [])):
@@ -40,7 +45,7 @@ def ingest(path: Path | str, store: Store | None = None) -> dict:
             e = {k: v for k, v in it.items() if k in ENTRY_KEYS}
             e["id"] = store.next_id(it["kind"], it["variety"])
             e.setdefault("sources", [src["title"]])
-            e.setdefault("tags", []).append(f"src::{src['kind']}::{src.get('date', '')}")
+            e.setdefault("tags", []).append(f"src::{src['kind']}::{src.get('tag') or src.get('date', '')}")
             if said.get("ar") and not e.get("examples"):
                 e["examples"] = [{**said, "source": src["title"]}]
             eid = store.put(e, status="candidate")
