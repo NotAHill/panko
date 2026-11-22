@@ -13,6 +13,7 @@ Arabic. Single user. They review on Anki desktop, AnkiMobile and AnkiWeb.
 ## Run
 - `uv sync --all-extras`, `uv run pytest -q`, `uv run ruff check .`
 - `uv run panko providers`: which providers are ready.
+- `uv run panko voices [--all]`: audition ElevenLabs Moroccan voices (paid plan); writes `cache/voices/index.html`.
 - `uv run panko sandbox [--reset]`: push templates/CSS/media/notes to the sandbox decks (Anki must be open with the MCP add-on on 127.0.0.1:3141).
 
 ## Hard rules
