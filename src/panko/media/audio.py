@@ -38,9 +38,13 @@ def speak(text: str, variety: str, prefix: str = "_panko_", slot: int = 0) -> Vo
         key = hashlib.sha1(f"{p.name}|{voice}|{p.cfg.get('model', '')}|{text}".encode()).hexdigest()[:12]
         out = MEDIA / f"{prefix}{p.name}_{key}.mp3"
         meta = out.with_suffix(".txt")
-        if out.exists() and meta.exists():
+        if out.exists() and meta.exists() and out.stat().st_size:
             return Voiced(out.name, meta.read_text())
         got = p.speak(text, variety, out, voice=voice)
+        if got and not got.native and (not out.exists() or not out.stat().st_size):
+            out.unlink(missing_ok=True)   # e.g. a one-letter word comes back as empty audio
+            meta.unlink(missing_ok=True)
+            continue
         if got and got.native:
             return Voiced(got.path.name, got.source)
         if got:
