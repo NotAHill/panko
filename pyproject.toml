@@ -18,11 +18,12 @@ classifiers = [
 dependencies = [
     "anthropic>=2.12.0",
     "httpx>=0.27",
+    "pillow>=11",          # photos and drawings → JPEG, contact sheets
     "python-dotenv>=1.0",
 ]
 
 [project.optional-dependencies]
-images = ["pillow>=11"]   # contact sheets for `panko pictures search`
+images = []   # kept so older install commands still work; Pillow is a core dependency now
 migrate = [
     "anki==26.9.4",
 ]

@@ -95,3 +95,18 @@ def test_batch_submit_then_collect(tmp_path, monkeypatch):
     assert rep["batch_1"]["saved"] == 1 and rep["batch_1"]["errors"] == 1
     assert s.get("dw-2")["image"]["file"] == f"{GEN_PREFIX}dw-2.jpg" and not s.get("dw-3").get("image")
     assert pictures.collect(store=s, out=tmp_path, gen=g) == {}   # already collected
+
+
+def test_to_jpeg_flattens_transparency_and_only_shrinks(tmp_path):
+    import io
+
+    from panko.media.pictures import _to_jpeg
+    buf = io.BytesIO()
+    Image.new("RGBA", (1600, 400), (0, 0, 0, 0)).save(buf, "PNG")    # transparent pictogram
+    _to_jpeg(buf.getvalue(), tmp_path / "big.jpg", 800, 85)
+    with Image.open(tmp_path / "big.jpg") as im:
+        assert im.format == "JPEG" and im.size == (800, 200) and im.getpixel((10, 10)) > (240, 240, 240)
+    Image.new("RGB", (100, 50), "red").save(tmp_path / "small.png")
+    _to_jpeg(tmp_path / "small.png", tmp_path / "small.jpg", 640, 80)
+    with Image.open(tmp_path / "small.jpg") as im:
+        assert im.size == (100, 50)

@@ -12,7 +12,6 @@ from __future__ import annotations
 import io
 import itertools
 import json
-import subprocess
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -73,13 +72,23 @@ def candidates(query: str, per_provider: int = 6, names: list[str] | None = None
 def _on_white(im):
     """RGB, with any transparency (pictograms) on white instead of black."""
     from PIL import Image
-    if im.mode in ("RGBA", "LA", "P"):
+    if im.mode in ("RGBA", "LA", "P", "PA"):
         im = im.convert("RGBA")
         bg = Image.new("RGB", im.size, "white")
         bg.paste(im, mask=im.getchannel("A"))
         return bg
     return im.convert("RGB")
 
+
+
+def _to_jpeg(src: Path | bytes, dst: Path, longest: int, quality: int) -> None:
+    """Any image → RGB JPEG whose longest side is at most `longest` px (never enlarged)."""
+    from PIL import Image
+    with Image.open(io.BytesIO(src) if isinstance(src, bytes) else src) as im:
+        im.load()
+        out = _on_white(im)
+    out.thumbnail((longest, longest), Image.LANCZOS)
+    out.save(dst, "JPEG", quality=quality, optimize=True)
 
 def _fetch(c: dict):
     from PIL import Image
@@ -150,15 +159,7 @@ def _download(c: dict, path: Path):
         c = p.fresh(c)                                 # some sites' links expire (Pixabay: 24 h)
     r = httpx.get(c["thumb"], headers=UA, follow_redirects=True, timeout=60)
     r.raise_for_status()
-    content = r.content
-    if content[:4] == b"\x89PNG":                        # pictograms are transparent PNGs: flatten onto white
-        from PIL import Image
-        buf = io.BytesIO()
-        _on_white(Image.open(io.BytesIO(content))).save(buf, "PNG")
-        content = buf.getvalue()
-    path.write_bytes(content)
-    subprocess.run(["sips", "-s", "format", "jpeg", "-Z", "800", str(path), "--out", str(path)],
-                   check=True, capture_output=True)
+    _to_jpeg(r.content, path, 800, 85)                  # pictograms are transparent PNGs: flattened onto white
 
 
 def apply(decisions: dict[str, dict], store=None, out: Path | None = None, download=_download) -> dict:
@@ -207,8 +208,7 @@ def _model() -> str:
 def _save_drawing(st, out: Path, eid: str, png: Path, prompt: str, model: str) -> str:
     """PNG → small JPEG in the media folder, set as the entry's picture."""
     name = f"{GEN_PREFIX}{eid}.jpg"
-    subprocess.run(["sips", "-s", "format", "jpeg", "-s", "formatOptions", "80", "-Z", "640",
-                    str(png), "--out", str(out / name)], check=True, capture_output=True)
+    _to_jpeg(png, out / name, 640, 80)
     png.unlink()
     e = st.get(eid)
     e["image"] = {"file": name, "credit": f"Illustration generated ({model})", "prompt": prompt}

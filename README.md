@@ -30,7 +30,7 @@ already have are recognised, so a second book only adds what's new.
 Install, then make a Panko folder. Your settings, store, pictures and audio live there, never in the code.
 
 ```bash
-uv tool install "panko[mcp,images] @ git+https://github.com/<you>/panko"   # or: uv sync --all-extras in a checkout
+uv tool install "panko[mcp] @ git+https://github.com/<you>/panko"   # or: uv sync --all-extras in a checkout
 ```
 
 ```bash
