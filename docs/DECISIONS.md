@@ -177,8 +177,7 @@ on that word's back and are read by both voices. Unnatural or unconfirmable ones
 **2026-11-22 · Every example is read by both voices; one tap plays Badr, then Ghalia.**
 With examples alternating, a card with one example only ever had the man's voice. Now the headword and every
 example get both voices, and one ▶ tap plays them in turn. The template script plays the `<audio>` elements in a
-button one after another (template edit, no full sync). It roughly doubles example TTS: about 29,000 of the
-40,000 monthly ElevenLabs characters for all cards up to batch 31.
+button one after another (template edit, no full sync). It roughly doubles example TTS.
 
 **2026-11-22 · Deck words get a dedicated region check.**
 The first check of the old-deck rows looked at meaning and spelling; nearly everything came back pan-Moroccan by
@@ -188,7 +187,7 @@ default. A second pass (`data/sources/decks/REGION-BRIEF.md`) asks, per word, wh
 one-line note on the card back; cards already in Anki update in place.
 
 **2026-11-22 · Old deck notes: extracted and checked in one pass, in stages; studied ones are never re-added.**
-The six old Darija decks hold ~9,900 notes, not ~110. Stage 1 is the notes you studied, the Peace Corps Darija
+The six old Darija decks hold far more notes than were ever studied. Stage 1 is the notes you studied, the Peace Corps Darija
 Dictionary and Most Used Moroccan (~1,080 rows). Rows are pre-matched against the store and DODa by script
 (word lists and the 86k-sentence corpus), so the web is only needed for unattested items. Because the deck is
 the least trusted source, extraction and checking happen together (`data/sources/decks/DECK-BRIEF.md`).
@@ -244,7 +243,7 @@ The plural, verb-form and root cards repeated the same word several times a day,
 (plural, present · imperative · masdar, root) and examples are on the back. The extra templates stay
 unused; removing them would force a full sync.
 
-**2026-11-23 · Darija voices: Badr and Ghalia (ElevenLabs v3, Starter plan).**
+**2026-11-23 · Darija voices: Badr and Ghalia (ElevenLabs v3).**
 Out of a six-voice audition, both were understood as Darija by speech-to-text, and only Badr was heard as كنابي exactly.
 (Updated 2026-11-22: every example is now read by both too; see the newer entry.) The headword is read by both (man, then woman), and examples alternate between them, so you hear
 two speakers without doubling the cost. Fusha keeps the built-in George for now. Voices are listed by name in

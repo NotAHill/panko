@@ -227,20 +227,20 @@ Recipe editing → automatic field/template diffs, known-word tracking (the gap 
 
 **Learning targets:** Fusha/Quranic plus **Moroccan Darija** (Maghrebi, which has the weakest open tooling). Both scripts on cards. Pictures cropped from sources, otherwise found online. Media: movies and TV clips.
 
-### Teacher sheets (El Yadari Oussama, *Mol l-7anut* and *Bargaining at the Souk*)
+### Teacher sheets (*Mol l-7anut* and *Bargaining at the Souk*)
 - These are the teacher's own sheets, not Peace Corps. They use **Arabizi** (3 = ع, 7 = ح, 9 = ق, 2 = ء) and have **no harakat**.
 - Content is mostly **phrases, dialogues, measure words with usage examples, etiquette notes and quizzes**. There are no pictures.
 - **Arabizi spelling is inconsistent** even within one sheet: Bshhal/Bcha7al, zarbiya/zerbiya/zerabi, wash/wach, mol/moul, akhir/akher. Matching therefore has to be fuzzy, while the teacher's spelling is shown exactly as written.
 - **The PDF text layers can't be trusted.** In the souk sheet, broken font encoding turns the text layer into garbage. In the hanout sheet, Arabic word order comes out reversed in the tables. Panko must **read the rendered page images with a vision model**, never the extracted text.
 
 ### Your collection (read-only survey through the Anki MCP add-on)
-| Area | Decks | Notes | Studied |
-|---|---|---|---|
-| MSA | Arabiyyah Bayna Yadayk 1–3 (types: Arabic nouns / Arabic verbs, with Root, Form, Hans Wehr link) | 1,526 | 535 |
-| MSA | iExplore (Wiktionary-link cards) | 137 | 82 |
-| Darija | Shared decks: Darija, Casablanca 1–2, Dave's Darija, Most Used Moroccan, Peace Corps Dictionary | ~9,900 | **~110 (about 1%)** |
-| Darija | Serious Explorer (picture + audio) | 60 | 60 |
-| Darija | Basic Introduction to Moroccan Arabic (AR • Vocabulary++ / Sentence+ / Cloze+ / Grammar++ / Contrast++) | 374 | 29 |
+| Area | Decks |
+|---|---|
+| MSA | Arabiyyah Bayna Yadayk 1–3 (types: Arabic nouns / Arabic verbs, with Root, Form, Hans Wehr link) |
+| MSA | iExplore (Wiktionary-link cards) |
+| Darija | Shared decks: Darija, Casablanca 1–2, Dave's Darija, Most Used Moroccan, Peace Corps Dictionary |
+| Darija | Serious Explorer (picture + audio) |
+| Darija | Basic Introduction to Moroccan Arabic (AR • Vocabulary++ / Sentence+ / Cloze+ / Grammar++ / Contrast++) |
 
 - **The shared Darija decks are mostly unstudied**, which is the quality problem you described. They do hold **native audio and images**, so the plan is to **mine them as a source** instead of reviewing them as they are.
 - **The *Basic Introduction* deck already uses Panko's core pattern:**

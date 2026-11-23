@@ -5,7 +5,7 @@ film/TV clips, old decks) into verified Anki cards for Moroccan Darija and Fusha
 Arabic. Single user. They review on Anki desktop, AnkiMobile and AnkiWeb.
 
 ## Read first
-1. `docs/ROADMAP.md`: **Now** section = current state and next step.
+1. `docs/ROADMAP.md`: **Now** section = current state and next step. `data/STATUS.md` (git-ignored) = the learner's own state: decks, counts, what's waiting.
 2. `docs/DECISIONS.md`: why things are the way they are.
 3. `docs/ARCHITECTURE.md`: Mermaid diagrams + code map. Keep the diagrams in sync with the code; the user edits the stack by pointing at boxes.
 4. `docs/SPEC-note-types.md`: fields, card types, display rules. `docs/RESEARCH.md`: background research.
@@ -44,5 +44,6 @@ Arabic. Single user. They review on Anki desktop, AnkiMobile and AnkiWeb.
 
 ## Housekeeping
 - Update `docs/ROADMAP.md` "Now" and add to `docs/DECISIONS.md` when something is decided.
+- The repo is public. Never put the teacher's name, collection or review counts, or paid-plan details in tracked files: they go in `data/STATUS.md`.
 - Secrets go in `.env` (git-ignored); list new ones in `.env.example`.
 - Worktrees for parallel agents go on the external SSD: `/Volumes/external_ssd/worktrees/panko/<branch>`. The internal disk is nearly full.

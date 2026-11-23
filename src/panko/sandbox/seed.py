@@ -12,7 +12,7 @@ from panko.config import ROOT
 
 P = "_panko_proto_"
 MEDIA = ROOT / "assets" / "sandbox" / "media"
-LESSON = "Lesson with Oussama, 21 Nov 2026"
+LESSON = "Lesson with my teacher, 21 Nov 2026"
 SHEET_M6 = "Teacher sheet: Module 6, Mol l-7anut"
 GEN = "written by Panko, not yet checked"
 
