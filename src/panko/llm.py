@@ -91,6 +91,27 @@ def _save(task: str, k: str, ans: Answer):
                              "batch": ans.batch, "usage": ans.usage, "cost": round(ans.cost, 6)}) + "\n")
 
 
+# Output tokens per request (thinking included) before the usage log has measured a task: from the 2026-11-23 runs.
+EXPECT_OUT = {"extract": 7000, "check": 4500, "pictures-plan": 2000, "examples": 2500, "deck": 6000,
+              "pictures-pick": 1500}
+
+
+def expected_out(task: str, model: str | None = None) -> int:
+    """Average output tokens of this task's past answers (same model when it has 3+), else EXPECT_OUT, else 1500."""
+    f = _usage_file()
+    rows = []
+    if f.exists():
+        for line in f.read_text().splitlines():
+            r = json.loads(line)
+            if r["task"] == task and r.get("usage", {}).get("output"):
+                rows.append(r)
+    same = [r for r in rows if r.get("model") == model]
+    rows = same if len(same) >= 3 else rows
+    if len(rows) >= 3:
+        return int(sum(r["usage"]["output"] for r in rows) / len(rows))
+    return EXPECT_OUT.get(task, 1500)
+
+
 def estimate(p: LLM, asks: list[Ask], expect_out: int, sample: int = 5) -> dict:
     """Cost of sending `asks` (the uncached ones) to `p`. Input tokens are counted on up to `sample` asks and
     scaled; `expect_out` is the expected output tokens per ask (thinking included)."""
@@ -108,7 +129,7 @@ def estimate(p: LLM, asks: list[Ask], expect_out: int, sample: int = 5) -> dict:
             "priced": bool(pr), "model": p.model}
 
 
-def run(task: str, asks: list[Ask], *, expect_out: int = 1500, budget: float | None = None, batch: bool = False,
+def run(task: str, asks: list[Ask], *, expect_out: int | None = None, budget: float | None = None, batch: bool = False,
         workers: int = 4, llm: LLM | None = None, quiet: bool = False) -> dict[str, Answer]:
     """Answers for every ask: cached ones for free, the rest from the model (or submitted as a batch)."""
     from panko.providers.llm import OutOfCredits
@@ -121,7 +142,7 @@ def run(task: str, asks: list[Ask], *, expect_out: int = 1500, budget: float | N
     todo = [a for a in asks if a.id not in out]
     if not todo:
         return out
-    est = estimate(p, todo, expect_out)
+    est = estimate(p, todo, expect_out or expected_out(task, p.model))
     cost_now = est["usd_batch"] if batch else est["usd"]
     say = (lambda *m: None) if quiet else (lambda *m: print(*m, file=sys.stderr, flush=True))
     say(f"{task}: {len(out)} cached, {len(todo)} to ask {p.name}/{p.model}"

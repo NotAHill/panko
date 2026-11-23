@@ -17,19 +17,21 @@ import json
 from pathlib import Path
 
 from panko.store import Store
+from panko.store.normalize import bare
 
 ENTRY_KEYS = {"kind", "variety", "ar", "tl", "tl_alt", "gloss", "gloss_note", "pos", "gender", "plural", "root",
               "pattern", "form", "present", "imperative", "masdar", "examples", "related", "notes", "usage", "literal",
               "tags", "cards", "image", "ar_prompt", "ar_bare", "batch", "region", "check", "origin"}
 
 
-def ingest(path: Path | str, store: Store | None = None, verdicts: dict | None = None,
+def ingest(path: Path | str | dict, store: Store | None = None, verdicts: dict | None = None,
            overrides: dict | None = None) -> dict:
-    """`verdicts`/`overrides`: see panko.ingest.verify. They're applied to the items first."""
+    """`path`: an extraction file, or the extraction itself. `verdicts`/`overrides`: see panko.ingest.verify; they're
+    applied to the items first. An item with `entry_id` is a sighting of that entry (no lookup)."""
     from panko.ingest.verify import apply
 
     store = store or Store()
-    x = json.loads(Path(path).read_text())
+    x = json.loads(json.dumps(path)) if isinstance(path, dict) else json.loads(Path(path).read_text())
     x["items"] = apply(x["items"], verdicts, overrides)
     src = x["source"]
     store.add_source(src["id"], src["kind"], src["title"], src.get("date", ""), src.get("path", ""), src.get("trust", 50))
@@ -37,11 +39,19 @@ def ingest(path: Path | str, store: Store | None = None, verdicts: dict | None =
     for it in x["items"]:
         said = it.get("said") or {}
         # `homograph`: same bare letters and POS as another entry but a different word (وصل wSel / وصّل weSSel)
-        existing = None if it.get("homograph") else store.find(it["ar"], it["variety"], it.get("pos"))
+        if it.get("entry_id"):
+            existing = store.get(it["entry_id"])
+        else:
+            existing = None if it.get("homograph") else store.find(it["ar"], it["variety"], it.get("pos"))
         if existing:
             eid = existing["id"]
-            if said.get("ar") and all(e["ar"] != said["ar"] for e in existing.get("examples", [])):
-                existing.setdefault("examples", []).append({**said, "source": src["title"]})
+            have = {bare(e["ar"]) for e in existing.get("examples", [])}   # same sentence, harakat aside
+            extra = [{**said, "source": src["title"]}] if said.get("ar") else []
+            extra += [{**ex, "source": ex.get("source") or src["title"]} for ex in it.get("examples", [])
+                      if "written by Panko" not in (ex.get("source") or "")]   # a known card gets only real sentences
+            extra = [ex for ex in extra if ex.get("ar") and bare(ex["ar"]) not in have and not have.add(bare(ex["ar"]))]
+            if extra:
+                existing.setdefault("examples", []).extend(extra)
                 store.put(existing)
             known.append(it["ar"])
         else:

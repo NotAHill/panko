@@ -107,7 +107,7 @@ WORD_BACK_BLOCK = r"""
 
 
 def _word_back(top: str = "") -> str:
-    return top + '\n<hr id="answer">\n' + WORD_BACK_BLOCK
+    return top + WORD_BACK_BLOCK
 
 
 WORD_TEMPLATES = [
@@ -134,7 +134,7 @@ WORD_TEMPLATES = [
      "Back": _word_back('<div class="ar word ans">{{Root}}</div>')},
     {"Name": "8 Typed",
      "Front": '{{#EnableTyped}}<div class="prompt">{{Gloss}}</div>{{type:WordBare}}{{/EnableTyped}}',
-     "Back": '{{#EnableTyped}}{{type:WordBare}}{{/EnableTyped}}\n<hr id="answer">\n' + WORD_BACK_BLOCK},
+     "Back": '{{#EnableTyped}}{{type:WordBare}}{{/EnableTyped}}' + WORD_BACK_BLOCK},
     {"Name": "9 Spare 1",
      "Front": '{{#EnableSpare1}}{{EnableSpare1}}{{/EnableSpare1}}',
      "Back": _word_back()},
@@ -162,7 +162,7 @@ PHRASE_BACK_BLOCK = r"""
 
 
 def _phrase_back(top: str = "") -> str:
-    return top + '\n<hr id="answer">\n' + PHRASE_BACK_BLOCK
+    return top + PHRASE_BACK_BLOCK
 
 
 PHRASE_TEMPLATES = [
@@ -177,7 +177,7 @@ PHRASE_TEMPLATES = [
      "Back": _phrase_back()},
     {"Name": "4 Typed",
      "Front": '{{#EnableTyped}}<div class="prompt">{{Translation}}</div>{{type:Phrase}}{{/EnableTyped}}',
-     "Back": '{{#EnableTyped}}{{type:Phrase}}{{/EnableTyped}}\n<hr id="answer">\n' + PHRASE_BACK_BLOCK},
+     "Back": '{{#EnableTyped}}{{type:Phrase}}{{/EnableTyped}}' + PHRASE_BACK_BLOCK},
     {"Name": "5 Spare 1",
      "Front": '{{#EnableSpare1}}{{EnableSpare1}}{{/EnableSpare1}}',
      "Back": _phrase_back()},

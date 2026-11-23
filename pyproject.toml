@@ -15,6 +15,10 @@ images = ["pillow>=11"]
 migrate = [
     "anki==26.9.4",
 ]
+mcp = [
+    "mcp>=1.20",
+    "jsonschema>=4",
+]
 
 [project.scripts]
 panko = "panko.cli:main"

@@ -11,7 +11,39 @@ def main(argv=None):
     v = sub.add_parser("voices", help="audition ElevenLabs Moroccan voices")
     v.add_argument("--all", action="store_true")
     sub.add_parser("seed", help="load the hand-written sandbox entries into the store")
-    sub.add_parser("sync", help="push active entries to Anki (updates notes in place)")
+    sy = sub.add_parser("sync", help="push active entries to Anki (updates notes in place)")
+    sy.add_argument("--dry-run", action="store_true", help="list what would change and the audio still to pay for")
+    wk = sub.add_parser("work", help="work through a source in units: add, status, run (API mode), ingest, decide")
+    wsub = wk.add_subparsers(dest="wcmd")
+    wa = wsub.add_parser("add", help="register a PDF, a folder of page photos or a text transcript")
+    wa.add_argument("path")
+    wa.add_argument("--kind", required=True, help="textbook | teacher-sheet | lesson | media | notes")
+    wa.add_argument("--title", required=True)
+    wa.add_argument("--id", default="")
+    wa.add_argument("--date", default="")
+    wa.add_argument("--trust", type=int, default=70, help="0-100: teacher material high, shared decks low")
+    wa.add_argument("--page-offset", type=int, default=0, help="PDF page number minus printed page number")
+    wa.add_argument("--first", type=int, default=1, help="first PDF page to work on")
+    wa.add_argument("--last", type=int, default=0, help="last PDF page to work on")
+    wst = wsub.add_parser("status", help="sources and their progress, or one source in detail")
+    wst.add_argument("source", nargs="?")
+    wr = wsub.add_parser("run", help="extract, check and plan pictures with the language model (API mode)")
+    wr.add_argument("source")
+    wr.add_argument("units", nargs="*", help="these units (default: the next -n not done)")
+    wr.add_argument("-n", type=int, default=5, help="how many units (default 5)")
+    wr.add_argument("--batch", action="store_true", help="one half-price batch per step; `panko llm collect`, then run again")
+    wr.add_argument("--budget", type=float, help="stop before spending more than this (USD); default [llm] budget_usd")
+    wr.add_argument("--estimate", action="store_true", help="only print what it would cost")
+    wi = wsub.add_parser("ingest", help="merge submitted units into the inbox (duplicates are held for you)")
+    wi.add_argument("source")
+    wd = wsub.add_parser("decide", help="settle a held item: --known ID (same word) or --distinct (new word)")
+    wd.add_argument("source")
+    wd.add_argument("unit")
+    wd.add_argument("ar")
+    wd.add_argument("--known", default="")
+    wd.add_argument("--distinct", action="store_true")
+    mc = sub.add_parser("mcp", help="run Panko as an MCP server for Claude (chat mode, no API key needed)")
+    mc.add_argument("--config", action="store_true", help="print the Claude Desktop / Claude Code config instead")
     i = sub.add_parser("ingest", help="load an extraction JSON into the store")
     i.add_argument("path")
     i.add_argument("--verdicts", nargs="*", default=[], help="verification JSON files to apply first")
@@ -68,8 +100,24 @@ def main(argv=None):
         from panko.store import Store
         print("loaded", seed.load(Store()), "entries")
     elif args.cmd == "sync":
-        from panko.anki.sync import sync
-        sync()
+        from panko.anki import sync
+        if args.dry_run:
+            p = sync.plan()
+            print(f"add {len(p['add'])}, update {len(p['update'])}, unchanged {p['unchanged']}; "
+                  f"audio to generate: {p['audio_clips']} clips {p['audio_chars']}")
+        else:
+            sync.sync()
+    elif args.cmd == "work":
+        _work(args, wk)
+    elif args.cmd == "mcp":
+        try:
+            from panko import mcp_server
+        except ImportError:
+            ap.error("the MCP server needs the extra: uv sync --extra mcp")
+        if args.config:
+            print(mcp_server.config_snippet())
+        else:
+            mcp_server.main()
     elif args.cmd == "ingest":
         import json
         from pathlib import Path
@@ -132,6 +180,48 @@ def main(argv=None):
 
 def _llm(args, parser):
     import json
+def _work(args, parser):
+    import json
+
+    from panko import work
+    if args.wcmd == "add":
+        s = work.add_source(args.path, args.kind, args.title, args.id, args.date, args.trust,
+                            page_offset=args.page_offset, first=args.first, last=args.last)
+        print(f"{s['id']}: {len(s['units'])} units ({s['units'][0]}…{s['units'][-1]})")
+    elif args.wcmd == "status":
+        if args.source:
+            print(json.dumps(work.pending(args.source), ensure_ascii=False, indent=1))
+            return
+        for sid, s in work.sources().items():
+            st = work.state(sid)
+            counts = ", ".join(f"{k} {sum(1 for v in st.values() if v == k)}" for k in ("todo", "submitted", "held", "ingested"))
+            print(f"{sid:<28} {s['title'][:40]:<40} {counts}")
+    elif args.wcmd == "run":
+        from panko import pipeline
+        if args.estimate:
+            print(json.dumps(pipeline.estimate(args.source, args.units or None, args.n), indent=1))
+            return
+        r = pipeline.run(args.source, args.units or None, args.n, batch=args.batch, budget=args.budget)
+        print(f"done {len(r['done'])}: {' '.join(r['done'])}; spent ${r['spent']:.2f}")
+        for u, step in r["waiting"].items():
+            print(f"  {u}: waiting for the {step} batch (`panko llm collect`, then run again)")
+        for u, why in r["failed"].items():
+            print(f"  {u}: failed at {why}")
+    elif args.wcmd == "ingest":
+        r = work.ingest_source(args.source)
+        print(f"{len(r['units'])} units: {r['new']} new candidates, {r['known']} known (sightings), "
+              f"{r['dropped']} dropped, {r['merged']} merged, {len(r['homographs'])} homographs kept apart")
+        for h in r["held"]:
+            m = "; ".join(f"{x['id']} {x['ar']} '{x['gloss']}'" for x in h["matches"]) or "-"
+            print(f"  held {h['unit']} {h['ar']} '{h.get('gloss', '')}' ~ {m}")
+        if r["held"]:
+            print("  settle each: panko work decide SOURCE UNIT AR --known ID | --distinct; then ingest again")
+    elif args.wcmd == "decide":
+        print(work.decide(args.source, args.unit, args.ar, args.known, args.distinct))
+    else:
+        parser.print_help()
+
+
 
     from panko import llm
     if args.lcmd == "ping":

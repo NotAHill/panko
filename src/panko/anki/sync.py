@@ -60,6 +60,28 @@ def push_media(notes: list[dict]) -> tuple[int, int]:
     return len(files), len(stale)
 
 
+def plan(store: Store | None = None) -> dict:
+    """What `sync` would do, without touching Anki or paying for audio: notes to add or update (by the stored hash
+    of what was last written) and the audio clips still to generate."""
+    store = store or Store()
+    narrator = audio.DryRun(prefix=PREFIX)
+    add, update, same = [], [], 0
+    for e in store.entries("active"):
+        note = B.to_note(e, narrator)
+        link = store.link(e["id"])
+        if not link:
+            add.append(e["id"])
+        elif link["rendered_hash"] != B.note_hash(note):
+            update.append(e["id"])
+        else:
+            same += 1
+    chars = {}
+    for prov, text in narrator.todo:
+        chars[prov] = chars.get(prov, 0) + len(text)
+    return {"add": add, "update": update, "unchanged": same, "audio_clips": len(narrator.todo),
+            "audio_chars": chars}
+
+
 def sync(store: Store | None = None, narrator: audio.Narrator | None = None) -> dict:
     store = store or Store()
     narrator = narrator or audio.Narrator(prefix=PREFIX)

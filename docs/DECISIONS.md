@@ -2,6 +2,41 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-23 · "Same letters, another word" only when a doubled consonant says so.**
+Transliterations are noisy: a model wrote شحال as `chhal` where the card has `sh7al`, and comparing whole consonant
+skeletons made it a new word. Real same-letter pairs in Darija differ by gemination (ضحك d7ek / ضحّك de77ek,
+رجع rje3 / rejje3, علاقة 3ala9a / 3alla9a), so two items with the same letters are different words only when their
+skeletons are equal once doubled letters are collapsed but differ as written; any other mismatch is treated as the
+same word with a spelling slip. POS splits a word only for verb vs anything else (دار house / to do) and noun vs
+function word (ما water / not); adverb vs pronoun or adjective vs adverb are the same word labelled differently.
+
+**2026-11-23 · API mode writes the same unit results as chat mode.**
+`panko work run` is one pipeline per unit (extract → local evidence → check → picture plan) that ends in the same
+`work.submit` a chat reader calls, rather than separate `extract`/`check`/`pictures` commands writing their own
+files. One path into the store means one set of rules for validation and duplicates, and a source can be started in
+chat and finished by API (or the reverse). Words the learner has are found locally before the paid steps, so they cost
+nothing beyond extraction; near-duplicates go to the check as evidence and are still held at ingest for the learner
+(the model doesn't get to decide "same word"). The budget covers the whole run, not each step; in batch mode each
+step is one batch and re-running picks up from the cache. Output-size estimates come from the usage log per task.
+
+**2026-11-23 · Chat mode: one result per unit, duplicates decided at ingest, sentences reach known cards.**
+In chat the reader submits one result per unit (page, photo or transcript stretch): the unit's items, each already
+checked and given a picture plan, rather than three separate submissions per step. The nine Peace Corps agents
+worked this way and it halves the round trips; the prompts are still the packaged `extract`, `check` and
+`pictures-plan`, read once per session. Results are schema-checked on submit (bounced with the errors) and wait in
+`data/work/` until ingest, so a book can span many chats and nothing half-done reaches the store. Ingest, not the
+reader, has the last word on duplicates: same letters and POS is the same word only when the transliterations'
+consonants agree (ضحك d7ek ≠ ضحّك de77ek, which gets its shadda); anything close to an entry (spelling, wording, same
+gloss) is held until the reader says `known_id` or `distinct`, instead of being merged or added silently. Known
+words now get the source's sentences (skipping ones Panko wrote and ones that differ only in harakat), which the old
+ingest dropped. Retired entries still count as "have it", so a rejected word doesn't come back. Paid steps stay
+behind a dry run: `panko_sync()` shows notes and audio cost, `confirm=true` only after the learner agrees.
+
+**2026-11-23 · No visible divider on card backs.**
+Backs began with `<hr id="answer">`, which drew a line above the picture and made the card jump on flip (Anki scrolls
+to `#answer` with `scrollIntoView()`). An empty anchor at the top still scrolled by the card's padding on backs
+taller than the window, so backs have no `#answer` at all: Anki then shows the back from the top.
+
 **2026-11-23 · Chat mode first: Panko runs inside the learner's own Claude.**
 A third-party app can't bill a model call to someone's Claude subscription, so a Panko that only calls the API makes
 every learner buy credits (~$30 a textbook). Instead Panko becomes an MCP server: the learner's Claude (Desktop,

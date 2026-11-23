@@ -15,14 +15,19 @@ flowchart TB
         direction LR
         L[Lessons<br/>recording + Granola]:::part
         T[Teacher sheets<br/>PDF + notes]:::part
-        PC[Peace Corps<br/>book + audio]:::plan
+        PC[Peace Corps<br/>book done, audio not]:::part
         M[Film / TV clips]:::plan
         D[Old Darija decks<br/>stages 1–2 in Anki]:::built
     end
-    Sources --> X[Extraction JSON<br/>Claude, by hand for now;<br/>moving into panko commands]:::part
-    X --> C{Checked<br/>Routledge, DODa, web}:::part
-    C -- ok / fixed --> IN[Candidate inbox<br/>new words not yet in Panko]:::built
-    C -. doubtful .-> IN
+    Sources --> CM[Chat mode: panko mcp<br/>your Claude reads and judges,<br/>no API key]:::built
+    Sources --> API[API mode: panko work run<br/>panko.llm, batches]:::built
+    CM --> X[Unit results<br/>data/work, schema-checked]:::built
+    API --> X
+    EV[Evidence<br/>your cards, DODa, Wiktionary,<br/>Routledge]:::built --> X
+    X --> C{Checked<br/>verdict per new item}:::built
+    C -- ok / fixed --> DD{Duplicate check<br/>known → sighting<br/>homograph → own entry<br/>near → held for you}:::built
+    C -. doubtful .-> DD
+    DD --> IN[Candidate inbox<br/>new words not yet in Panko]:::built
     IN -- panko activate --> S[(Panko store)]:::built
     S --> B[Card builder]:::built
     B --> W[Anki writer]:::built
@@ -136,7 +141,12 @@ reaches every card without touching review history. Panko never writes `MyNotes`
 |---|---|
 | `config/panko.toml` | provider chains and settings |
 | `src/panko/providers/` | one file per provider, registered by name |
-| `src/panko/llm.py` | runs language-model work for every command: cost estimate, budget cap, answer cache (`cache/llm/`), usage log (`data/llm-usage.jsonl`), half-price batches (`panko llm collect`) |
+| `src/panko/mcp_server.py` | chat mode (`panko mcp`, `--config` prints the Claude Desktop/Code snippet): thin MCP tools over the modules below; the workflow Claude follows is `prompts/chat.md` (`panko_guide`) |
+| `src/panko/work.py` | sources split into units (PDF pages, photos, transcript chunks), one validated result per unit in `data/work/<source>/units/`, resumable; `ingest_source` merges results: known → sighting + the source's sentences, homograph → own entry with shadda, near-duplicate → held |
+| `src/panko/pipeline.py` | API mode (`panko work run [--batch] [--budget] [--estimate]`): extract → local evidence → check → picture plan per unit through `panko.llm`, then `work.submit` like a chat result |
+| `src/panko/evidence.py` | free local evidence per word: the learner's entry, same-letter words, near-duplicates, hits from `[evidence]` corpora and dictionaries (read by file shape) |
+| `src/panko/dedupe.py` | duplicate checks: transliteration consonant skeletons (ضحك d7ek ≠ ضحّك de77ek), shadda insertion, fuzzy near-duplicate index |
+| `src/panko/llm.py` | runs language-model work for every command: cost estimate (output size measured per task from the usage log), budget cap, answer cache (`cache/llm/`), usage log (`data/llm-usage.jsonl`), half-price batches (`panko llm collect`) |
 | `src/panko/providers/llm/` | `claude.py` (Anthropic SDK: JSON schema output, vision, prompt caching, token counting, batches, refusal fallbacks), `openai_chat.py` |
 | `src/panko/prompts/` | generic prompts (`*.md`, `{{var}}`, `{{#var}}…{{/var}}`, `{{> part}}`) filled from `[learner]` and `[evidence]` in config; `schemas.py` holds the strict JSON schema per prompt; `prompts.ask(name, id, parts)` builds the request for `llm.run` |
 | `src/panko/cards/note_types.py` | Anki fields, card templates, CSS |
@@ -148,6 +158,6 @@ reaches every card without touching review history. Panko never writes `MyNotes`
 | `src/panko/ingest/` | extraction JSON → candidates (inbox); `activate` promotes them |
 | `src/panko/ingest/verify.py` | applies check verdicts + overrides to items before ingest |
 | `src/panko/cards/build.py` | store entry → Anki note (fields, deck, tags, audio) |
-| `src/panko/anki/sync.py` | pushes models, media and notes; updates changed notes in place |
+| `src/panko/anki/sync.py` | pushes models, media and notes; updates changed notes in place; `plan()` is the dry run (`panko sync --dry-run`: notes to add/update, audio still to pay for) |
 | `src/panko/anki/migrate.py` | Phase 6 (`panko migrate [ids] [--apply]`): studied old-deck notes → Panko notes in place via the `anki` library, Anki closed; dry run by default |
 | `src/panko/sandbox/seed.py` | the 9 hand-written sandbox entries (`panko seed`) |

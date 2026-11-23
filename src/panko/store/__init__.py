@@ -99,10 +99,16 @@ class Store:
         """The entry with this Arabic (normalised). With `pos`, homographs of another part of speech
         don't match, so دار "house" and دار "to do" stay separate entries."""
         rows = self.db.execute("SELECT * FROM entries WHERE variety=? AND ar_key=?", (variety, key(ar))).fetchall()
+        from panko.dedupe import pos_compatible
         for r in map(self._row, rows):
-            if not pos or not r.get("pos") or r["pos"] == pos:
+            if pos_compatible(pos, r.get("pos")):
                 return r
         return None
+
+    def find_all(self, ar: str, variety: str) -> list[dict]:
+        """Every entry (any status, any POS) with this normalised Arabic."""
+        rows = self.db.execute("SELECT * FROM entries WHERE variety=? AND ar_key=? ORDER BY id", (variety, key(ar)))
+        return [self._row(r) for r in rows]
 
     def entries(self, status: str | None = "active", variety: str | None = None) -> list[dict]:
         q, args = "SELECT * FROM entries WHERE 1=1", []

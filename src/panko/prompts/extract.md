@@ -8,6 +8,10 @@ Grammar pages: sentences that only illustrate a pattern (a conjugation, an agree
 Put the best one or two in the headword's `examples` and make a phrase item only for a sentence a learner would use
 as it is (a set phrase, a common question, a polite formula).
 
+Word lists: when a word is followed by a sentence that uses it (a table of question words, each with a sample
+question), the sentence is that word's example, not an item of its own. The same goes for pairs that only show a
+pattern (with a plural noun / with a singular one).
+
 {{#source_note}}About this source: {{source_note}}
 
 {{/source_note}}{{> item}}
