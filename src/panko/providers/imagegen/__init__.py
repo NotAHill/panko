@@ -11,6 +11,11 @@ from panko.config import secret, settings
 from panko.providers import register
 from panko.providers.base import Image, ImageGen
 
+
+class OutOfCredits(RuntimeError):
+    pass
+
+
 BACKENDS = {"openai": "OPENAI_API_KEY", "recraft": "RECRAFT_API_KEY", "gemini": "GEMINI_API_KEY"}
 
 
@@ -32,6 +37,8 @@ class Generate(ImageGen):
             for attempt in range(5):
                 r = httpx.post("https://api.openai.com/v1/images/generations", timeout=300,
                                headers={"Authorization": f"Bearer {secret('OPENAI_API_KEY')}"}, json=body)
+                if r.status_code == 429 and "insufficient_quota" in r.text:
+                    raise OutOfCredits("OpenAI: no credits left; add credits, then re-run")
                 if r.status_code not in (429, 500, 502, 503):
                     break
                 time.sleep(10 * (attempt + 1))

@@ -38,7 +38,8 @@ style = """Simple hand-drawn picture-dictionary illustration: ink lines with sof
 plain off-white paper background, simple uncluttered composition with only the props the idea needs, \
 one clear idea that shows the meaning at a glance, memorable and a little playful. \
 Everyday modern Moroccan life where it fits: people in ordinary modest clothes (shirts, trousers, \
-sometimes a djellaba); every woman and girl wears a hijab that covers her hair, no fez, no decorative pots, lanterns or tagines unless the idea needs them. \
+sometimes a djellaba); if a woman or girl appears, she wears a hijab that covers her hair; \
+don't add people the scene doesn't need; no fez, no decorative pots, lanterns or tagines unless the idea needs them. \
 No text, no letters, no numbers, no speech bubbles with words."""
 
 [llm]

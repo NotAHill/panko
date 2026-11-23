@@ -17,7 +17,7 @@ flowchart TB
         T[Teacher sheets<br/>PDF + notes]:::part
         PC[Peace Corps<br/>book + audio]:::plan
         M[Film / TV clips]:::plan
-        D[Old Darija decks<br/>stage 1 in Anki, stage 2 in inbox]:::part
+        D[Old Darija decks<br/>stages 1–2 in Anki]:::built
     end
     Sources --> X[Extraction JSON<br/>Claude, by hand for now]:::part
     X --> C{Checked<br/>Routledge, DODa, web}:::part

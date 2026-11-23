@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+
 import httpx
 
 from panko.config import secret
@@ -20,13 +22,23 @@ class ElevenLabs(TTS):
         vid = self.cfg.get("voice_ids", {}).get(name, name)
         if not vid:
             return None
-        r = httpx.post(
-            f"https://api.elevenlabs.io/v1/text-to-speech/{vid}",
-            params={"output_format": self.cfg.get("format", "mp3_44100_128")},
-            headers={"xi-api-key": secret("ELEVENLABS_API_KEY")},
-            json={"text": text, "model_id": self.cfg.get("model", "eleven_v3"), "language_code": "ar"},
-            timeout=60,
-        )
+        for attempt in range(5):  # ride out brief server errors and rate limits
+            try:
+                r = httpx.post(
+                    f"https://api.elevenlabs.io/v1/text-to-speech/{vid}",
+                    params={"output_format": self.cfg.get("format", "mp3_44100_128")},
+                    headers={"xi-api-key": secret("ELEVENLABS_API_KEY")},
+                    json={"text": text, "model_id": self.cfg.get("model", "eleven_v3"), "language_code": "ar"},
+                    timeout=60,
+                )
+            except httpx.TransportError:
+                if attempt == 4:
+                    raise
+                time.sleep(5 * (attempt + 1))
+                continue
+            if r.status_code not in (429, 500, 502, 503, 504):
+                break
+            time.sleep(5 * (attempt + 1))
         r.raise_for_status()
         out.write_bytes(r.content)
         return Audio(path=out, source=f"{name} (ElevenLabs)", native=False)

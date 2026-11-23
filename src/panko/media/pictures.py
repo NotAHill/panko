@@ -68,7 +68,7 @@ def draw(prompts: dict[str, str], force: bool = False, workers: int = 6, store=N
     from concurrent.futures import ThreadPoolExecutor
 
     from panko.config import ROOT, settings
-    from panko.providers.imagegen import Generate
+    from panko.providers.imagegen import Generate, OutOfCredits
     from panko.store import Store
 
     st = store or Store()
@@ -77,8 +77,12 @@ def draw(prompts: dict[str, str], force: bool = False, workers: int = 6, store=N
     gen = gen or Generate({})
     todo = {i: p for i, p in prompts.items() if p and (force or not (st.get(i) or {}).get("image"))}
 
+    stop = []
+
     def one(item):
         eid, prompt = item
+        if stop:
+            return eid, None, "error: skipped (out of credits)"
         name = f"{GEN_PREFIX}{eid}.jpg"
         png = out / f"{GEN_PREFIX}{eid}.png"
         try:
@@ -87,6 +91,9 @@ def draw(prompts: dict[str, str], force: bool = False, workers: int = 6, store=N
                             str(png), "--out", str(out / name)], check=True, capture_output=True)
             png.unlink()
             return eid, name, prompt
+        except OutOfCredits as e:
+            stop.append(1)
+            return eid, None, f"error: {e}"
         except Exception as e:  # noqa: BLE001
             return eid, None, f"error: {e}"
 

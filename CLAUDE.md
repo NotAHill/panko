@@ -31,7 +31,7 @@ Arabic. Single user. They review on Anki desktop, AnkiMobile and AnkiWeb.
 - No provenance in the card body. Sources only in the collapsed Sources section.
 - Fronts show only the prompt. No hints, no notes, no "say it in…".
 - No register badge: the deck says Darija or Fusha.
-- Examples are required. Real pictures preferred; generate only when none is found. Generated pictures help you remember the word (not realism); every woman and girl wears a hijab and modest clothes; no fez clichés; no text.
+- Examples are required. Real pictures preferred; generate only when none is found. Generated pictures help you remember the word (not realism); any woman or girl shown wears a hijab and modest clothes, and women appear only when the scene needs one; no fez clichés; no text.
 - Transliteration: the teacher's Arabizi first (3/7/9), scholarly second.
 - Avoid vendor lock-in: put the best tool per job behind a provider chain.
 

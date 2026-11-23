@@ -2,6 +2,18 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-23 · No separate picture check; the hijab rule lives in the prompt.**
+A vision check after each picture run (hijab, text, modesty) flagged mostly false positives: you looked at
+every flagged picture and found them all fine. Once the hijab rule was in the house style, none of the ~1,400
+drawings checked showed uncovered hair. So the check step is dropped: the style in `config/panko.toml` and the
+prompt briefs carry the rules, and photos are chosen with them in mind.
+
+**2026-11-23 · Drawings add a woman only when the scene needs one.**
+Naming women in the house style ("every woman wears a hijab") nudged the model to put a woman in most pictures:
+about two-thirds showed one, though a fifth of the prompts asked for one. The style now says: if a woman or girl
+appears, she wears a hijab; don't add people the scene doesn't need. Prompts name exactly the people they want.
+Applies from the next drawing run; existing pictures stay.
+
 **2026-11-22 · Cards with no real picture get a generated drawing that helps you remember the word.**
 Verbs, adjectives and abstract words rarely have a usable photo, so most of them had no picture. Now
 `panko draw FILE` asks OpenAI's gpt-image-2 (low quality: in a test it looked as good as medium for these, at
