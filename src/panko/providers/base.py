@@ -52,3 +52,47 @@ class ImageSearch(Provider):
 class ImageGen(Provider):
     def generate(self, prompt: str, out: Path) -> Image | None:
         raise NotImplementedError
+
+
+@dataclass
+class Ask:
+    """One request to a language model. `system` is the stable task prompt (cached across requests); `parts` is
+    this item's input: strings, or {"image": path} / {"pdf": path}. With `schema`, the reply is JSON that fits it."""
+    id: str
+    system: str
+    parts: list
+    schema: dict | None = None
+    max_tokens: int = 16000
+    effort: str | None = None      # low | medium | high | xhigh | max (provider default when None)
+
+
+@dataclass
+class Answer:
+    id: str
+    data: object = None            # parsed JSON (with a schema) or text
+    error: str = ""                # empty when it worked
+    model: str = ""
+    usage: dict = field(default_factory=dict)   # input, output, cache_read, cache_write (tokens)
+    cost: float = 0.0              # USD, from the price table; 0 when the price is unknown
+    batch: bool = False
+
+
+class LLM(Provider):
+    model = ""
+
+    def ask(self, a: Ask) -> Answer:
+        raise NotImplementedError
+
+    def count_tokens(self, a: Ask) -> int | None:
+        """Input tokens for one request, or None when the provider can't count."""
+        return None
+
+    # batch APIs (half price, results within 24 h)
+    def batch_submit(self, asks: list[Ask]) -> str:
+        raise NotImplementedError(f"{self.name}: batches not wired yet")
+
+    def batch_status(self, batch_id: str) -> dict:
+        raise NotImplementedError
+
+    def batch_results(self, batch_id: str) -> list[Answer]:
+        raise NotImplementedError

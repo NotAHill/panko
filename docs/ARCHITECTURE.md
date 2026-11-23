@@ -19,7 +19,7 @@ flowchart TB
         M[Film / TV clips]:::plan
         D[Old Darija decks<br/>stages 1–2 in Anki]:::built
     end
-    Sources --> X[Extraction JSON<br/>Claude, by hand for now]:::part
+    Sources --> X[Extraction JSON<br/>Claude, by hand for now;<br/>moving into panko commands]:::part
     X --> C{Checked<br/>Routledge, DODa, web}:::part
     C -- ok / fixed --> IN[Candidate inbox<br/>new words not yet in Panko]:::built
     C -. doubtful .-> IN
@@ -57,6 +57,10 @@ flowchart TB
     subgraph Text["Writing + checking"]
         direction LR
         t1[Lexicons<br/>Wiktionary, Qabas, DODa, Lane]:::plan --> t2[Claude<br/>drafts entry]:::plan --> t3[CAMeL Tools<br/>checks harakat + morphology]:::plan
+    end
+    subgraph LLM["Language model (panko.llm: estimate, budget, cache, batches)"]
+        direction LR
+        l1[Claude<br/>Opus 5.5, structured JSON,<br/>vision, batches]:::built --> l2[OpenAI<br/>chat, once a model is set]:::part
     end
     subgraph Speech["Lesson speech-to-text"]
         direction LR
@@ -132,6 +136,8 @@ reaches every card without touching review history. Panko never writes `MyNotes`
 |---|---|
 | `config/panko.toml` | provider chains and settings |
 | `src/panko/providers/` | one file per provider, registered by name |
+| `src/panko/llm.py` | runs language-model work for every command: cost estimate, budget cap, answer cache (`cache/llm/`), usage log (`data/llm-usage.jsonl`), half-price batches (`panko llm collect`) |
+| `src/panko/providers/llm/` | `claude.py` (Anthropic SDK: JSON schema output, vision, prompt caching, token counting, batches, refusal fallbacks), `openai_chat.py` |
 | `src/panko/cards/note_types.py` | Anki fields, card templates, CSS |
 | `src/panko/cards/render.py` | entry data → card HTML |
 | `src/panko/anki/mcp_client.py` | talks to the Anki MCP Server add-on |

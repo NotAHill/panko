@@ -38,4 +38,4 @@ def chain(capability: str) -> list[Provider]:
 
 def _load_all():
     # importing the modules runs their @register decorators
-    from panko.providers import imagegen, images, tts  # noqa: F401
+    from panko.providers import imagegen, images, llm, tts  # noqa: F401

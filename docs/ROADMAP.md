@@ -13,7 +13,14 @@ Update the **Now** section at the end of every work session: it's what a fresh s
 - Waiting on: the learner asking Oussama about doubtful/low-confidence items (both CHECK-REPORTs); غتاصب keep/drop.
 - Picture step is a command: `panko pictures export → search → apply [--batch]` (drawings by OpenAI batch at half price, `panko draw --collect`). Batch path confirmed end to end (dp-00194, dp-00195).
 - **Phase 6 (Darija) converted 2026-11-23**: the 94 studied old-deck notes are now Panko notes in `Panko Sandbox::Darija` (`panko migrate`): all 408 reviews kept, 152 of 153 old cards kept (the one dropped, مومو's English→Arabic card, was never reviewed), 34 new cards where a card type was missing. Backups on the SSD (`panko-scratch/collection-before-phase6-*.anki2`). Full upload done; the 4 second words (ربح, تخلص من, دى, قبل 'to accept') added as new notes. The AR • deck stays as it is for now (your call, 2026-11-23).
-- Next after Phase 6: the studied Fusha decks (ABY, iExplore, Serious Explorer: not yet extracted); more sources (Peace Corps book + audio).
+- **Phase 6, second round (later, your call 2026-11-23: Fusha waits)**: one more conversion + full upload covering
+  - Fusha: Arabiyyah Bayna Yadayk 1–3 (535 reviewed of 1,526; fields: vowelled `past \ present \ imperative \ masdar` or `singular \ plural`, Form, Root, Hans Wehr link) and iExplore (82 of 137; Wiktionary link). Open questions: Fusha transliteration style, unreviewed notes later as new cards?
+  - Serious Explorer is **Darija** (60 notes, all reviewed): Arabic + transliteration only inside a picture of text, a real recording of each word, a photo on the back. Ask whether to use the recordings as word audio.
+  - 14 reviewed Darija notes whose word was already a Panko card (merged as duplicates, history not carried: شرب, خاف, سوق, ماشي مشكل, حومة, مرا…): convert the old note for that entry and delete the newer, unreviewed Panko note.
+- **Peace Corps downloaded** (2026-11-23, public domain, from Live Lingua) to the SSD, linked as `data/sources/peace-corps/`: the 2011 textbook (199 pages) and 34 tracks (40 min). The PDF text layer is usable but is almost all **scholarly transliteration** (ع for ʕ, Cyrillic н for ḥ, x for kh; Arabic script is rare), and two-column vocabulary pages interleave, so Arabic script must be derived and checked, with page images where columns mix. Each track = one book section read by native speakers, announced with its page (track 9 = dialogue p. 6 … track 34 = p. 141; track 1 = 12-min intro; 2–8 pronouns, demonstratives, numbers; 9–34 dialogues). Scribe transcripts with word timings: `data/sources/peace-corps/scribe/` (force `language_code=ara`; auto-detect called one track English).
+- **Direction change (your call, 2026-11-23): Panko becomes a standalone package.** Everything Claude and its agents did in chat becomes a `panko` command, so another learner can run the whole pipeline themselves. See the **Standalone** track below. Peace Corps is the first source to be run entirely by Panko's own commands.
+- **S1 built** (`panko.llm` + `providers/llm/`): Claude by default, OpenAI once a model is set; estimates, budget cap, cache, usage log, batches; tested with a fake model. `panko llm ping` needs `ANTHROPIC_API_KEY` in `.env` (it's empty).
+- Next: S2 (prompts in the package), then Peace Corps through them (S3 + Phase 3).
 
 ## Phases
 | # | Phase | Status |
@@ -26,6 +33,22 @@ Update the **Now** section at the end of every work session: it's what a fresh s
 | 5 | Verification: lexicon grounding, CAMeL Tools checks, doubt flags | verdict files (Routledge, DODa, web) applied at ingest; CAMeL not started |
 | 6 | Migrate studied notes from old decks (pylib, Anki closed, one full sync) | Darija: done (94 notes, history kept); Fusha decks later |
 | 7 | Chat interface: Panko's own MCP server | not started |
+
+## Standalone track (from 2026-11-23)
+Goal: someone else learning a language this way installs Panko, points it at their sources and Anki, and gets the
+same checked cards, without a Claude Code session doing the thinking. Today the LLM steps (extract, check, region,
+sentences, clashes, picture decisions) are briefs in `data/` (git-ignored) run by Claude agents in chat.
+
+| # | Step | What "done" means |
+|---|---|---|
+| S1 ✅ | **LLM provider chain** (built 2026-11-23; live test waits on an Anthropic key) | `providers/llm/`: Claude by default (Anthropic SDK), OpenAI as an alternative, same interface. Structured JSON output checked against a schema, retries, prompt caching, the Batch API for big runs (half price). Every paid run prints a cost estimate first and honours a budget cap. |
+| S2 | **Prompts in the package** | The briefs move to `src/panko/prompts/` as generic prompts. Personal choices move to config: teacher and their Arabizi style, region, transliteration order, picture rules (hijab, no fez), what to skip. |
+| S3 | **A command per step** | `panko extract` (PDF pages via vision, text, transcripts, deck rows), `panko check` (verify + region, with evidence), `panko examples`, `panko dedupe` (clashes), `panko pictures decide`. Parallel, resumable, cached per item; they write the JSON that `ingest` / `pictures apply` already read, so the human review points stay. |
+| S4 | **Evidence and settings for anyone** | `panko init` writes the config: Anki profile, deck names, varieties, voices, keys. Nothing hard-coded (profile "User 1", "Panko Sandbox", the old-deck card map: detect which side shows Arabic from the templates, with an override file). Open evidence downloads itself (DODa); private dictionaries are a path in config. |
+| S5 | **Packaging and docs** | README quickstart for a new learner, licence, a worked example on a free source (Peace Corps), tests with a fake Anki and fake LLM. Publish when you decide. |
+| S6 | **Check it matches** | Re-run one teacher sheet and one old-deck batch through the commands and compare with what the agents produced. Fix the prompts until they agree. Then the Fusha round (Phase 6, second round) runs on the commands too. |
+
+Open: licence and where to publish; Arabic varieties only at first, or any language; which model for bulk work (cost vs quality).
 
 ## Open questions
 - Two decks or a separate Quranic deck?

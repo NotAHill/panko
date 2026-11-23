@@ -2,6 +2,23 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-23 · How Panko spends on language models.**
+Every LLM step goes through one runner (`panko.llm.run`). Before a run it counts input tokens on a sample and
+prices the whole run; if the estimate is over the budget (`[llm] budget_usd`, $5 by default, `--budget` per run) it
+stops before spending, and it stops mid-run if actual spend passes the budget. Successful answers are cached by
+their exact input (prompt, file contents, schema, model), so re-running a command after a crash or a fix only pays
+for what's missing, and big runs can go as half-price batches. Claude Opus 5.5 is the default (effort `medium`,
+raised per task where it pays), with structured JSON output so answers always parse, and server-side refusal
+fallbacks on. OpenAI sits behind the same interface for anyone who prefers it.
+
+**2026-11-23 · Panko becomes a standalone package.**
+Until now the thinking steps (extracting from PDFs and transcripts, checking glosses and region, writing example
+sentences, resolving clashes, deciding pictures) were briefs in `data/` run by Claude agents in a chat session. You
+want other learners to be able to do the same, so each of those steps becomes a `panko` command backed by an LLM
+provider chain (Claude by default, swappable, per the no-lock-in rule), with the briefs turned into packaged prompts
+and your personal choices moved into config. The human checkpoints stay: commands write the same reviewable JSON
+files, and nothing reaches Anki without `ingest` / `activate` / `sync`. Peace Corps is the first source done this way.
+
 **2026-11-23 · Phase 6: studied old-deck notes become Panko notes in place (`panko migrate`).**
 Each old note you reviewed changes note type (official `anki` library, Anki closed) so every card keeps its id,
 reviews and schedule. Old cards map by what they show first: Arabic → Recognition, English → Production. Panko then

@@ -39,6 +39,12 @@ def main(argv=None):
     pa.add_argument("paths", nargs="+")
     pa.add_argument("--batch", action="store_true", help="draw as an OpenAI batch instead of now")
     pa.add_argument("--no-draw", action="store_true", help="only download photos; write prompts to a file")
+    lm = sub.add_parser("llm", help="language model: ping, usage, collect batches")
+    lsub = lm.add_subparsers(dest="lcmd")
+    lsub.add_parser("ping", help="one tiny request to check the model works (costs a fraction of a cent)")
+    lu = lsub.add_parser("usage", help="spend so far, by task and model")
+    lu.add_argument("--since", default="", help="YYYY-MM-DD")
+    lsub.add_parser("collect", help="save the answers of finished batches")
     m = sub.add_parser("migrate", help="Phase 6: convert studied old-deck notes in place (history kept)")
     m.add_argument("ids", nargs="*", help="only these entries (e.g. a test batch)")
     m.add_argument("--apply", action="store_true", help="really convert (Anki must be closed); default is a dry run")
@@ -47,7 +53,7 @@ def main(argv=None):
 
     if args.cmd == "providers":
         from panko import providers
-        for cap in ("audio", "images"):
+        for cap in ("audio", "images", "llm"):
             print(f"{cap}: available={providers.available(cap)} ready={[p.name for p in providers.chain(cap)]}")
     elif args.cmd == "voices":
         from panko.media.audition import run
@@ -89,12 +95,35 @@ def main(argv=None):
             ap.error("draw needs a FILE (or --collect)")
         else:
             _draw(pictures, json.loads(Path(args.path).read_text()), args.force, args.batch)
+    elif args.cmd == "llm":
+        _llm(args, lm)
     elif args.cmd == "migrate":
         _migrate(args)
     elif args.cmd == "pictures":
         _pictures(args, pic)
     else:
         ap.print_help()
+
+
+def _llm(args, parser):
+    import json
+
+    from panko import llm
+    if args.lcmd == "ping":
+        from panko.providers.base import Ask
+        p = llm.provider()
+        schema = {"type": "object", "properties": {"ok": {"type": "boolean"}, "word": {"type": "string"}},
+                  "required": ["ok", "word"], "additionalProperties": False}
+        a = Ask(id="ping", system="Answer in JSON.", schema=schema, max_tokens=2000, effort="low",
+                parts=["Give the Moroccan Darija word for 'water' in Arabic script."])
+        ans = p.ask(a)
+        print(f"{p.name}/{ans.model}: {ans.data if not ans.error else ans.error} · {ans.usage} · ${ans.cost:.5f}")
+    elif args.lcmd == "usage":
+        print(json.dumps(llm.usage(args.since), indent=1))
+    elif args.lcmd == "collect":
+        print(json.dumps(llm.collect(), indent=1, ensure_ascii=False))
+    else:
+        parser.print_help()
 
 
 def _migrate(args):
