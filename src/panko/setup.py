@@ -1,6 +1,6 @@
 """`panko init`: a starter config for a new learner, and a check of what's ready.
 
-`write_config(answers)` fills config/panko.example.toml with the learner's answers (language, varieties, decks, Anki
+`write_config(answers)` fills templates/panko.example.toml with the learner's answers (language, varieties, decks, Anki
 profile…) and writes config/panko.toml; `.env` is created from `.env.example` for the keys. `check()` reports what
 works: config, keys and providers, Anki, reference data, chat mode.
 """
@@ -14,7 +14,8 @@ from pathlib import Path
 
 from panko.config import ROOT
 
-TEMPLATE = ROOT / "config" / "panko.example.toml"
+TEMPLATES = Path(__file__).parent / "templates"      # shipped inside the package
+TEMPLATE = TEMPLATES / "panko.example.toml"
 CONFIG = ROOT / "config" / "panko.toml"
 
 DEFAULTS = {"language": "Moroccan Darija", "gloss_language": "English", "varieties": ["darija"],
@@ -72,10 +73,11 @@ def write_config(answers: dict, force: bool = False, path: Path = CONFIG) -> Pat
         raise FileExistsError(f"{path} exists; use --force to replace it (a copy is kept as .bak)")
     if path.exists():
         shutil.copy2(path, path.with_suffix(".toml.bak"))
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render(answers))
-    env, example = ROOT / ".env", ROOT / ".env.example"
-    if not env.exists() and example.exists():
-        shutil.copy2(example, env)
+    env = path.parent.parent / ".env"
+    if not env.exists():
+        shutil.copy2(TEMPLATES / "env.example", env)
     return path
 
 
@@ -110,7 +112,7 @@ def check() -> list[tuple[str, bool, str]]:
     except FileNotFoundError:
         return [("config", False, "no config/panko.toml: run `panko init`")]
     for cap, what in (("llm", "API mode (language model)"), ("audio", "audio"), ("images", "pictures")):
-        ready = [p.name for p in providers.chain(cap)]
+        ready = [p.name for p in providers.chain(cap) if p.name not in ("native", "source")]   # need your own material
         rows.append((what, bool(ready), ", ".join(ready) or f"no {cap} provider has its key in .env"))
     for v in s.get("learner", {}).get("varieties", []):
         voices = s.get("audio", {}).get("elevenlabs", {}).get(f"voices_{v}", [])

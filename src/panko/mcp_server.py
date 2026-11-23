@@ -10,6 +10,7 @@ import contextlib
 import functools
 import json
 import sys
+from pathlib import Path
 
 from mcp.server.mcpserver import Image, MCPServer
 
@@ -212,12 +213,18 @@ def panko_sync(confirm: bool = False) -> dict:
 def config_snippet() -> str:
     import shutil
 
-    from panko.config import ROOT
-    uv = shutil.which("uv") or "uv"   # apps don't see the shell's PATH, so the full path
-    args = ["--directory", str(ROOT), "run", "--extra", "mcp", "panko", "mcp"]
-    desktop = {"mcpServers": {"panko": {"command": uv, "args": args}}}
+    from panko.config import CHECKOUT, IS_CHECKOUT, ROOT
+    if IS_CHECKOUT and ROOT == CHECKOUT:      # running from a source checkout
+        uv = shutil.which("uv") or "uv"   # apps don't see the shell's PATH, so the full path
+        cmd, args, env = uv, ["--directory", str(ROOT), "run", "--extra", "mcp", "panko", "mcp"], {}
+    else:
+        exe = Path(sys.executable).with_name("panko")     # the panko next to this Python (a venv's bin)
+        cmd = str(exe) if exe.exists() else shutil.which("panko") or "panko"
+        args, env = ["mcp"], {"PANKO_HOME": str(ROOT)}
+    server = {"command": cmd, "args": args, **({"env": env} if env else {})}
+    code = "claude mcp add panko" + "".join(f" -e {k}={v}" for k, v in env.items()) + " -- " + " ".join([cmd, *args])
     return ("Claude Desktop (Settings → Developer → Edit Config, claude_desktop_config.json):\n"
-            + json.dumps(desktop, indent=2) + "\n\nClaude Code:\n  claude mcp add panko -- " + uv + " " + " ".join(args) + "\n")
+            + json.dumps({"mcpServers": {"panko": server}}, indent=2) + "\n\nClaude Code:\n  " + code + "\n")
 
 
 def main():

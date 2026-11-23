@@ -2,8 +2,23 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-23 · AGPL-3.0-or-later, with a contributor agreement.**
+Panko is open source so other learners can run and improve it. The AGPL rather than MIT means anyone who runs a changed
+Panko as a service must share their changes, and it fits the AGPL `anki` library that migrations use. The owner isn't
+bound by the licence, so a paid hosted service or a commercial licence stays possible. Outside contributions would
+block that, so `CONTRIBUTING.md` asks contributors to grant the right to relicense what they contribute. Released
+versions stay AGPL.
+
+**2026-11-23 · Code and data apart: a Panko folder, templates in the package.**
+An installed Panko can't keep a learner's config, store and media next to its code, so Panko works in a *Panko folder*:
+`PANKO_HOME` if set, else the nearest folder up from the working directory that has `config/panko.toml` (like git finds
+a repo), else the source checkout it runs from. A developer's checkout is its own Panko folder, so nothing moved. The
+config and `.env` templates moved into the package (`src/panko/templates/`) so `panko init` works from a wheel. The
+Claude snippet from `panko mcp --config` names the folder with `PANKO_HOME` for an install, since Claude starts the
+server from its own working directory.
+
 **2026-11-23 · Settings for another learner: a generic template, your config states your choices.**
-`panko init` writes `config/panko.toml` from `config/panko.example.toml`, a template with no personal choices (no
+`panko init` writes `config/panko.toml` from `panko.example.toml`, a template with no personal choices (no
 dress rules, teacher, voices or private books), filled with a few answers; a learner adds their own rules to it.
 Everything that was hard-coded for one person moved to config with the old values as defaults: deck names, the Anki
 address and profile, the collection path (per operating system), and the migration card map, which is now detected

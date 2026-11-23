@@ -7,6 +7,12 @@ import pytest
 from panko import config, evidence, setup
 
 
+def test_env_template_matches_the_repo_example():
+    from panko.config import CHECKOUT
+    keys = lambda t: sorted(line.split("=")[0] for line in t.splitlines() if "=" in line and not line.startswith("#"))  # noqa: E731
+    assert keys((setup.TEMPLATES / "env.example").read_text()) == keys((CHECKOUT / ".env.example").read_text())
+
+
 def test_init_config_from_answers(tmp_path):
     text = setup.render({"language": "Egyptian Arabic", "varieties": ["masri", "fusha"], "deck_root": "Arabic",
                          "profile": "Sam", "wiktionary": "Egyptian Arabic"})
@@ -19,12 +25,13 @@ def test_init_config_from_answers(tmp_path):
     assert "hijab" not in text.lower() and "oussama" not in text.lower()
     darija = tomllib.loads(setup.render({}))
     assert [x["name"] for x in darija["evidence"]["corpora"]][0].startswith("Darija Open Dataset")
-    p = tmp_path / "panko.toml"
+    p = tmp_path / "config" / "panko.toml"
     setup.write_config({}, path=p)
+    assert (tmp_path / ".env").exists()
     with pytest.raises(FileExistsError):
         setup.write_config({}, path=p)
     setup.write_config({"language": "X"}, force=True, path=p)
-    assert (tmp_path / "panko.toml.bak").exists() and 'language = "X"' in p.read_text()
+    assert (tmp_path / "config" / "panko.toml.bak").exists() and 'language = "X"' in p.read_text()
 
 
 def test_download_open_references(tmp_path, monkeypatch):

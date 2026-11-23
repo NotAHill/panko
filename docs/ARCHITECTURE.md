@@ -140,8 +140,8 @@ reaches every card without touching review history. Panko never writes `MyNotes`
 
 | Path | What |
 |---|---|
-| `config/panko.toml` | provider chains and settings (yours); `config/panko.example.toml` is the generic template `panko init` fills |
-| `src/panko/config.py` | loads config and `.env`; `anki()` / `deck()` / `collection_path()` with defaults |
+| `config/panko.toml` | provider chains and settings (yours); `src/panko/templates/panko.example.toml` (shipped in the package) is the generic template `panko init` fills |
+| `src/panko/config.py` | finds the Panko folder (`find_root`: `PANKO_HOME`, else the nearest folder up with `config/panko.toml`, else the checkout); loads config and `.env`; `anki()` / `deck()` / `collection_path()` with defaults |
 | `src/panko/setup.py` | `panko init`: starter config from answers, and the readiness check (`--check`) |
 | `src/panko/providers/` | one file per provider, registered by name |
 | `src/panko/providers/images/` | picture search: `wikidata.py` (query → Wikidata item → its P18 Commons file), `commons.py`, `openverse.py`, `pexels.py`, `pixabay.py` (free keys), `inaturalist.py`, `arasaac.py` (off by default), `source.py` (crops, not built); `web.py` = polite spacing per site, one retry on 429 then pause the site, answers cached in `cache/images/` |

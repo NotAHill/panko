@@ -1,9 +1,20 @@
 [project]
 name = "panko"
 version = "0.1.0"
-description = "Turns language-learning sources into verified Anki cards (Arabic: Fusha, Quranic, Darija)."
+description = "Turns language-learning material (textbooks, teacher sheets, transcripts) into checked Anki cards with pictures, examples and audio."
 readme = "README.md"
+license = "AGPL-3.0-or-later"
+license-files = ["LICENSE"]
 requires-python = ">=3.12"
+keywords = ["anki", "flashcards", "language-learning", "arabic", "darija", "mcp", "claude"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Education",
+    "Natural Language :: Arabic",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Education",
+]
 dependencies = [
     "anthropic>=2.12.0",
     "httpx>=0.27",
@@ -11,7 +22,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-images = ["pillow>=11"]
+images = ["pillow>=11"]   # contact sheets for `panko pictures search`
 migrate = [
     "anki==26.9.4",
 ]

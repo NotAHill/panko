@@ -5,6 +5,15 @@ import argparse
 
 
 def main(argv=None):
+    try:
+        _main(argv)
+    except FileNotFoundError as e:
+        if "panko init" not in str(e):
+            raise
+        raise SystemExit(str(e)) from None
+
+
+def _main(argv=None):
     ap = argparse.ArgumentParser(prog="panko")
     sub = ap.add_subparsers(dest="cmd")
     sub.add_parser("providers", help="which providers are ready")
