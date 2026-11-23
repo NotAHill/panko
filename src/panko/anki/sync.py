@@ -89,7 +89,8 @@ def sync(store: Store | None = None, narrator: audio.Narrator | None = None) -> 
         if link and link["rendered_hash"] == h:
             same += 1
             continue
-        tool("update_notes", {"notes": [{"id": nid, "fields": note["fields"]}]})
+        fields = {k: v for k, v in note["fields"].items() if k not in ("Spare3", "Spare4")}  # old Front/Back of migrated notes
+        tool("update_notes", {"notes": [{"id": nid, "fields": fields}]})
         tool("tag_add", {"note_ids": [nid], "tags": " ".join(note["tags"])})
         cards = tool("notes_info", {"notes": [nid]})["notes"][0]["cards"]
         tool("card_change_deck", {"card_ids": cards, "deck": note["deck"]})

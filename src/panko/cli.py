@@ -39,6 +39,10 @@ def main(argv=None):
     pa.add_argument("paths", nargs="+")
     pa.add_argument("--batch", action="store_true", help="draw as an OpenAI batch instead of now")
     pa.add_argument("--no-draw", action="store_true", help="only download photos; write prompts to a file")
+    m = sub.add_parser("migrate", help="Phase 6: convert studied old-deck notes in place (history kept)")
+    m.add_argument("ids", nargs="*", help="only these entries (e.g. a test batch)")
+    m.add_argument("--apply", action="store_true", help="really convert (Anki must be closed); default is a dry run")
+    m.add_argument("--report", help="write the dry-run list to this Markdown file")
     args = ap.parse_args(argv)
 
     if args.cmd == "providers":
@@ -85,10 +89,29 @@ def main(argv=None):
             ap.error("draw needs a FILE (or --collect)")
         else:
             _draw(pictures, json.loads(Path(args.path).read_text()), args.force, args.batch)
+    elif args.cmd == "migrate":
+        _migrate(args)
     elif args.cmd == "pictures":
         _pictures(args, pic)
     else:
         ap.print_help()
+
+
+def _migrate(args):
+    from pathlib import Path
+
+    from panko.anki import migrate
+
+    res = migrate.run(dry_run=not args.apply, ids=args.ids or None)
+    if args.apply:
+        print({k: v for k, v in res.items() if k != "rows"})
+        print("Now open Anki: it will ask for a one-way sync. Choose Upload to AnkiWeb.")
+        return
+    if args.report:
+        Path(args.report).write_text(res["report"] + "\n")
+    print(res["report"])
+    print(f"\n{sum(1 for r in res['rows'] if r.get('nid'))} notes to convert, "
+          f"{sum(1 for r in res['rows'] if not r.get('nid'))} new. Dry run: nothing changed.")
 
 
 def _draw(pictures, prompts: dict, force: bool, batch: bool):

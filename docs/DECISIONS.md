@@ -2,6 +2,16 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-23 · Phase 6: studied old-deck notes become Panko notes in place (`panko migrate`).**
+Each old note you reviewed changes note type (official `anki` library, Anki closed) so every card keeps its id,
+reviews and schedule. Old cards map by what they show first: Arabic → Recognition, English → Production. Panko then
+fills the fields from the store, adds its tags to yours, moves the cards to `Panko Sandbox::Darija` and links the
+note, so `panko sync` updates it from then on. Your old Front/Back stays verbatim in the hidden `Spare3`/`Spare4`
+fields (including your own audio recordings), and sync never writes those two. A card you reviewed always keeps a
+front, even on an entry that would otherwise be recognition-only; a never-reviewed old card for a card type that's
+off is dropped. A note that held two words goes to the first; the second becomes a new note. Dry run by default; a
+real run refuses while Anki is open and backs up the collection first. One full sync follows.
+
 **2026-11-23 · The picture step is a command: `panko pictures export → search → apply`.**
 It used to be agents plus scripts in a scratch folder. Now `export` lists cards without a picture, an agent decides
 photo / drawing / skip per card (`PICTURE-BRIEF.md`) using `search` for Commons/Openverse contact sheets, and `apply`

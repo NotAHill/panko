@@ -64,7 +64,7 @@ flowchart TB
     end
     subgraph Anki["Anki access"]
         direction LR
-        k1[MCP add-on<br/>Anki open]:::built ~~~ k2[pylib<br/>Anki closed, migrations]:::plan
+        k1[MCP add-on<br/>Anki open]:::built ~~~ k2[pylib<br/>Anki closed, migrations]:::built
     end
 
     classDef built fill:#d3f9d8,stroke:#2b8a3e,color:#000
@@ -142,4 +142,5 @@ reaches every card without touching review history. Panko never writes `MyNotes`
 | `src/panko/ingest/verify.py` | applies check verdicts + overrides to items before ingest |
 | `src/panko/cards/build.py` | store entry → Anki note (fields, deck, tags, audio) |
 | `src/panko/anki/sync.py` | pushes models, media and notes; updates changed notes in place |
+| `src/panko/anki/migrate.py` | Phase 6 (`panko migrate [ids] [--apply]`): studied old-deck notes → Panko notes in place via the `anki` library, Anki closed; dry run by default |
 | `src/panko/sandbox/seed.py` | the 9 hand-written sandbox entries (`panko seed`) |

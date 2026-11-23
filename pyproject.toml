@@ -11,6 +11,9 @@ dependencies = [
 
 [project.optional-dependencies]
 images = ["pillow>=11"]
+migrate = [
+    "anki==26.9.4",
+]
 
 [project.scripts]
 panko = "panko.cli:main"
