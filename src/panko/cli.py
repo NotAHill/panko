@@ -72,6 +72,8 @@ def main(argv=None):
     ps = psub.add_parser("search", help="photo candidates + contact sheets")
     ps.add_argument("outdir")
     ps.add_argument("queries", help='JSON {"slug": "english query", ...}')
+    ps.add_argument("--providers", help="comma-separated image providers instead of the [images] chain, "
+                    "e.g. inaturalist,arasaac")
     pa = psub.add_parser("apply", help="apply decisions: download photos, then draw the prompts")
     pa.add_argument("paths", nargs="+")
     pa.add_argument("--batch", action="store_true", help="draw as an OpenAI batch instead of now")
@@ -178,8 +180,6 @@ def main(argv=None):
         ap.print_help()
 
 
-def _llm(args, parser):
-    import json
 def _work(args, parser):
     import json
 
@@ -222,6 +222,8 @@ def _work(args, parser):
         parser.print_help()
 
 
+def _llm(args, parser):
+    import json
 
     from panko import llm
     if args.lcmd == "ping":
@@ -283,7 +285,8 @@ def _pictures(args, parser):
             f.write_text(json.dumps(rows[i * k:(i + 1) * k], ensure_ascii=False, indent=1))
             print(f, len(rows[i * k:(i + 1) * k]))
     elif args.pcmd == "search":
-        for p in pictures.search(json.loads(args.queries), Path(args.outdir)):
+        names = [n.strip() for n in args.providers.split(",") if n.strip()] if args.providers else None
+        for p in pictures.search(json.loads(args.queries), Path(args.outdir), names=names):
             print(p)
     elif args.pcmd == "apply":
         decisions = {}

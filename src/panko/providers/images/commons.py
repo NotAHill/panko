@@ -3,36 +3,40 @@ from __future__ import annotations
 
 import re
 
-import httpx
-
 from panko.providers import register
 from panko.providers.base import ImageSearch
+from panko.providers.images.web import UA, get_json  # noqa: F401  (UA is re-exported for pictures.py)
 
-UA = {"User-Agent": "panko/0.1 (personal flashcard tool)"}
+API = "https://commons.wikimedia.org/w/api.php"
 
 
 def _plain(html: str) -> str:
     return re.sub(r"<[^>]+>", "", html or "").strip()
 
 
+def candidate(p: dict) -> dict:
+    """One Commons file page (with imageinfo url|extmetadata, iiurlwidth) → a candidate."""
+    ii = (p.get("imageinfo") or [{}])[0]
+    md = ii.get("extmetadata", {})
+    return {
+        "url": ii.get("url"), "thumb": ii.get("thumburl"), "title": p.get("title"),
+        "author": _plain(md.get("Artist", {}).get("value", "")),
+        "license": md.get("LicenseShortName", {}).get("value", ""),
+        "page": ii.get("descriptionurl"),
+    }
+
+
+IMAGEINFO = {"prop": "imageinfo", "iiprop": "url|extmetadata|size", "iiurlwidth": 800}
+
+
 @register("images", "commons")
 class Commons(ImageSearch):
+    label = "Wikimedia Commons"
+
     def search(self, query, limit=6):
-        r = httpx.get("https://commons.wikimedia.org/w/api.php", headers=UA, timeout=30, params={
+        data = get_json("commons", API, gap=0.2, params={
             "action": "query", "format": "json", "generator": "search", "gsrnamespace": 6,
-            "gsrsearch": f"{query} filetype:bitmap", "gsrlimit": limit,
-            "prop": "imageinfo", "iiprop": "url|extmetadata|size", "iiurlwidth": 800,
+            "gsrsearch": f"{query} filetype:bitmap", "gsrlimit": limit, **IMAGEINFO,
         })
-        r.raise_for_status()
-        pages = sorted(r.json().get("query", {}).get("pages", {}).values(), key=lambda p: p.get("index", 0))
-        out = []
-        for p in pages:
-            ii = (p.get("imageinfo") or [{}])[0]
-            md = ii.get("extmetadata", {})
-            out.append({
-                "url": ii.get("url"), "thumb": ii.get("thumburl"), "title": p.get("title"),
-                "author": _plain(md.get("Artist", {}).get("value", "")),
-                "license": md.get("LicenseShortName", {}).get("value", ""),
-                "page": ii.get("descriptionurl"),
-            })
-        return out
+        pages = sorted(data.get("query", {}).get("pages", {}).values(), key=lambda p: p.get("index", 0))
+        return [candidate(p) for p in pages]

@@ -22,11 +22,12 @@ def available(capability: str) -> list[str]:
     return sorted(_REGISTRY.get(capability, {}))
 
 
-def chain(capability: str) -> list[Provider]:
+def chain(capability: str, names: list[str] | None = None) -> list[Provider]:
+    """The ready providers of the configured chain (or of `names`, to try others for one run)."""
     _load_all()
     cfg = settings().get(capability, {})
     out = []
-    for name in cfg.get("chain", []):
+    for name in names if names is not None else cfg.get("chain", []):
         cls = _REGISTRY.get(capability, {}).get(name)
         if cls is None:
             raise KeyError(f"unknown {capability} provider '{name}' (known: {available(capability)})")
@@ -34,6 +35,13 @@ def chain(capability: str) -> list[Provider]:
         if p.ready():
             out.append(p)
     return out
+
+
+def get(capability: str, name: str) -> Provider | None:
+    """One provider by name, configured from its section, ready or not; None if unknown."""
+    _load_all()
+    cls = _REGISTRY.get(capability, {}).get(name)
+    return cls(settings().get(capability, {}).get(name, {})) if cls else None
 
 
 def _load_all():

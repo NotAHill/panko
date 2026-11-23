@@ -57,7 +57,8 @@ flowchart TB
     end
     subgraph Pictures
         direction LR
-        p1[source<br/>crop from the PDF/clip]:::part --> p2[Wikimedia Commons]:::built --> p3[Openverse]:::built --> p4[generate<br/>gpt-image-2 drawings<br/>now or batch]:::built
+        p1[source<br/>crop from the PDF/clip]:::part --> p0[Wikidata<br/>item's own Commons picture]:::built --> p2[Wikimedia Commons]:::built --> p3[Openverse]:::built --> p5[Pexels<br/>free key]:::built --> p6[Pixabay<br/>free key]:::built --> p4[generate<br/>gpt-image-2 drawings<br/>now or batch]:::built
+        p7[iNaturalist<br/>animals, plants<br/>off by default]:::part ~~~ p8[ARASAAC<br/>pictograms, CC BY-NC-SA<br/>off by default]:::part
     end
     subgraph Text["Writing + checking"]
         direction LR
@@ -141,6 +142,7 @@ reaches every card without touching review history. Panko never writes `MyNotes`
 |---|---|
 | `config/panko.toml` | provider chains and settings |
 | `src/panko/providers/` | one file per provider, registered by name |
+| `src/panko/providers/images/` | picture search: `wikidata.py` (query → Wikidata item → its P18 Commons file), `commons.py`, `openverse.py`, `pexels.py`, `pixabay.py` (free keys), `inaturalist.py`, `arasaac.py` (off by default), `source.py` (crops, not built); `web.py` = polite spacing per site, one retry on 429 then pause the site, answers cached in `cache/images/` |
 | `src/panko/mcp_server.py` | chat mode (`panko mcp`, `--config` prints the Claude Desktop/Code snippet): thin MCP tools over the modules below; the workflow Claude follows is `prompts/chat.md` (`panko_guide`) |
 | `src/panko/work.py` | sources split into units (PDF pages, photos, transcript chunks), one validated result per unit in `data/work/<source>/units/`, resumable; `ingest_source` merges results: known → sighting + the source's sentences, homograph → own entry with shadda, near-duplicate → held |
 | `src/panko/pipeline.py` | API mode (`panko work run [--batch] [--budget] [--estimate]`): extract → local evidence → check → picture plan per unit through `panko.llm`, then `work.submit` like a chat result |
@@ -152,7 +154,7 @@ reaches every card without touching review history. Panko never writes `MyNotes`
 | `src/panko/cards/note_types.py` | Anki fields, card templates, CSS |
 | `src/panko/cards/render.py` | entry data → card HTML |
 | `src/panko/anki/mcp_client.py` | talks to the Anki MCP Server add-on |
-| `src/panko/media/pictures.py` | the picture step (`panko pictures export/search/apply`): photo candidates + contact sheets, applying decisions, drawings now (`draw`) or by OpenAI batch (`draw_batch`, `collect`) |
+| `src/panko/media/pictures.py` | the picture step (`panko pictures export/search [--providers …]/apply`): photo candidates taken in turn from each site + contact sheets (10 per row, site-tagged), applying decisions, drawings now (`draw`) or by OpenAI batch (`draw_batch`, `collect`) |
 | `src/panko/media/audio.py` | walks the audio chain, caches results in `cache/media/` |
 | `src/panko/store/` | SQLite store: entries, sources, sightings, Anki links; Arabic normalisation for dedup |
 | `src/panko/ingest/` | extraction JSON → candidates (inbox); `activate` promotes them |

@@ -6,5 +6,7 @@ from panko.providers.base import ImageSearch
 
 @register("images", "source")
 class SourceCrop(ImageSearch):
+    label = "Source"
+
     def search(self, query, limit=6):
         return []

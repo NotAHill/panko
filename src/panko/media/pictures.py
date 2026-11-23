@@ -2,13 +2,15 @@
 
 The flow (`panko pictures …`, see data/sources/decks/PICTURE-BRIEF.md):
 1. export   cards without a picture → a JSON list for whoever decides (Claude, following PICTURE-BRIEF).
-2. search   English queries → candidates from Wikimedia Commons / Openverse + numbered contact sheets.
+2. search   English queries → candidates from the free sites in the [images] chain (Wikidata, Commons, Openverse,
+            Pexels, Pixabay…), taken in turn from each, + numbered contact sheets.
 3. apply    decisions {id: {"photo": {dir, index}} | {"prompt": …} | {"skip": …}}: downloads and credits the
             chosen photos, then draws the prompts now (`draw`) or as an OpenAI batch (`draw_batch` + `collect`).
 """
 from __future__ import annotations
 
 import io
+import itertools
 import json
 import subprocess
 import sys
@@ -19,7 +21,7 @@ from pathlib import Path
 import httpx
 
 from panko import providers
-from panko.providers.images.commons import UA
+from panko.providers.images.web import UA
 
 GEN_PREFIX = "_panko_proto_gen_"
 PHOTO_PREFIX = "_panko_proto_"
@@ -52,36 +54,64 @@ def export(store, status: str = "active", batch: int | None = None, ids: list[st
 
 # 2. search ------------------------------------------------------------------------------------------------------
 
-def candidates(query: str, per_provider: int = 6) -> list[dict]:
-    out = []
-    for p in providers.chain("images"):
-        if not hasattr(p, "search"):
-            continue
+def _searchers(names: list[str] | None = None) -> list:
+    return [p for p in providers.chain("images", names) if hasattr(p, "search")]
+
+
+def candidates(query: str, per_provider: int = 6, names: list[str] | None = None) -> list[dict]:
+    """Candidates from each search provider, taken in turn (1st of each, then 2nd of each…) so every site shows up
+    on a sheet and the most precise one (first in the chain) leads."""
+    found = []
+    for p in _searchers(names):
         try:
-            for c in p.search(query, per_provider):
-                out.append({**c, "provider": p.name})
+            found.append([{**c, "provider": p.name} for c in p.search(query, per_provider) if c.get("thumb")])
         except httpx.HTTPError as e:
             print(f"  {p.name}: {e}", file=sys.stderr)
-    return [c for c in out if c.get("thumb")]
+    return [c for rnd in itertools.zip_longest(*found) for c in rnd if c]
+
+
+def _on_white(im):
+    """RGB, with any transparency (pictograms) on white instead of black."""
+    from PIL import Image
+    if im.mode in ("RGBA", "LA", "P"):
+        im = im.convert("RGBA")
+        bg = Image.new("RGB", im.size, "white")
+        bg.paste(im, mask=im.getchannel("A"))
+        return bg
+    return im.convert("RGB")
 
 
 def _fetch(c: dict):
     from PIL import Image
-    try:
-        im = Image.open(io.BytesIO(httpx.get(c["thumb"], headers=UA, timeout=30, follow_redirects=True).content))
-        im.load()
-        return im
-    except Exception:  # noqa: BLE001
-        return None
+    for attempt in range(2):                          # image hosts throttle bursts of parallel fetches
+        try:
+            r = httpx.get(c["thumb"], headers=UA, timeout=30, follow_redirects=True)
+            r.raise_for_status()
+            im = Image.open(io.BytesIO(r.content))
+            im.load()
+            return _on_white(im)
+        except Exception:  # noqa: BLE001
+            if attempt == 0:
+                time.sleep(2)
+    return None
 
 
-def search(queries: dict[str, str], outdir: Path, per_slug: int = 7) -> list[Path]:
-    """{slug: English query} → outdir/cands.json and contact sheets (one row per slug, candidates numbered 0–6)."""
+# provider → short tag printed next to each candidate's number on a sheet
+TAGS = {"wikidata": "wd", "commons": "cm", "openverse": "ov", "pexels": "px", "pixabay": "pb", "inaturalist": "in",
+        "arasaac": "as", "source": "src"}
+
+
+def search(queries: dict[str, str], outdir: Path, per_slug: int = 10, names: list[str] | None = None,
+           fetch=_fetch) -> list[Path]:
+    """{slug: English query} → outdir/cands.json and contact sheets (one row per slug, candidates numbered 0–9,
+    each tagged with its site). `names` swaps the configured chain for these providers."""
     from PIL import Image, ImageDraw
 
     outdir.mkdir(parents=True, exist_ok=True)
+    each = -(-per_slug // max(1, len(_searchers(names)))) + 1   # enough from each site to fill a row if one fails
     with ThreadPoolExecutor(6) as ex:
-        found = dict(zip(queries, ex.map(lambda q: candidates(q, 5)[:per_slug], queries.values()), strict=True))
+        found = dict(zip(queries, ex.map(lambda q: candidates(q, each, names)[:per_slug], queries.values()),
+                         strict=True))
     (outdir / "cands.json").write_text(json.dumps(found, ensure_ascii=False, indent=1))
     cell, slugs, sheets = 170, list(queries), []
     for part in range(0, len(slugs), 6):
@@ -91,7 +121,7 @@ def search(queries: dict[str, str], outdir: Path, per_slug: int = 7) -> list[Pat
         for r, slug in enumerate(rows):
             d.text((4, r * cell + cell // 2), slug[:12], fill="black")
             with ThreadPoolExecutor(7) as ex:
-                ims = list(ex.map(_fetch, found[slug]))
+                ims = list(ex.map(fetch, found[slug]))
             for i, im in enumerate(ims):
                 if im is None:
                     continue
@@ -99,6 +129,7 @@ def search(queries: dict[str, str], outdir: Path, per_slug: int = 7) -> list[Pat
                 x, y = 90 + i * cell, r * cell
                 sheet.paste(im.convert("RGB"), (x + 3, y + 15))
                 d.text((x + 3, y + 2), str(i), fill="red")
+                d.text((x + 24, y + 2), TAGS.get(found[slug][i].get("provider"), ""), fill="gray")
         p = outdir / f"sheet{part // 6}.jpg"
         sheet.save(p)
         sheets.append(p)
@@ -108,14 +139,24 @@ def search(queries: dict[str, str], outdir: Path, per_slug: int = 7) -> list[Pat
 # 3. apply -------------------------------------------------------------------------------------------------------
 
 def _credit(c: dict) -> str:
-    prov = "Wikimedia Commons" if c.get("provider") == "commons" else "Openverse"
-    return f'<a href="{c.get("page", "")}">{prov}</a> · {c.get("author", "")} · {c.get("license", "")}'
+    p = providers.get("images", c.get("provider", ""))
+    site = getattr(p, "label", "") or "Openverse"     # older cands.json files: anything not Commons was Openverse
+    return f'<a href="{c.get("page", "")}">{site}</a> · {c.get("author", "")} · {c.get("license", "")}'
 
 
 def _download(c: dict, path: Path):
+    p = providers.get("images", c.get("provider", ""))
+    if p is not None and hasattr(p, "fresh"):
+        c = p.fresh(c)                                 # some sites' links expire (Pixabay: 24 h)
     r = httpx.get(c["thumb"], headers=UA, follow_redirects=True, timeout=60)
     r.raise_for_status()
-    path.write_bytes(r.content)
+    content = r.content
+    if content[:4] == b"\x89PNG":                        # pictograms are transparent PNGs: flatten onto white
+        from PIL import Image
+        buf = io.BytesIO()
+        _on_white(Image.open(io.BytesIO(content))).save(buf, "PNG")
+        content = buf.getvalue()
+    path.write_bytes(content)
     subprocess.run(["sips", "-s", "format", "jpeg", "-Z", "800", str(path), "--out", str(path)],
                    check=True, capture_output=True)
 

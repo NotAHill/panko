@@ -44,9 +44,16 @@ class TTS(Provider):
 
 
 class ImageSearch(Provider):
+    label = "?"          # the site named in a card's picture credit
+
     def search(self, query: str, limit: int = 6) -> list[dict]:
-        """Return candidates: {url, thumb, title, author, license, page}."""
+        """Return candidates: {url, thumb, title, author, license, page}. `thumb` (about 800 px) is what the
+        contact sheet shows and what gets downloaded for the card."""
         raise NotImplementedError
+
+    def fresh(self, c: dict) -> dict:
+        """The candidate with download links that still work (some sites' links expire)."""
+        return c
 
 
 class ImageGen(Provider):

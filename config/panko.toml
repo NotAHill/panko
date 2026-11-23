@@ -26,8 +26,12 @@ voice_darija = "ar-MA-MounaNeural"
 voice_fusha = "ar-SA-HamedNeural"
 
 [images]
-# source = picture cropped from the material the word came from
-chain = ["source", "commons", "openverse", "generate"]
+# source = picture cropped from the material the word came from. Free photo sites next (wikidata = the Wikidata
+# item's own Commons picture, precise for concrete nouns; pexels/pixabay need free keys), the paid drawing last.
+# Also available, off by default: "inaturalist" (animals, plants) and "arasaac" (pictograms for actions;
+# CC BY-NC-SA, personal use only, not the hand-made look). Try them for one run with
+# `panko pictures search --providers inaturalist,arasaac`.
+chain = ["source", "wikidata", "commons", "openverse", "pexels", "pixabay", "generate"]
 
 [images.generate]
 provider = "openai"      # openai | recraft | gemini

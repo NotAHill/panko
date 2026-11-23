@@ -37,6 +37,21 @@ Backs began with `<hr id="answer">`, which drew a line above the picture and mad
 to `#answer` with `scrollIntoView()`). An empty anchor at the top still scrolled by the card's padding on backs
 taller than the window, so backs have no `#answer` at all: Anki then shows the back from the top.
 
+**2026-11-23 · More free picture sources before a paid drawing; no Unsplash.**
+Two thirds of the Peace Corps picture plans were drawings, each one paid. The picture chain is now
+source → Wikidata → Commons → Openverse → Pexels → Pixabay → generate. Wikidata goes first because a word's
+Wikidata item usually has one well-chosen main image (P18) on Commons, which is precise for concrete nouns; it is
+skipped for verbs ("to run" matched a brook). Pexels and Pixabay need free keys and both licences allow downloading
+the file, which Anki media needs. Unsplash is left out: its API terms require hotlinking its servers, and an Anki
+card can't. iNaturalist (animals, plants; only openly licensed photos) and ARASAAC (pictograms for actions) are
+registered but off by default: ARASAAC is CC BY-NC-SA (personal use only) and its flat pictograms don't have the
+hand-made look; try either for one run with `panko pictures search --providers inaturalist,arasaac`. Contact sheets
+take candidates from each site in turn (10 per row, each tagged with its site) so the new sources show up next to
+Commons. Every search answer is cached in `cache/images/` and each site is spaced politely; a site that rate-limits
+for long is paused for the run (Pexels allows 200 searches an hour, so a big run fills over several passes, the
+cache keeping what's done). Pixabay's image links expire after a day, so the chosen photo is looked up again before
+download.
+
 **2026-11-23 · Chat mode first: Panko runs inside the learner's own Claude.**
 A third-party app can't bill a model call to someone's Claude subscription, so a Panko that only calls the API makes
 every learner buy credits (~$30 a textbook). Instead Panko becomes an MCP server: the learner's Claude (Desktop,
