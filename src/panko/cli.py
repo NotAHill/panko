@@ -24,9 +24,10 @@ def _main(argv=None):
     sy.add_argument("--dry-run", action="store_true", help="list what would change and the audio still to pay for")
     wk = sub.add_parser("work", help="work through a source in units: add, status, run (API mode), ingest, decide")
     wsub = wk.add_subparsers(dest="wcmd")
-    wa = wsub.add_parser("add", help="register a PDF, a folder of page photos or a text transcript")
-    wa.add_argument("path")
-    wa.add_argument("--kind", required=True, help="textbook | teacher-sheet | lesson | media | notes")
+    wa = wsub.add_parser("add", help="register a PDF, a folder of page photos, a text transcript or an exported deck (.json)")
+    wa.add_argument("path", nargs="?", default="", help="the file or folder (not needed with --deck)")
+    wa.add_argument("--deck", default="", help="export this Anki deck (read-only; Anki open) and add it as a source")
+    wa.add_argument("--kind", required=True, help="textbook | teacher-sheet | lesson | media | notes | deck")
     wa.add_argument("--title", required=True)
     wa.add_argument("--id", default="")
     wa.add_argument("--date", default="")
@@ -240,6 +241,14 @@ def _work(args, parser):
 
     from panko import work
     if args.wcmd == "add":
+        if args.deck:
+            from panko.anki.export import export_deck
+            path = work.WORK / "decks" / f"{work.slug(args.deck)}.json"
+            d = export_deck(args.deck, path)
+            print(f"exported {len(d['notes'])} notes ({sum(n['studied'] for n in d['notes'])} studied) to {path}")
+            args.path = str(path)
+        elif not args.path:
+            parser.error("give a PATH or --deck NAME")
         s = work.add_source(args.path, args.kind, args.title, args.id, args.date, args.trust,
                             page_offset=args.page_offset, first=args.first, last=args.last)
         print(f"{s['id']}: {len(s['units'])} units ({s['units'][0]}…{s['units'][-1]})")

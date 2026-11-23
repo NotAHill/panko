@@ -13,8 +13,10 @@ Decide, like a careful native-speaker teacher would:
 Verdicts:
 - `ok`: fine as is.
 - `fix`: the right word with a wrong detail; correct it. A fix needs evidence or a plain slip (a typo, Arabic
-  that doesn't match its transliteration). When only your memory disagrees with what a teaching source says
-  (a grammar rule, a form, a sense), the source wins: use `ok`, or `doubtful` with the reason.
+  that doesn't match its transliteration). When only your memory disagrees with what a teaching source (a teacher,
+  a textbook, a lesson) says, a grammar rule, a form, a sense, the source wins: use `ok`, and if most speakers say
+  something else, give it as `usual_word` with a `learner_note`. A teaching source's word is `doubtful` only when
+  evidence speaks against it, not because you'd have said it differently.
 - `regional`: real but tied to a region (say which).
 - `uncommon`: real but rare, old-fashioned or bookish.
 - `doubtful`: you couldn't confirm it.

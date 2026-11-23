@@ -2,6 +2,15 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-23 · Words inside a taught phrase are items too; a teaching source isn't doubted on memory.**
+S7 compared API mode with the chat agents. The packaged extract prompt kept a shop dialogue's lines as phrases but
+not the words in them (bread, milk, change, dirham), so a sheet gave 31 items where the agents gave 55. A learner
+needs those words, so each new content word in a phrase or example becomes an item with that line as its example.
+The check also marked a teacher's words doubtful because it would have said them differently. A teaching source
+now wins over memory: the item stays `ok`, the more usual word goes in `usual_word` and a learner note, and only
+evidence can make it `doubtful` or `fix` (it did for ربعة, which DODa lists as "four"). Verbs with a fixed
+preposition keep it in the headword (تخلص من), as in the learner's existing cards.
+
 **2026-11-23 · AGPL-3.0-or-later, with a contributor agreement.**
 Panko is open source so other learners can run and improve it. The AGPL rather than MIT means anyone who runs a changed
 Panko as a service must share their changes, and it fits the AGPL `anki` library that migrations use. The owner isn't

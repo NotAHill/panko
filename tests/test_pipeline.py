@@ -102,3 +102,51 @@ def test_batch_mode_goes_step_by_step(setup):
 def test_budget_stops_before_spending(setup):
     with pytest.raises(llm.BudgetExceeded):
         pipeline.run("my-notes", llm_provider=Fake(), quiet=True, store=setup, budget=0.0001)
+
+
+class FakeDeck(Fake):
+    def answer(self, a, batch=False):
+        if "dropped" not in a.schema["properties"]:
+            return super().answer(a, batch)
+        self.calls.append("deck")
+        rows = [json.loads(line) for line in a.parts[0].splitlines()]
+        assert [r["ar"] for r in rows] == ["طابلة / طابلات", "زربية"]    # كاس is known: not sent
+        assert rows[0]["evidence"] and "fields" not in rows[0]
+        data = {"items": [{"src_id": rows[0]["id"], "kind": "word", "variety": "darija", "ar": "طابلة", "tl": "tabla",
+                           "gloss": "table", "pos": "noun", "plural": "طابلات", "region": "pan-Moroccan", "cards": [],
+                           "check": {"verdict": "fix", "summary": "deck said 'desk'", "evidence": ["corpus"]}}],
+                "dropped": [{"src_id": rows[1]["id"], "ar": "زربية", "why": "test"}]}
+        u = {"input": 1000, "output": 500}
+        return Answer(id=a.id, model=self.model, data=data, usage=u, cost=cost(self.model, u, batch), batch=batch)
+
+
+def test_deck_rows_known_skipped_then_deck_prompt(setup, tmp_path):
+    s, f = setup, FakeDeck()
+    deck = tmp_path / "darija.json"
+    deck.write_text(json.dumps({"deck": "Darija", "notes": [
+        {"nid": 1, "studied": True, "fields": {"Front": "كاس", "Back": "glass"}},
+        {"nid": 2, "studied": False, "fields": {"Front": "طابلة / طابلات", "Back": "desk"}},
+        {"nid": 3, "studied": False, "fields": {"Front": "زربية", "Back": "rug"}}]}, ensure_ascii=False))
+    src = work.add_source(str(deck), "deck", "Old deck: Darija", trust=30)
+    assert src["type"] == "deck" and src["units"] == ["d001"]
+    assert pipeline.estimate("old-deck-darija", llm_provider=f)["deck_usd"] > 0
+    r = pipeline.run("old-deck-darija", llm_provider=f, quiet=True, store=s, budget=1)
+    assert r["done"] == ["d001"] and f.calls == ["deck", "pictures"]
+    items = work.result("old-deck-darija", "d001")["items"]
+    assert items[0]["known_id"] == "dw-1"
+    table = items[1]
+    assert table["origin"] == {"deck": "old-deck-darija", "nid": 2, "studied": False}
+    assert table["verdict"]["fix"]["gloss"] == "table" and table["picture"]["choice"] == "photo"
+    rep = work.ingest_source("old-deck-darija", s)
+    assert rep["new"] == 1 and rep["known"] == 1
+    e = next(e for e in s.entries("candidate") if e["ar"] == "طابلة")
+    assert e["origin"]["nid"] == 2 and e["plural"] == "طابلات"
+
+
+def test_unknown_note_type_passes_the_whole_note(tmp_path):
+    from panko.ingest.decks import rows
+    p = tmp_path / "someone-elses-deck.json"
+    p.write_text(json.dumps({"deck": "X", "notes": [{"nid": 9, "fields": {
+        "Hint": "Recall the word.", "Word": "بزاف", "Meaning": "a lot"}}]}, ensure_ascii=False))
+    _, [r] = rows(p)
+    assert r["ar"] == "بزاف" and r["fields"]["Meaning"] == "a lot" and work.deck_row(r)["fields"]

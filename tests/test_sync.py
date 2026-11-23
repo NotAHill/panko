@@ -80,3 +80,22 @@ def test_dry_run_touches_nothing(anki, tmp_path):
     s.put({"id": "dw-1", "kind": "word", "variety": "darija", "ar": "كاس", "gloss": "glass"}, status="active")
     p = sync.plan(s)
     assert p["add"] == ["dw-1"] and not anki.calls
+
+
+def test_export_deck_marks_studied_notes(monkeypatch, tmp_path):
+    from panko.anki import export
+    calls = []
+
+    def fake(name, args):
+        calls.append((name, args))
+        if name == "find_notes":
+            return {"noteIds": [5] if "-is:new" in args["query"] else [5, 6]}
+        return {"notes": [{"noteId": n, "modelName": "Basic", "tags": [],
+                           "fields": {"Back": {"value": "glass", "order": 1}, "Front": {"value": "كاس", "order": 0}}}
+                          for n in args["notes"]]}
+    monkeypatch.setattr(sync, "tool", fake)
+    monkeypatch.setattr(sync.mcp, "init", lambda: None)
+    out = export.export_deck('My "old" deck', tmp_path / "d.json")
+    assert [n["studied"] for n in out["notes"]] == [True, False]
+    assert list(out["notes"][0]["fields"]) == ["Front", "Back"] and calls[0][1]["query"] == 'deck:"My \\"old\\" deck"'
+    assert not any(c[0] not in ("find_notes", "notes_info") for c in calls)   # read-only

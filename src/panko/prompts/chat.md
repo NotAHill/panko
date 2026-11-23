@@ -30,6 +30,13 @@ mode, so take the same care an API run would.
 6. `panko_submit(source, unit, {"items": [...]})`. A page with nothing to learn is `{"items": []}`. If it comes back
    with errors, fix them and submit the whole unit again.
 
+## Old deck units (`d001`…)
+A deck source is an exported Anki deck; each unit is 25 rows (`panko_page` gives one JSON row per line). Follow
+`panko_prompt("deck")` instead of extract + check: split, correct and judge each row in one pass, `panko_evidence`
+first as above. Submit in the same unit format as pages: the verdict goes in `verdict` (for `fix`, `fix` holds the
+corrected values you put in the item), a `picture` plan, and `origin` = `{"deck": source id, "nid": row id,
+"studied": row studied}`. Rows you drop are simply left out.
+
 ## End of a batch or session
 - `panko_ingest(source)` merges submitted units into the inbox. Items close to an existing entry come back as `held`:
   decide each one with `panko_decide(source, unit, ar, known_id=…)` (same word) or `distinct=true` (a different

@@ -3,18 +3,21 @@
 An item is one word (`kind: "word"`) or one phrase or short sentence a learner would say or hear (`kind: "phrase"`).
 `variety` is one of {{varieties}}. Fields with nothing to say are `""` or `[]`.
 
-- `ar`: Arabic script, no harakat (vowel marks) unless the variety is Fusha or the source vowels it. Use the source's
+- `ar`: Arabic script, no harakat (vowel marks) or shadda unless the variety is Fusha or the source writes them. Use the source's
   spelling when it gives Arabic script; when it gives only romanisation, write the usual spelling for this variety.
   Nouns without the article unless the article belongs to the expression.
 - `tl`: {{tl_main}}. {{#tl_main_rules}}Style: {{tl_main_rules}}. {{/tl_main_rules}}When the source has its own
   romanisation in this style, keep it exactly (drop capitals used only for teaching emphasis).
 - `tl_alt`: {{tl_alt}}.
-- `gloss`: short {{gloss_language}} meaning, as a learner wants it ("to buy", "expensive", "next to"). Phrases get a
+- `gloss`: short {{gloss_language}} meaning, as a learner wants it ("to buy", "expensive", "next to"); a second
+  common sense after a semicolon ("engineering; geometry"). Phrases get a
   natural translation; `literal` holds the word-for-word sense when it helps.
 - `gloss_note`: only real learner information: origin ("from French *chaise*"), register ("polite"), irregular
   gender, the everyday synonym. Never where the item came from, never doubts.
 - Words: `pos`; `gender` (`m`/`f`) for nouns; `plural` (Arabic script) when the source gives it or you are sure.
-  Verbs: the headword is the dictionary form (Darija: past 3rd-person masculine singular, شرى "to buy");
+  Verbs: the headword is the dictionary form (Darija: past 3rd-person masculine singular, شرى "to buy"); a verb
+  whose meaning comes with a fixed preposition keeps it in the headword (تخلص من "to get rid of", حكم على "to
+  sentence"), a verb that merely often takes one doesn't;
   `present` is the 1st-person singular present (Darija with ka-: كنشري) and `imperative` the 2nd-person
   singular, when known.
 - Phrases: `usage` is one short sentence on when you'd say it, only if the source explains it or it's useful.

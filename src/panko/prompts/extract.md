@@ -12,6 +12,11 @@ Word lists: when a word is followed by a sentence that uses it (a table of quest
 question), the sentence is that word's example, not an item of its own. The same goes for pairs that only show a
 pattern (with a plural noun / with a singular one).
 
+Words inside phrases: a dialogue line or useful sentence is a phrase item, and each new content word in it (a noun,
+verb, adjective or number a learner needs, such as the bread, the milk and the coins in a shop dialogue) is also
+an item of its own, with that line as its example. The same holds for words that only appear in an example
+(the butter in "250 g of butter"). Don't do this for function words the page doesn't teach.
+
 {{#source_note}}About this source: {{source_note}}
 
 {{/source_note}}{{> item}}

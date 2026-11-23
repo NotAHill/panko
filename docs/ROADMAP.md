@@ -13,8 +13,19 @@ Update the **Now** section at the end of every work session: it's what a fresh s
   README quickstart, fake-Anki sync tests).
 - **Sources run so far:** lessons and teacher sheets, the learner's old shared Darija decks (checked, with a region
   pass), and the public-domain Peace Corps *Moroccan Arabic* textbook (run through Panko's own prompts).
-- **Next:** S7, checking that the commands reproduce what the chat agents produced (one teacher sheet, one old-deck
-  batch), with deck rows as a unit type for API mode. Pictures for the Peace Corps candidates are being searched.
+- **S7 done (2026-11-23): the commands reproduce the chat agents.** Old Anki decks are now a source like any other:
+  `panko work add --deck NAME` exports one read-only (studied notes marked), it splits into 25-row units, and API
+  mode runs the `deck` prompt on them (rows you already have are known for free); chat mode follows the same prompt.
+  A teacher sheet (2 pages) and 25 deck rows were run through API mode and compared with the agents' results. First
+  run: the deck matched closely, but the sheet gave 31 items to the agents' 55, because words inside dialogue lines
+  weren't items of their own. Prompt fixes: new content words in a phrase or example become items too; a verb with a
+  fixed preposition keeps it in the headword (تخلص من); no shadda in Darija headwords; a second sense after a
+  semicolon; a deck row that was corrected is `fix`, not `ok`; the check is told the source, and a teaching source's
+  word is never `doubtful` on memory alone (the usual word goes in `usual_word` instead). After the fixes: sheet 51 of
+  the agents' 55 headwords plus useful extras (half, litre, how much, shop), deck 23 of 23; remaining differences are
+  gloss punctuation and romanisation detail, and a few evidence-backed fixes the agents missed. Cost $2.21 in all.
+- **Next:** pictures for the Peace Corps candidates (photo search running), then activate and sync with your OK. The
+  Fusha round of Phase 6 can run on the commands once you settle its open questions.
 - The learner's own state (deck sizes, what's waiting on whom, plans) is in `data/STATUS.md` (git-ignored).
 
 ## Phases
@@ -42,7 +53,7 @@ sentences, clashes, picture decisions) are briefs in `data/` (git-ignored) run b
 | S4 ✅ | **A command per step** (API mode, for unattended runs; built 2026-11-23 as `panko work run` over the S3 units: one pipeline instead of separate commands, deck rows and `examples` not yet wired) | `panko extract` (PDF pages via vision, text, transcripts, deck rows), `panko check` (verify + region, with evidence), `panko examples`, `panko dedupe` (clashes), `panko pictures decide`. Parallel, resumable, cached per item; they write the JSON that `ingest` / `pictures apply` already read, so the human review points stay. |
 | S5 ✅ | **Evidence and settings for anyone** (built 2026-11-23: `panko init`, `panko refs`, `[anki]` decks/profile/card map) | `panko init` writes the config: Anki profile, deck names, varieties, voices, keys. Nothing hard-coded (profile "User 1", "Panko Sandbox", the old-deck card map: detect which side shows Arabic from the templates, with an override file). Open evidence downloads itself (DODa); private dictionaries are a path in config. |
 | S6 ✅ | **Packaging and docs** (built 2026-11-23; AGPL-3.0-or-later; publishing is your call) | README quickstart for a new learner, licence, a worked example on a free source (Peace Corps), tests with a fake Anki and fake LLM. Publish when you decide. |
-| S7 | **Check it matches** | Re-run one teacher sheet and one old-deck batch through the commands and compare with what the agents produced. Fix the prompts until they agree. Then the Fusha round (Phase 6, second round) runs on the commands too. |
+| S7 ✅ | **Check it matches** (done 2026-11-23 on a teacher sheet and 25 deck rows; the Fusha round waits for your call) | Re-run one teacher sheet and one old-deck batch through the commands and compare with what the agents produced. Fix the prompts until they agree. Then the Fusha round (Phase 6, second round) runs on the commands too. |
 
 Open: Arabic varieties only at first, or any language. (Settled 2026-11-23: AGPL-3.0-or-later, published on GitHub; Opus for every step, batches for big runs.)
 

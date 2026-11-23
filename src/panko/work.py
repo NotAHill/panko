@@ -31,6 +31,7 @@ PAGES = ROOT / "cache" / "pages"
 IMAGE_EXT = {".png", ".jpg", ".jpeg", ".webp", ".heic", ".gif"}
 TEXT_EXT = {".txt", ".md", ".srt", ".vtt"}
 CHUNK_LINES = 60
+DECK_ROWS = 25          # rows of an old deck per unit (one `deck` answer, well under the output limit)
 
 
 def _now() -> str:
@@ -88,11 +89,22 @@ def add_source(path: str, kind: str, title: str, sid: str = "", date: str = "", 
         if not files:
             raise ValueError(f"{p} has no images")
         s |= {"type": "images", "files": files, "units": [f"i{i:03d}" for i in range(1, len(files) + 1)]}
+    elif p.suffix.lower() == ".json":
+        from panko.ingest.decks import rows
+        title, rs = rows(p)
+        if not rs:
+            raise ValueError(f"{p} has no deck rows (expected an exported deck: {{\"deck\", \"notes\"}})")
+        rp = WORK / sid / "rows.json"
+        rp.parent.mkdir(parents=True, exist_ok=True)
+        rp.write_text(json.dumps(rs, ensure_ascii=False))
+        s |= {"type": "deck", "deck": title, "rows": len(rs),
+              "units": [f"d{i:03d}" for i in range(1, (len(rs) - 1) // DECK_ROWS + 2)]}
     elif p.suffix.lower() in TEXT_EXT:
         n = len(p.read_text(encoding="utf-8").splitlines())
         s |= {"type": "text", "units": [f"c{i:03d}" for i in range(1, n // CHUNK_LINES + 2)]}
     else:
-        raise ValueError(f"can't split {p.suffix} files yet: use a PDF, a folder of images or a text transcript")
+        raise ValueError(f"can't split {p.suffix} files yet: use a PDF, a folder of images, a text transcript or an "
+                         "exported deck (.json)")
     reg = sources()
     reg[sid] = s
     _save_sources(reg)
@@ -124,11 +136,23 @@ def page(sid: str, unit: str, dpi: int = 110) -> dict:
                               capture_output=True, text=True).stdout
     elif s["type"] == "images":
         image = p / s["files"][int(unit[1:]) - 1]
+    elif s["type"] == "deck":
+        i = (int(unit[1:]) - 1) * DECK_ROWS
+        rs = json.loads((WORK / sid / "rows.json").read_text())[i:i + DECK_ROWS]
+        text = "\n".join(json.dumps(deck_row(r), ensure_ascii=False) for r in rs)
+        return {"source": sid, "unit": unit, "page": None, "image": None, "text": text, "rows": rs}
     else:
         lines = p.read_text(encoding="utf-8").splitlines()
         i = (int(unit[1:]) - 1) * CHUNK_LINES
         text = "\n".join(lines[i:i + CHUNK_LINES])
     return {"source": sid, "unit": unit, "page": book_page(s, unit), "image": image, "text": text.strip()}
+
+
+def deck_row(r: dict) -> dict:
+    """A deck row as the `deck` prompt reads it."""
+    out = {"id": str(r["nid"]), "ar": r["ar"], "tl": r["tl"], "en": r["en"], "picture_hint": r["hint"],
+           "studied": r["studied"]}
+    return out | ({"fields": r["fields"]} if r.get("fields") else {})
 
 
 # ---- results -----------------------------------------------------------------------------------------------------
@@ -193,6 +217,9 @@ ITEM = {"type": "object", "additionalProperties": False, "required": ["kind", "a
                        "related": {"type": "array", "items": RELATED},
                        "check": _loose(CONFIDENCE, []),
                        "page": {"type": ["integer", "string"]}, "known": {"type": "boolean"},
+                       "region": {"type": "string"},
+                       "cards": {"type": "array", "items": {"type": "string", "enum": ["recognition", "production"]}},
+                       "origin": {"type": "object"},
                        "known_id": {"type": "string"}, "distinct": {"type": "boolean"},
                        "verdict": {"type": "object", "properties": _VERDICT_PROPS, "required": ["verdict"],
                                    "additionalProperties": False},

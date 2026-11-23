@@ -58,7 +58,13 @@ Arabic* textbook is a US government work, so it's in the public domain:
 panko work add moroccan-arabic.pdf --kind textbook --title "Peace Corps Moroccan Arabic"
 ```
 
-The source is split into units: one per page, photo or stretch of transcript. `panko work status` shows where
+An old Anki deck can be a source too. Panko exports it read-only while Anki is open:
+
+```bash
+panko work add --deck "My old Darija deck" --kind deck --title "Old deck" --trust 30
+```
+
+The source is split into units: one per page, photo, stretch of transcript or 25 deck rows. `panko work status` shows where
 you are.
 
 ### Chat mode (no key)

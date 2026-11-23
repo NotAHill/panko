@@ -65,4 +65,31 @@ def parse(deck: str, n: dict) -> dict | None:
         en = text(f.get("Back") or f.get("Extra") or f.get("Front (Definitions, base word, etc.)", ""))
         return {"deck": deck, "nid": n["nid"], "studied": n["studied"], "ar": "", "head": "", "forms": [], "tl": front,
                 "en": en, "hint": picture_hint(f.get("Back", "")), "all": vals}
-    return None
+    return generic(deck, n)
+
+
+def generic(deck: str, n: dict) -> dict | None:
+    """Any other note type: the first field with Arabic script is the word, the first field without it the meaning;
+    no Arabic at all: the front is taken as romanisation (the model writes the Arabic). `fields` keeps the whole note."""
+    vals = [(k, text(re.sub(r"\{\{c\d+::(.*?)(::.*?)?\}\}", r"\1", v))) for k, v in n["fields"].items() if text(v)]
+    if not vals:
+        return None
+    ar = next((v for _, v in vals if ARABIC.search(v)), "")
+    rest = [v for _, v in vals if not ARABIC.search(v)]     # the meaning: a field in the gloss language
+    raw_back = next((v for v in n["fields"].values() if text(v) and text(v) != ar), "")
+    whole = dict(vals)          # the reader sees the whole note too, since a guess can pick the wrong fields
+    if ar:
+        return {**row(deck, n, ar, rest[0] if rest else "", hint="" if rest else picture_hint(raw_back)),
+                "fields": whole}
+    return {"deck": deck, "nid": n["nid"], "studied": n.get("studied", False), "ar": "", "head": "", "forms": [],
+            "tl": vals[0][1], "en": vals[1][1] if len(vals) > 1 else "", "hint": picture_hint(raw_back),
+            "fields": whole}
+
+
+def rows(path: Path) -> tuple[str, list[dict]]:
+    """(deck title, rows) from an exported deck file {"deck", "notes": [{nid, fields, studied}]}."""
+    import json
+    d = json.loads(path.read_text())
+    deck = path.stem
+    return d.get("deck", deck), [r for n in d["notes"] if (r := parse(deck, {"studied": False, **n}))
+                                 and (r["ar"] or r["tl"])]

@@ -3,6 +3,9 @@ they used? The items came from teacher sheets, textbooks, transcripts or old dec
 the learner wants to know which ones to trust and which belong to a region.
 
 Each item is `{"id", "kind", "ar", "tl", "tl_alt", "gloss", "gloss_note", "pos", "examples", "evidence"}`.
+{{#source_note}}
+These items come from: {{source_note}}.
+{{/source_note}}
 
 {{> verdict}}
 

@@ -8,7 +8,9 @@ items with a verdict, or drop it with a reason. Extract and check in one pass.
 
 {{/source_note}}## The rows
 
-Each row is `{"id", "ar", "tl", "en", "picture_hint", "studied", "evidence"}`.
+Each row is `{"id", "ar", "tl", "en", "picture_hint", "studied", "evidence"}`, plus `fields` (the whole note,
+field name → text) when Panko doesn't know the deck's note type: then `ar` and `en` are guesses, so read `fields`
+and take the word and its meaning from wherever they are (instructions and hints are not meanings).
 - `ar` may hold `word / plural`, `word، plural`, `(synonym)`, or two words run together (two synonyms for one
   meaning). Split it: one item per real headword; a plural goes in `plural`.
 - `en` may be empty when the deck's back was a picture; then `picture_hint` (the picture's file name) is the meaning.
@@ -20,7 +22,9 @@ Each row is `{"id", "ar", "tl", "en", "picture_hint", "studied", "evidence"}`.
 {{> item}}
 
 Differences for deck rows:
-- Apply your verdict directly in the item: correct `ar`, `gloss`, `pos` and so on in place.
+- Apply your verdict directly in the item: correct `ar`, `gloss`, `pos` and so on in place. The verdict is `fix`
+  whenever you changed what the row said (its Arabic, spelling or meaning, beyond tidying wording), `ok` only when
+  the row was right as given.
 - Every item carries its row's `src_id` (a split row gives several items with the same `src_id`).
 - For examples, prefer a corpus sentence from the evidence when it is natural and uses the word in this sense
   (`source`: "corpus"; keep its Arabic, tidy its romanisation); otherwise write one.
