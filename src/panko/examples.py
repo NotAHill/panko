@@ -1,0 +1,77 @@
+"""Example sentences for entries that lack them (`panko examples`, API mode).
+
+For each entry, candidates come from the learner's own sources (sightings: the sentence a word appeared in) and the
+open corpora (panko.evidence.sentences); the `examples` prompt picks a natural one or writes one. Results go into
+the store, so the next sync shows and voices them.
+"""
+from __future__ import annotations
+
+import json
+
+from panko import evidence, llm, prompts
+from panko.store.normalize import bare
+
+CHUNK = 20
+
+
+def todo(store, status: str = "active", ids: list[str] | None = None, tag: str = "", want: int = 1) -> list[dict]:
+    """Entries with fewer than `want` examples (phrases are their own example and are skipped)."""
+    return [e for e in store.entries(status) if e["kind"] == "word" and len(e.get("examples", [])) < want
+            and (not ids or e["id"] in ids) and (not tag or tag in e.get("tags", []))]
+
+
+def candidates(e: dict, store, n: int = 5) -> list[dict]:
+    have = {bare(x.get("ar", "")) for x in e.get("examples", [])}
+    out = [{"ar": s["ar"], "tl": s.get("tl", ""), "en": s.get("en", ""), "source": s.get("title", "")}
+           for s in store.sightings(e["id"]) if s.get("ar")]
+    out += evidence.sentences(e["ar"], n)
+    seen, uniq = set(have), []
+    for c in out:
+        if bare(c["ar"]) not in seen:
+            seen.add(bare(c["ar"]))
+            uniq.append(c)
+    return [{"cid": f"c{i}", **c} for i, c in enumerate(uniq[:n])]
+
+
+def _asks(entries, store, want):
+    rows = [json.dumps({"id": e["id"], "ar": e["ar"], "tl": e.get("tl", ""), "pos": e.get("pos", ""),
+                        "gloss": e.get("gloss", ""), "examples": e.get("examples", []),
+                        "candidates": candidates(e, store), "wanted": want - len(e.get("examples", []))},
+                       ensure_ascii=False) for e in entries]
+    return [prompts.ask("examples", f"examples-{entries[i]['id']}", ["\n".join(rows[i:i + CHUNK])],
+                        run={"web_search": False}) for i in range(0, len(rows), CHUNK)]
+
+
+def run(entries: list[dict], store, want: int = 1, apply: bool = True, **kw) -> dict:
+    """Ask for examples and (with apply) add them to the store. Returns {added, entries, skipped {id: note},
+    waiting (still in a batch)}."""
+    asks = _asks(entries, store, want)
+    got = llm.run("examples", asks, **kw) if asks else {}
+    rep = {"added": 0, "entries": 0, "skipped": {}, "waiting": 0, "results": {}}
+    for a in asks:
+        ans = got.get(a.id)
+        if ans is None or ans.error:
+            rep["waiting"] += 1
+            continue
+        for r in ans.data.get("results", []):
+            e = store.get(r["id"])
+            if not e:
+                continue
+            have = {bare(x.get("ar", "")) for x in e.get("examples", [])}
+            new = [{k: x.get(k, "") for k in ("ar", "tl", "en", "source")} for x in r.get("examples", [])
+                   if x.get("ar") and bare(x["ar"]) not in have][:max(0, want - len(e.get("examples", [])))]
+            rep["results"][e["id"]] = new
+            if not new:
+                rep["skipped"][e["id"]] = r.get("note", "")
+                continue
+            rep["added"] += len(new)
+            rep["entries"] += 1
+            if apply:
+                store.put({**e, "examples": [*e.get("examples", []), *new]})
+    return rep
+
+
+def estimate(entries: list[dict], store, want: int = 1, llm_provider=None) -> dict:
+    p = llm_provider or llm.provider(task="examples")
+    est = llm.estimate(p, _asks(entries, store, want), llm.expected_out("examples", p.model))
+    return {"entries": len(entries), "model": p.model, "usd": round(est["usd"], 2), "usd_batch": round(est["usd"] / 2, 2)}

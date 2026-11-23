@@ -57,3 +57,14 @@ def test_every_example_is_read_by_every_voice():
          "examples": [{"ar": "شفت كلب", "en": "I saw a dog"}]}
     html = to_note(e, Two())["fields"]["ExamplesHTML"]
     assert "0-7.mp3" in html and "1-7.mp3" in html
+
+
+def test_no_transliteration_for_listed_varieties(monkeypatch):
+    from panko.cards import build
+    monkeypatch.setattr(build, "settings", lambda: {"learner": {"translit": {"none_for": ["fusha"]}}})
+    e = {"id": "fw-1", "kind": "word", "variety": "fusha", "ar": "كتاب", "tl": "kitāb", "tl_alt": "kitāb",
+         "gloss": "book", "pos": "noun", "examples": [{"ar": "هذا كتاب", "tl": "hādhā kitāb", "en": "This is a book."}]}
+    f = build.to_note(e)["fields"]
+    assert f["Translit"] == "" and f["TranslitAlt"] == "" and "hādhā" not in str(f)
+    f = build.to_note({**e, "id": "dw-1", "variety": "darija"})["fields"]
+    assert f["Translit"] == "kitāb"

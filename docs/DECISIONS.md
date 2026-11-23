@@ -2,6 +2,27 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-23 · Pictures are converted with Pillow, a core dependency; no macOS-only tools.**
+Photo downloads and drawings were turned into JPEGs with `sips`, which exists only on macOS. CI (Ubuntu) failed
+on it, and so would any learner on Linux or Windows. Pillow does the same job everywhere (JPEG, longest side
+capped, never enlarged, transparency on white). Every card needs a picture, so Pillow is now a core dependency;
+the `images` extra stays, empty, so older install commands still work.
+
+**2026-11-23 · The last hand-run steps become commands and chat tools.**
+Picture choice, example sentences and gloss clashes were briefs agents followed. They are now prompts in the
+package with a command (API mode) and tools (chat mode) each, writing the same files, so another learner never
+needs a brief. Picture choice searches photos for drawing-planned cards too, since a photo is free and a drawing
+isn't, and reuses earlier search folders. A clash decision never removes a card already in Anki: a duplicate there
+becomes recognition-only and is listed for the learner, because its review history matters.
+
+**2026-11-23 · Fusha: one deck, production cards, no transliteration; doubtful items wait.**
+Fusha gets one deck (no separate Quranic deck). Production cards (English → target) are on by default for every
+language, Fusha included. Fusha cards show only the Arabic script: `[learner.translit] none_for` lists varieties
+without transliteration, so another learner can choose the same for theirs. Serious Explorer's notes convert to
+Panko notes keeping their pictures and word recordings; their example sentences and audio are generated. That
+second Phase 6 round waits until Panko supports other languages. Doubtful items are kept in the store but not
+activated until the learner clears one (by naming its id), so nothing unconfirmed reaches Anki.
+
 **2026-11-23 · Words inside a taught phrase are items too; a teaching source isn't doubted on memory.**
 S7 compared API mode with the chat agents. The packaged extract prompt kept a shop dialogue's lines as phrases but
 not the words in them (bread, milk, change, dirham), so a sheet gave 31 items where the agents gave 55. A learner

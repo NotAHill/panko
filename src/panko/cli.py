@@ -61,6 +61,8 @@ def _main(argv=None):
     rf.add_argument("--force", action="store_true", help="with --download: fetch them again even if present")
     mc = sub.add_parser("mcp", help="run Panko as an MCP server for Claude (chat mode, no API key needed)")
     mc.add_argument("--config", action="store_true", help="print the Claude Desktop / Claude Code config instead")
+    mc.add_argument("--skill", metavar="DIR", help="write the chat workflow as a Claude skill: DIR/panko/SKILL.md "
+                    "(e.g. ~/.claude/skills for Claude Code)")
     i = sub.add_parser("ingest", help="load an extraction JSON into the store")
     i.add_argument("path")
     i.add_argument("--verdicts", nargs="*", default=[], help="verification JSON files to apply first")
@@ -91,10 +93,38 @@ def _main(argv=None):
     ps.add_argument("queries", help='JSON {"slug": "english query", ...}')
     ps.add_argument("--providers", help="comma-separated image providers instead of the [images] chain, "
                     "e.g. inaturalist,arasaac")
+    pd = psub.add_parser("decide", help="choose a picture per card with the language model: plan → photo search → "
+                         "pick from the contact sheets (API mode); writes data/pictures/decisions.json")
+    pd.add_argument("--status", default="active", choices=["active", "candidate"])
+    pd.add_argument("--batch", type=int, help="only this entry batch")
+    pd.add_argument("--ids", nargs="*", default=[], help="only these entries")
+    pd.add_argument("--tag", help="only entries with this tag, e.g. src::textbook::peace-corps")
+    pd.add_argument("--plans", nargs="*", default=[], help="extra picture-plan files {ar|gloss: plan}")
+    pd.add_argument("--searched", nargs="*", default=[], help="folders of earlier `pictures search` runs to reuse")
+    pd.add_argument("--no-search-drawings", action="store_true", help="don't look for photos for drawing-planned cards")
+    pd.add_argument("--llm-batch", action="store_true", help="half-price batches; `panko llm collect`, then run again")
+    pd.add_argument("--budget", type=float, help="stop before spending more than this (USD)")
+    pd.add_argument("--estimate", action="store_true", help="only print what it would cost")
     pa = psub.add_parser("apply", help="apply decisions: download photos, then draw the prompts")
-    pa.add_argument("paths", nargs="+")
+    pa.add_argument("paths", nargs="*", help="decision files (default: data/pictures/decisions.json)")
     pa.add_argument("--batch", action="store_true", help="draw as an OpenAI batch instead of now")
     pa.add_argument("--no-draw", action="store_true", help="only download photos; write prompts to a file")
+    ex = sub.add_parser("examples", help="example sentences for words without one (API mode): picks from your sources "
+                        "and the corpora, or writes one; the next sync shows and voices them")
+    ex.add_argument("--status", default="active", choices=["active", "candidate"])
+    ex.add_argument("--ids", nargs="*", default=[])
+    ex.add_argument("--tag", default="")
+    ex.add_argument("--want", type=int, default=1, help="examples each entry should have (default 1)")
+    ex.add_argument("--estimate", action="store_true")
+    ex.add_argument("--llm-batch", action="store_true")
+    ex.add_argument("--budget", type=float)
+    cl = sub.add_parser("clashes", help="production cards that would show the same gloss: decide (API mode), then "
+                        "--apply after you've looked at data/work/clashes.json")
+    cl.add_argument("--all", action="store_true", help="every clash, not only those involving candidates")
+    cl.add_argument("--estimate", action="store_true")
+    cl.add_argument("--llm-batch", action="store_true")
+    cl.add_argument("--budget", type=float)
+    cl.add_argument("--apply", action="store_true", help="write the saved decisions to the store")
     lm = sub.add_parser("llm", help="language model: ping, usage, collect batches")
     lsub = lm.add_subparsers(dest="lcmd")
     lsub.add_parser("ping", help="one tiny request to check the model works (costs a fraction of a cent)")
@@ -138,6 +168,9 @@ def _main(argv=None):
             print(f"{r['name']:<45} {how:<36} {r['path']}")
     elif args.cmd == "work":
         _work(args, wk)
+    elif args.cmd == "mcp" and args.skill:
+        from panko import skill
+        print("wrote", skill.write(args.skill))
     elif args.cmd == "mcp":
         try:
             from panko import mcp_server
@@ -201,6 +234,37 @@ def _main(argv=None):
         _llm(args, lm)
     elif args.cmd == "migrate":
         _migrate(args)
+    elif args.cmd == "examples":
+        import json
+
+        from panko import examples
+        from panko.store import Store
+        s = Store()
+        es = examples.todo(s, args.status, args.ids or None, args.tag, args.want)
+        if args.estimate:
+            print(json.dumps(examples.estimate(es, s, args.want), indent=1))
+            return
+        r = examples.run(es, s, args.want, batch=args.llm_batch, budget=args.budget)
+        print(f"{r['added']} examples on {r['entries']} of {len(es)} entries; none for {len(r['skipped'])}"
+              + (f"; {r['waiting']} requests waiting for a batch" if r["waiting"] else ""))
+    elif args.cmd == "clashes":
+        import json
+
+        from panko import clashes
+        from panko.config import ROOT
+        from panko.store import Store
+        s, path = Store(), ROOT / "data" / "work" / "clashes.json"
+        if args.apply:
+            print(clashes.apply(s, json.loads(path.read_text())))
+            return
+        groups = clashes.find(s, None if args.all else [e["id"] for e in s.entries("candidate")])
+        if args.estimate:
+            print(json.dumps(clashes.estimate(groups), indent=1))
+            return
+        d = clashes.decide(groups, batch=args.llm_batch, budget=args.budget)
+        clashes.save(d, path)
+        kinds = {k: sum(1 for v in d.values() if k in v) for k in ("gloss", "cards", "drop")}
+        print(f"{len(groups)} groups: {kinds}; saved to {path}. Look it over, then `panko clashes --apply`.")
     elif args.cmd == "pictures":
         _pictures(args, pic)
     else:
@@ -352,7 +416,23 @@ def _pictures(args, parser):
         names = [n.strip() for n in args.providers.split(",") if n.strip()] if args.providers else None
         for p in pictures.search(json.loads(args.queries), Path(args.outdir), names=names):
             print(p)
+    elif args.pcmd == "decide":
+        from panko.media import choose
+        cards = [c for c in pictures.export(Store(), status=args.status, batch=args.batch, ids=args.ids or None)
+                 if not args.tag or args.tag in (Store().get(c["id"]) or {}).get("tags", [])]
+        if args.estimate:
+            print(json.dumps(choose.estimate(cards, args.plans), indent=1))
+            return
+        r = choose.decide(cards, plan_files=args.plans, searched_dirs=args.searched,
+                          search_drawings=not args.no_search_drawings, batch=args.llm_batch, budget=args.budget)
+        s = choose.save_decisions(r["decisions"])
+        print(f"{len(cards)} cards: {r['counts']}; saved to {choose.decisions_path()} ({s.get('total')} in all)")
+        if r["waiting"]:
+            print(f"  {len(r['waiting'])} waiting for a batch: `panko llm collect`, then run again")
+        print("next: `panko pictures apply` (photos are free; drawings are paid, or `--no-draw` to keep the prompts)")
     elif args.pcmd == "apply":
+        from panko.media import choose
+        args.paths = args.paths or [str(choose.decisions_path())]
         decisions = {}
         for p in args.paths:
             decisions.update(json.loads(Path(p).read_text()))

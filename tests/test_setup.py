@@ -73,3 +73,11 @@ def test_card_map_detected_from_templates(monkeypatch):
     assert migrate.card_map(Note(English="to dig", Arabic="حفر", Hint="")) == {0: "production", 1: "recognition"}
     monkeypatch.setattr(config, "settings", lambda: {"anki": {"card_map": {"Someone's deck": ["recognition", ""]}}})
     assert migrate.card_map(Note()) == {0: "recognition"}
+
+
+def test_skill_file(tmp_path):
+    from panko import skill
+    p = skill.write(tmp_path)
+    t = p.read_text()
+    assert p == tmp_path / "panko" / "SKILL.md" and t.startswith("---\nname: panko\ndescription: ")
+    assert "panko_photo_search" in t and "panko_clashes" in t and "{{" not in t

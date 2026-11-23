@@ -92,7 +92,7 @@ def _save(task: str, k: str, ans: Answer):
 
 
 # Output tokens per request (thinking included) before the usage log has measured a task: from the 2026-11-23 runs.
-EXPECT_OUT = {"extract": 7000, "check": 4500, "pictures-plan": 2000, "examples": 2500, "deck": 9000,
+EXPECT_OUT = {"extract": 7000, "check": 4500, "pictures-plan": 2000, "examples": 2500, "deck": 9000, "clashes": 3000,
               "pictures-pick": 1500}
 
 

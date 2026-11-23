@@ -113,6 +113,7 @@ drop = "Drop religious proselytising lines (some shared decks are partly mission
 main = "the teacher's Arabizi"
 main_rules = "3/7/9 for ع/ح/ق, kh, gh, ch, `e` for schwa, doubled consonants (mherres, chno, wach, n9der, nkhelles, l-bit)"
 alt = "scholarly transliteration (ʿ ḥ q x ġ š ž ə ā ī ū ṭ ṣ ḍ ẓ)"
+none_for = ["fusha"]   # these varieties' cards show only the Arabic script (your call, 2026-11-23)
 
 [learner.pictures]
 # Rules for choosing photos and writing drawing prompts (the drawing house style is [images.generate] style).

@@ -9,10 +9,11 @@ from __future__ import annotations
 import contextlib
 import functools
 import json
+import re
 import sys
 from pathlib import Path
 
-from mcp.server.mcpserver import Image, MCPServer
+from mcp.server.mcpserver import Audio, Image, MCPServer
 
 from panko import prompts, work
 from panko.store import Store
@@ -195,6 +196,104 @@ def panko_edit(id: str, fields: dict) -> dict:
         raise KeyError(f"no entry {id}")
     s.put({**e, **fields})
     return {"id": id, "changed": sorted(fields), "status": e["status"]}
+
+
+# ---- pictures & audio ----------------------------------------------------------------------------------------------
+
+@tool()
+def panko_pictures_todo(status: str = "active", tag: str = "", limit: int = 24) -> dict:
+    """Cards with no picture and no saved decision, with their saved picture plan if any (choice photo/draw/skip,
+    query, prompt). Decide each as `panko_prompt("pictures-plan")` and `panko_prompt("pictures-pick")` say."""
+    from panko.media import choose, pictures
+    s, done = Store(), choose.load_decisions()
+    plans = choose.known_plans()
+    cards = [c for c in pictures.export(s, status=status) if c["id"] not in done
+             and (not tag or tag in (s.get(c["id"]) or {}).get("tags", []))]
+    return {"left": len(cards), "cards": [{**c, "plan": choose.plan_of(c, plans)} for c in cards[:limit]]}
+
+
+@tool(structured_output=False)
+def panko_photo_search(queries: dict) -> list:
+    """Photo candidates from the free sites for up to 12 cards: {card id: plain English query}. Returns the contact
+    sheets (one row per card, candidates numbered 0–9 in red, a grey tag names the site) and the folder to cite in
+    a photo decision: {"photo": {"dir": folder, "index": n}}."""
+    from panko.config import ROOT
+    from panko.media import pictures
+    if not 0 < len(queries) <= 12:
+        raise ValueError("give 1 to 12 cards per search")
+    base = ROOT / "cache" / "pictures" / "chat"
+    out = base / f"run{len(list(base.glob('run*'))) + 1:03d}" if base.exists() else base / "run001"
+    sheets = pictures.search(dict(queries), out)
+    found = json.loads((out / "cands.json").read_text())
+    ids = list(found)
+    meta = json.dumps({"dir": str(out), "sheets": [ids[i:i + 6] for i in range(0, len(ids), 6)],
+                       "candidates": {k: len(v) for k, v in found.items()}}, ensure_ascii=False)
+    return [*(Image(path=p) for p in sheets), meta]
+
+
+@tool()
+def panko_pictures_save(decisions: dict) -> dict:
+    """Save picture decisions {card id: {"photo": {"dir", "index"}} | {"prompt": drawing scene} | {"skip": reason}}.
+    Checked before saving (the photo must exist in that search folder); `panko_pictures_apply` uses them."""
+    from panko.media import choose
+    return choose.save_decisions(decisions)
+
+
+@tool()
+def panko_pictures_apply() -> dict:
+    """Download and credit the chosen photos (free) and set them on the cards; drawing prompts are kept in
+    data/pictures/drawings.json for the learner to draw with `panko draw` (paid). Cards change on the next sync."""
+    from panko.config import ROOT
+    from panko.media import choose, pictures
+    r = pictures.apply(choose.load_decisions())
+    p = ROOT / "data" / "pictures" / "drawings.json"
+    p.parent.mkdir(parents=True, exist_ok=True)
+    old = json.loads(p.read_text()) if p.exists() else {}
+    p.write_text(json.dumps({**old, **r["prompts"]}, ensure_ascii=False, indent=1))
+    return {"photos": r["photo"], "skips": r["skip"], "failed": r["failed"], "drawings_waiting": len({**old, **r["prompts"]}),
+            "drawings_file": str(p), "note": "drawings cost money: the learner runs `panko draw` on that file"}
+
+
+@tool(structured_output=False)
+def panko_audio(id: str, confirm: bool = False) -> list:
+    """An entry's audio (headword and examples, every voice). Without confirm: what would be generated (clips and
+    characters, nothing spent). confirm=true after the learner agrees: generates it (paid, then cached, so the
+    next sync reuses it) and returns the headword clips to listen to."""
+    from panko.cards import build
+    from panko.media import audio
+    e = Store().get(id)
+    if not e:
+        raise KeyError(f"no entry {id}")
+    dry = audio.DryRun()
+    build.to_note(e, dry)
+    if not confirm:
+        return [json.dumps({"id": id, "clips_to_generate": len(dry.todo),
+                            "characters": sum(len(t) for _, t in dry.todo), "note": "dry run"}, ensure_ascii=False)]
+    note = build.to_note(e, audio.Narrator())
+    files = re.findall(r"\[sound:([^\]]+)\]", note["fields"].get("Audio", ""))
+    return [*(Audio(path=audio.MEDIA / f) for f in files if (audio.MEDIA / f).exists()),
+            json.dumps({"id": id, "generated": len(dry.todo), "headword_clips": files}, ensure_ascii=False)]
+
+
+# ---- gloss clashes ------------------------------------------------------------------------------------------------
+
+@tool()
+def panko_clashes(all: bool = False, limit: int = 30) -> dict:
+    """Groups of production cards whose glosses share a sense, so their fronts would be ambiguous (by default only
+    groups with a candidate). Decide as `panko_prompt("clashes")` says, then `panko_clashes_apply`."""
+    from panko import clashes
+    s = Store()
+    groups = clashes.find(s, None if all else [e["id"] for e in s.entries("candidate")])
+    return {"groups": len(groups), "shown": groups[:limit]}
+
+
+@tool()
+def panko_clashes_apply(decisions: dict) -> dict:
+    """Apply clash decisions {entry id: {"gloss": new} | {"cards": ["recognition"], "note": "The everyday word is …"}
+    | {"drop": why}}. Dropped candidates are retired; a card already in Anki is never removed: it becomes
+    recognition-only and is listed for the learner."""
+    from panko import clashes
+    return clashes.apply(Store(), decisions)
 
 
 @tool()

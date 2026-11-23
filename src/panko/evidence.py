@@ -118,6 +118,17 @@ def _hits(ar: str, tl_alt: str) -> list[str]:
     return rows_out + out
 
 
+def sentences(ar: str, n: int = 5) -> list[dict]:
+    """Up to n corpus sentences using this word: [{ar, en, source}] (shortest first: they make the best examples)."""
+    b = strip_article(ar)
+    out = []
+    for ref in _references():
+        if ref["kind"] == "sentences":
+            out += [{"ar": a, "en": en, "source": ref["name"]} for a, en in ref["data"]
+                    if (b in _tokens(a) if " " not in b else b in a)]
+    return sorted(out, key=lambda s: len(s["ar"]))[:n]
+
+
 def _short(e: dict) -> dict:
     return {k: e.get(k, "") for k in ("id", "status", "ar", "tl", "pos", "gloss")}
 

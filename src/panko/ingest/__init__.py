@@ -70,11 +70,17 @@ def ingest(path: Path | str | dict, store: Store | None = None, verdicts: dict |
 
 
 def activate(store: Store, ids: list[str] | None = None, batch: int | None = None) -> list[str]:
+    """Candidates → active (cards on the next sync), by id or batch. Doubtful ones stay in the store until cleared:
+    a batch skips them, and naming one by id is the learner clearing it."""
     done = []
     for e in store.entries("candidate"):
         if (e.get("origin") or {}).get("studied"):
             continue  # studied old-deck notes are migrated with their history (Phase 6), not re-added
+        if "panko::doubtful" in e.get("tags", []) and not (ids and e["id"] in ids):
+            continue
         if (ids and e["id"] in ids) or (batch is not None and e.get("batch") == batch):
+            if "panko::doubtful" in e.get("tags", []):    # cleared by the learner
+                store.put({**e, "tags": [t for t in e["tags"] if t != "panko::doubtful"]})
             store.set_status(e["id"], "active")
             done.append(e["id"])
     return done

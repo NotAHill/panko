@@ -24,8 +24,21 @@ Update the **Now** section at the end of every work session: it's what a fresh s
   word is never `doubtful` on memory alone (the usual word goes in `usual_word` instead). After the fixes: sheet 51 of
   the agents' 55 headwords plus useful extras (half, litre, how much, shop), deck 23 of 23; remaining differences are
   gloss punctuation and romanisation detail, and a few evidence-backed fixes the agents missed. Cost $2.21 in all.
-- **Next:** pictures for the Peace Corps candidates (photo search running), then activate and sync with your OK. The
-  Fusha round of Phase 6 can run on the commands once you settle its open questions.
+- **CI fix (2026-11-23):** picture conversion uses Pillow instead of macOS-only `sips`; Pillow is a core
+  dependency.
+- **Doubtful items stay out of Anki** until cleared: `activate --batch` skips `panko::doubtful`; naming one by id
+  clears it. Cards for a variety in `[learner.translit] none_for` (Fusha) show no transliteration.
+- **S8 built (2026-11-23): no step needs a hand-written brief any more.** `panko pictures decide` chooses a picture
+  per card (saved plan or the `pictures-plan` prompt → photo search on the free sites, reusing earlier search
+  folders → the `pictures-pick` prompt looks at each contact sheet; about $0.004 a card on Opus), writing decisions
+  that `panko pictures apply` reads. `panko examples` gives words without one a sentence from the learner's sources
+  or the corpora (or writes one). `panko clashes` finds production cards whose glosses share a sense and decides:
+  sharpen, recognition-only or drop (a card already in Anki is never removed, only made recognition-only, and
+  listed for the learner). Chat mode has all of it as tools (`panko_pictures_todo`, `panko_photo_search`,
+  `panko_pictures_save`, `panko_pictures_apply`, `panko_clashes`, `panko_clashes_apply`, `panko_audio` to hear a
+  card before syncing), and `panko mcp --skill DIR` writes the workflow as a Claude skill. Tested with a fake model.
+- **Next:** the Peace Corps pictures on the chat-mode picture step (the photo search finished: all 574 searched cards
+  have candidates, but Wikidata/Commons were often rate-limited, so a second pass may add better ones).
 - The learner's own state (deck sizes, what's waiting on whom, plans) is in `data/STATUS.md` (git-ignored).
 
 ## Phases
@@ -37,7 +50,7 @@ Update the **Now** section at the end of every work session: it's what a fresh s
 | 3 | Source adapters: teacher PDFs (vision LLM), Granola transcripts, Peace Corps, old Darija decks | lesson + 6 teacher PDFs + notes ingested and in Anki (extraction by Claude in chat); old Darija decks stages 1–2 in Anki (checked + region pass) |
 | 4 | Lesson recording (two tracks) + guided speech-to-text + teacher clips | not started; needs teacher's consent |
 | 5 | Verification: lexicon grounding, CAMeL Tools checks, doubt flags | verdict files (Routledge, DODa, web) applied at ingest; CAMeL not started |
-| 6 | Migrate studied notes from old decks (pylib, Anki closed, one full sync) | Darija: done (studied notes converted, history kept); Fusha decks later |
+| 6 | Migrate studied notes from old decks (pylib, Anki closed, one full sync) | Darija: done (studied notes converted, history kept). Second round (Fusha decks, Serious Explorer) after other languages are supported: one Fusha deck, production cards on, no transliteration; Serious Explorer's pictures and word recordings are kept, example sentences and their audio generated |
 | 7 | Chat interface: Panko's own MCP server | built as Standalone S3 (`panko mcp`); spec in `docs/SPEC-mcp.md` |
 
 ## Standalone track (from 2026-11-23)
@@ -55,9 +68,13 @@ sentences, clashes, picture decisions) are briefs in `data/` (git-ignored) run b
 | S6 ✅ | **Packaging and docs** (built 2026-11-23; AGPL-3.0-or-later; publishing is your call) | README quickstart for a new learner, licence, a worked example on a free source (Peace Corps), tests with a fake Anki and fake LLM. Publish when you decide. |
 | S7 ✅ | **Check it matches** (done 2026-11-23 on a teacher sheet and 25 deck rows; the Fusha round waits for your call) | Re-run one teacher sheet and one old-deck batch through the commands and compare with what the agents produced. Fix the prompts until they agree. Then the Fusha round (Phase 6, second round) runs on the commands too. |
 
-Open: Arabic varieties only at first, or any language. (Settled 2026-11-23: AGPL-3.0-or-later, published on GitHub; Opus for every step, batches for big runs.)
+| S8 ✅ | **The steps still done by agents** (built 2026-11-23) | Picture choice from the contact sheets as a command (`pictures-pick` prompt, API) and as chat tools; example sentences (`examples` prompt) and gloss clashes as commands; an audio tool and a packaged skill file for chat mode. Then the Peace Corps pictures run on the chat-mode picture step. |
+| S9 | **Any language** (at the end of building the system, your call 2026-11-23) | Nothing Arabic-specific left in code or prompts: script detection, romanisation rules, references and voices come from config; a worked setup for a second language. |
+| S10 | **Panko hub** (idea, 2026-11-23) | A web dashboard or app: search pre-built language decks, or configure your own (language, varieties, sources, card types) and have Panko build it; the same pipeline behind it. |
+
+Order (your call, 2026-11-23): S8, then the Peace Corps pictures in chat mode, then the later phases (4, 5), then S9, then
+the Fusha round of Phase 6, then S10. Settled: AGPL-3.0-or-later, published on GitHub; Opus for every step, batches
+for big runs; one Fusha deck, production cards on by default for every language, no transliteration on Fusha cards.
 
 ## Open questions
-- Two decks or a separate Quranic deck?
-- Fusha production cards on by default?
-- Transliteration on Fusha cards?
+- (none open)

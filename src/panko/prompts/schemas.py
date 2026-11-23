@@ -47,5 +47,7 @@ SCHEMAS = {
     ))),
     "examples": obj(results=arr(obj(id=S, examples=arr(obj(ar=S, tl=S, en=S, source=S, candidate=S)), note=S))),
     "pictures-plan": obj(results=arr(obj(id=S, choice=enum("photo", "draw", "skip"), query=S, prompt=S, reason=S))),
+    "clashes": obj(results=arr(obj(id=S, decisions=arr(obj(
+        entry_id=S, action=enum("keep", "gloss", "recognition", "drop"), gloss=S, note=S, why=S))))),
     "pictures-pick": obj(results=arr(obj(id=S, index={"type": "integer"}, prompt=S, reason=S))),
 }

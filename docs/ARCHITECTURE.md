@@ -162,6 +162,11 @@ reaches every card without touching review history. Panko never writes `MyNotes`
 | `src/panko/ingest/` | extraction JSON → candidates (inbox); `activate` promotes them |
 | `src/panko/ingest/verify.py` | applies check verdicts + overrides to items before ingest |
 | `src/panko/cards/build.py` | store entry → Anki note (fields, deck, tags, audio) |
+| `src/panko/media/choose.py` | choosing a picture per card (`panko pictures decide`, chat tools `panko_pictures_todo` / `panko_photo_search` / `panko_pictures_save` / `panko_pictures_apply`): saved or `pictures-plan` plans → photo search (earlier search folders reused) → `pictures-pick` on each contact sheet → decisions in `data/pictures/decisions.json` |
+| `src/panko/examples.py` | `panko examples`: example sentences for words without one, from sightings and corpus sentences (`evidence.sentences`) via the `examples` prompt |
+| `src/panko/clashes.py` | `panko clashes` / `panko_clashes`: production cards whose glosses share a sense → keep, sharpen, recognition-only or drop (never removes a card already in Anki) |
+| `src/panko/anki/export.py` | `panko work add --deck NAME`: read-only export of an Anki deck (studied notes marked) as a source |
+| `src/panko/skill.py` | `panko mcp --skill DIR`: the chat workflow as a Claude skill (`SKILL.md`) |
 | `src/panko/anki/sync.py` | pushes models, media and notes; updates changed notes in place; `plan()` is the dry run (`panko sync --dry-run`: notes to add/update, audio still to pay for) |
 | `src/panko/anki/migrate.py` | Phase 6 (`panko migrate [ids] [--apply]`): studied old-deck notes → Panko notes in place via the `anki` library, Anki closed; dry run by default |
 | `src/panko/sandbox/seed.py` | the 9 hand-written sandbox entries (`panko seed`) |

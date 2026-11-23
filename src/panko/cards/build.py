@@ -9,7 +9,7 @@ import json
 
 from panko.cards import note_types as T
 from panko.cards import render as R
-from panko.config import deck
+from panko.config import deck, settings
 from panko.media.audio import Narrator, Silent
 
 CARD_SWITCH = {"production": "EnableProduction", "listening": "EnableListening", "picture": "EnablePicture",
@@ -17,9 +17,15 @@ CARD_SWITCH = {"production": "EnableProduction", "listening": "EnableListening",
 DEFAULT_CARDS = ["recognition", "production"]   # recognition is always on
 
 
+def shows_translit(variety: str) -> bool:
+    """[learner.translit] none_for lists varieties whose cards show only the script (Fusha, by the learner's choice)."""
+    return variety not in settings().get("learner", {}).get("translit", {}).get("none_for", [])
+
+
 def _examples(entry) -> list[R.Example]:
-    return [R.Example(x["ar"], x.get("tl", ""), x.get("en", ""), x.get("audio", ""), x.get("source", ""), x.get("cite", ""))
-            for x in entry.get("examples", [])]
+    tl = shows_translit(entry["variety"])
+    return [R.Example(x["ar"], x.get("tl", "") if tl else "", x.get("en", ""), x.get("audio", ""), x.get("source", ""),
+                      x.get("cite", "")) for x in entry.get("examples", [])]
 
 
 def _voice(entry, exs: list[R.Example], narrator: Narrator) -> tuple[str, str]:
@@ -37,10 +43,13 @@ def to_note(entry: dict, narrator: Narrator | None = None) -> dict:
     exs = _examples(entry)
     audio, audio_src = _voice(entry, exs, narrator)
     img = entry.get("image") or {}
-    info = R.Entry(examples=exs, related=[R.Related(r["ar"], r.get("meaning", ""), r.get("tl", "")) for r in entry.get("related", [])],
+    tl = shows_translit(entry["variety"])
+    info = R.Entry(examples=exs, related=[R.Related(r["ar"], r.get("meaning", ""), r.get("tl", "") if tl else "")
+                                          for r in entry.get("related", [])],
                    word_sources=entry.get("sources", []), audio_source=audio_src, image_source=img.get("credit", ""))
     common = {
-        "Translit": entry.get("tl", ""), "TranslitAlt": entry.get("tl_alt", ""), "Register": entry["variety"].title(),
+        "Translit": entry.get("tl", "") if tl else "", "TranslitAlt": entry.get("tl_alt", "") if tl else "",
+        "Register": entry["variety"].title(),
         "Audio": audio, "AudioSource": audio_src,
         "Image": f'<img src="{img["file"]}">' if img.get("file") else "", "ImageSource": img.get("credit", ""),
         "NotesHTML": entry.get("notes", ""), "SourcesHTML": R.sources(info), "PankoID": entry["id"],

@@ -14,7 +14,7 @@ from pathlib import Path
 from panko.prompts.schemas import SCHEMAS
 
 DIR = Path(__file__).parent
-PROMPTS = ("extract", "deck", "check", "examples", "pictures-plan", "pictures-pick")
+PROMPTS = ("extract", "deck", "check", "examples", "pictures-plan", "pictures-pick", "clashes")
 
 
 def _bullets(items) -> str:

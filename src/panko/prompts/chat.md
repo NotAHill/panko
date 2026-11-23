@@ -45,6 +45,24 @@ corrected values you put in the item), a `picture` plan, and `origin` = `{"deck"
   are missing.
 - `panko_inbox` and `panko_entry` show what's waiting; `panko_inbox(html=true)` writes a review page.
 
+## Pictures (cards without one)
+1. `panko_pictures_todo(status)` lists cards with no picture and no decision yet, with any saved plan. Read
+   `panko_prompt("pictures-plan")` and `panko_prompt("pictures-pick")` once.
+2. Photos first: `panko_photo_search({id: plain English query})`, up to 12 cards per call (also for drawing-planned
+   cards: a photo is free, a drawing isn't). Look at each sheet and pick as `pictures-pick` says.
+3. `panko_pictures_save({id: {"photo": {"dir", "index"}} | {"prompt": scene} | {"skip": reason}})`, a batch at a
+   time; then `panko_pictures_apply()` downloads the photos. Drawings wait in a file for the learner (paid).
+
+## Gloss clashes and examples
+- `panko_clashes()` lists production cards whose glosses would be ambiguous. Decide as `panko_prompt("clashes")`
+  says and send the changes with `panko_clashes_apply`.
+- A word with no example: write one as `panko_prompt("examples")` says (corpus sentences from `panko_evidence`
+  first) and add it with `panko_edit(id, {"examples": [...]})`, keeping the ones it has.
+
+## Audio
+- `panko_audio(id)` says what a card's audio would cost; `panko_audio(id, confirm=true)` (after the learner agrees)
+  generates it so they can listen before syncing.
+
 ## Never without the learner's say-so
 - `panko_activate` (candidates become cards on the next sync) and `panko_sync(confirm=true)`. Always show the dry run
   first (`panko_sync()`): it lists the notes that change and the audio still to pay for.

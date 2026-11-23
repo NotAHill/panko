@@ -84,6 +84,7 @@ drop = ""                          # anything they should always drop
 main = {{translit}}                # the romanisation shown first on cards
 main_rules = ""                    # its conventions, e.g. which digits stand for which letters
 alt = "scholarly transliteration"
+none_for = []                      # varieties whose cards show only the script, e.g. ["fusha"]
 
 [learner.pictures]
 # Rules for choosing photos and writing drawing prompts, one per line.

@@ -60,6 +60,15 @@ def test_studied_deck_items_are_not_activated(tmp_path):
     assert [st.get(i)["ar"] for i in activate(st, batch=1)] == ["مش"]
 
 
+def test_doubtful_items_wait_until_cleared(tmp_path):
+    st = Store(tmp_path / "t.db")
+    st.put({"id": "dw-1", "kind": "word", "variety": "darija", "ar": "غتاصب", "gloss": "x", "batch": 2,
+            "tags": ["panko::doubtful"]}, status="candidate")
+    assert activate(st, batch=2) == [] and st.get("dw-1")["status"] == "candidate"
+    assert activate(st, ids=["dw-1"]) == ["dw-1"]          # named by id: the learner cleared it
+    assert st.get("dw-1")["status"] == "active" and "panko::doubtful" not in st.get("dw-1")["tags"]
+
+
 def test_homograph_flag_keeps_entries_apart(tmp_path):
     st = Store(tmp_path / "t.db")
     x = {"source": {"id": "s", "kind": "deck", "title": "S"}, "items": [
