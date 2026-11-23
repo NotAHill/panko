@@ -52,6 +52,14 @@ model = "claude-opus-5-5"
 effort = "medium"         # low | medium | high | xhigh | max; tasks can ask for more
 fallbacks = true          # on a policy decline, the API re-runs the request on a fallback model
 
+[llm.tasks]
+# A model per task, when the default isn't worth it. Measured with the packaged extract prompt on a dense Peace Corps
+# page (31 items, 2026-11-23): Opus $0.17, Sonnet $0.07, Haiku $0.005. All three read the page correctly, but only
+# Opus kept the house style (3/7/9 Arabizi, nouns without the article, schwas, plurals). Sonnet wrote q for ق,
+# added articles and dropped plurals; Haiku did that on almost every noun and mixed spellings. So extract stays on
+# Opus. Judgment steps (check, examples, pictures) haven't been compared yet.
+# extract = "claude-sonnet-5-5"
+
 [llm.openai]
 model = ""                # set a model (and its price below) to use OpenAI instead
 
@@ -64,3 +72,53 @@ model = ""                # set a model (and its price below) to use OpenAI inst
 [anki]
 backend = "mcp"          # mcp (Anki MCP Server add-on) | pylib (Anki closed; used for migrations)
 url = "http://127.0.0.1:3141/"
+
+# ---- The learner: what the prompts assume. Another learner changes these, not the prompts. ----
+[learner]
+language = "Moroccan Darija"                # what the cards mainly teach
+varieties = ["darija", "fusha"]             # store varieties; "fusha" = Modern Standard / Quranic Arabic
+learner = "an English-speaking learner"
+gloss_language = "English"
+mainstream = "Casablanca/Rabat"             # the standard treated as the "usual" word
+regions = ["pan-Moroccan", "north (Tangier, Tetouan, Jbala, Chefchaouen)", "Fes-Meknes", "Rabat-Casablanca",
+           "Marrakech", "east (Oujda, Berkane)", "south (Souss, Agadir)", "Saharan/Hassaniya", "rural/aroubi"]
+topics = ["home", "furniture", "shopping", "food", "cooking", "emotions", "people", "family", "time", "position",
+          "greetings", "numbers", "money", "places", "body", "character", "verbs-daily", "grammar", "animals",
+          "nature", "work", "school", "health", "religion", "travel", "clothes", "weather", "colors"]
+keep = "Religious formulas Moroccans say every day (بسم الله, الله يسامح, أعوذ بالله…) are kept as phrases."
+drop = "Drop religious proselytising lines (some shared decks are partly missionary material)."
+
+[learner.translit]
+main = "the teacher's Arabizi"
+main_rules = "3/7/9 for ع/ح/ق, kh, gh, ch, `e` for schwa, doubled consonants (mherres, chno, wach, n9der, nkhelles, l-bit)"
+alt = "scholarly transliteration (ʿ ḥ q x ġ š ž ə ā ī ū ṭ ṣ ḍ ẓ)"
+
+[learner.pictures]
+# Rules for choosing photos and writing drawing prompts (the drawing house style is [images.generate] style).
+rules = [
+  "Any woman or girl shown wears a hijab that covers her hair; a photo with a woman whose hair is visible is not used (a photo of the object alone is easiest).",
+  "Add a woman to a drawing only when the scene needs one; never describe a woman's hair.",
+  "Avoid scenes that clash with modest dress (swimwear) and anything political, violent, gory or religiously disrespectful.",
+  "Everyday modern Moroccan life where it fits naturally (souk, tea, taxi, riad, djellaba, couscous on Friday), without overdoing it: no fezzes.",
+]
+skip = "grammar/function words (prepositions, conjunctions, particles) a picture can't show without text, numbers above 10, and anything sensitive or violent"
+
+# ---- Evidence the checking prompts are given (looked up by Panko before each request) ----
+[evidence]
+web_search = true                            # let the model search the web for words local evidence doesn't settle
+web_searches_per_item = 2
+
+[[evidence.corpora]]                        # open datasets, looked up by word (downloaded automatically)
+name = "Darija Open Dataset (DODa)"
+path = "cache/refs/doda"
+notes = "word lists (nouns, verbs, adjectives, synonyms…) and a sentence corpus, mostly mainstream (Casablanca/Rabat) Darija; word lists sometimes list regional synonyms side by side"
+
+[[evidence.corpora]]
+name = "Wiktionary, Moroccan Arabic entries"
+path = "cache/refs/wiktionary-moroccan.jsonl"
+notes = "sense tags like Northern or Jebli mark regional words"
+
+[[evidence.dictionaries]]                   # private reference texts: a path on your machine, never shipped
+name = "The Routledge Introductory Course in Moroccan Arabic"
+path = "cache/refs/routledge-moroccan-arabic.txt"
+notes = "Rabat/Fes standard; ɛ=ع, ħ=ح, x=خ, ġ/ɣ=غ, š=ش. Present here means mainstream."

@@ -2,6 +2,19 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-23 · Prompts ship with Panko; the learner's choices live in config.**
+The briefs that agents followed in chat are now generic prompts in `src/panko/prompts/` (extract, deck, check,
+examples, pictures-plan, pictures-pick), with shared parts (`_item`, `_verdict`, `_evidence`) and a strict JSON
+schema each. Everything personal is filled in from `config/panko.toml`: `[learner]` (language, varieties, the
+teacher's Arabizi style and the scholarly one, mainstream city standard, regions, topics, what to keep or drop,
+picture rules) and `[evidence]` (which corpora and dictionaries the checker should trust and how to read them). A
+test fails if a prompt file names a person, city, dictionary or picture rule, so another learner changes config,
+not prompts. Prompts render the same for a whole run, so prompt caching makes the long instructions nearly free
+after the first request. The packaged extract prompt writes the full item (glosses, grammar, an example per word),
+so it costs about 6× more per page than a bare transcription: $0.17 for the densest Peace Corps page on Opus. On
+that page Sonnet ($0.07) and Haiku ($0.005) read the words right but broke the house transliteration and article
+rules, so extraction stays on Opus; cheaper models can be set per step in `[llm.tasks]` once an eval shows they hold up.
+
 **2026-11-23 · How Panko spends on language models.**
 Every LLM step goes through one runner (`panko.llm.run`). Before a run it counts input tokens on a sample and
 prices the whole run; if the estimate is over the budget (`[llm] budget_usd`, $5 by default, `--budget` per run) it

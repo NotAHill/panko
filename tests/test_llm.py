@@ -115,3 +115,15 @@ def test_claude_request_body(tmp_path):
     assert b["output_config"] == {"effort": "high", "format": {"type": "json_schema", "schema": schema}}
     assert [x["type"] for x in b["messages"][0]["content"]] == ["text", "image"]
     assert b["messages"][0]["content"][1]["source"]["media_type"] == "image/png"
+
+
+def test_task_model_override(monkeypatch):
+    from panko import config
+    from panko.providers.llm.claude import Claude
+    real = config.settings()
+    fake = {**real, "llm": {**real.get("llm", {}), "tasks": {"extract": "claude-haiku-5-5"}}}
+    monkeypatch.setattr(config, "settings", lambda: fake)
+    monkeypatch.setattr("panko.providers.chain", lambda cap: [Claude({"model": "claude-opus-5-5", "effort": "medium"})])
+    assert llm.provider(task="extract").model == "claude-haiku-5-5"
+    assert llm.provider(task="extract").cfg["effort"] == "medium"
+    assert llm.provider(task="check").model == "claude-opus-5-5"

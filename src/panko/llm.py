@@ -44,15 +44,22 @@ def _batches_file() -> Path:
     return _root() / "data" / "llm-batches.json"
 
 
-def provider(name: str | None = None) -> LLM:
+def provider(name: str | None = None, task: str | None = None) -> LLM:
+    """The first ready provider in `[llm] chain`. `[llm.tasks]` can give a task its own model
+    (e.g. `extract = "claude-haiku-5-5"`): the provider that serves that model family is used with it."""
     from panko import providers
+    from panko.config import settings
     ready = providers.chain("llm")
     if name:
         ready = [p for p in ready if p.name == name]
     if not ready:
         raise RuntimeError("no language model is ready: set ANTHROPIC_API_KEY (or another provider) in .env, "
                            "and check `[llm] chain` in config/panko.toml")
-    return ready[0]
+    model = settings().get("llm", {}).get("tasks", {}).get(task or "")
+    if not model:
+        return ready[0]
+    p = next((x for x in ready if (x.name == "anthropic") == model.startswith("claude")), ready[0])
+    return type(p)({**p.cfg, "model": model})
 
 
 def budget_default() -> float:
@@ -105,7 +112,7 @@ def run(task: str, asks: list[Ask], *, expect_out: int = 1500, budget: float | N
         workers: int = 4, llm: LLM | None = None, quiet: bool = False) -> dict[str, Answer]:
     """Answers for every ask: cached ones for free, the rest from the model (or submitted as a batch)."""
     from panko.providers.llm import OutOfCredits
-    p = llm or provider()
+    p = llm or provider(task=task)
     budget = budget_default() if budget is None else budget
     keys = {a.id: key(p, a) for a in asks}
     if len(keys) != len(asks):

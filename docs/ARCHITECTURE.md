@@ -60,7 +60,7 @@ flowchart TB
     end
     subgraph LLM["Language model (panko.llm: estimate, budget, cache, batches)"]
         direction LR
-        l1[Claude<br/>Opus 5.5, structured JSON,<br/>vision, batches]:::built --> l2[OpenAI<br/>chat, once a model is set]:::part
+        l0[Prompts<br/>src/panko/prompts + config learner/evidence]:::built --> l1[Claude<br/>Opus 5.5, structured JSON,<br/>vision, batches]:::built --> l2[OpenAI<br/>chat, once a model is set]:::part
     end
     subgraph Speech["Lesson speech-to-text"]
         direction LR
@@ -138,6 +138,7 @@ reaches every card without touching review history. Panko never writes `MyNotes`
 | `src/panko/providers/` | one file per provider, registered by name |
 | `src/panko/llm.py` | runs language-model work for every command: cost estimate, budget cap, answer cache (`cache/llm/`), usage log (`data/llm-usage.jsonl`), half-price batches (`panko llm collect`) |
 | `src/panko/providers/llm/` | `claude.py` (Anthropic SDK: JSON schema output, vision, prompt caching, token counting, batches, refusal fallbacks), `openai_chat.py` |
+| `src/panko/prompts/` | generic prompts (`*.md`, `{{var}}`, `{{#var}}…{{/var}}`, `{{> part}}`) filled from `[learner]` and `[evidence]` in config; `schemas.py` holds the strict JSON schema per prompt; `prompts.ask(name, id, parts)` builds the request for `llm.run` |
 | `src/panko/cards/note_types.py` | Anki fields, card templates, CSS |
 | `src/panko/cards/render.py` | entry data → card HTML |
 | `src/panko/anki/mcp_client.py` | talks to the Anki MCP Server add-on |

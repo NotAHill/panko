@@ -19,7 +19,7 @@ Arabic. Single user. They review on Anki desktop, AnkiMobile and AnkiWeb.
 - `uv run panko pictures export|search|apply`: pictures for cards without one. Real photos first (Commons/Openverse contact sheets), drawings otherwise; the per-card decisions follow `data/sources/decks/PICTURE-BRIEF.md`.
 - `uv run panko draw FILE [--force] [--batch]`, `panko draw --collect`: drawings for `{entry id: scene}` (OpenAI, style in `config/panko.toml`). `--batch` = OpenAI Batch API, half price, results within 24 h.
 - `uv run panko sync`: render active entries and push templates/CSS/media/notes to Anki, updating notes in place (Anki must be open with the MCP add-on on 127.0.0.1:3141).
-- `uv run panko llm ping|usage|collect`: check the language model, see spend, save finished batches. Code that needs an LLM calls `panko.llm.run(task, asks)` (estimate, budget, cache, batches); never call a vendor SDK directly.
+- `uv run panko llm ping|usage|collect`: check the language model, see spend, save finished batches. Code that needs an LLM calls `panko.llm.run(task, asks)` (estimate, budget, cache, batches); never call a vendor SDK directly. Prompts live in `src/panko/prompts/` (`prompts.ask(name, id, parts)`); personal choices go in `[learner]` / `[evidence]` in config, never in a prompt file (a test checks).
 - `uv run panko migrate [ids] [--report FILE]`: dry run of Phase 6 (studied old-deck notes → Panko notes, history kept). `--apply` converts for real: Anki closed, needs `uv sync --extra migrate`, then one full sync (upload).
 - Personal data (transcripts, extractions, the store, ingested pictures) lives in `data/`, which is git-ignored.
 
