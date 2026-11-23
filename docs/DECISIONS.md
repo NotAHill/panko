@@ -2,6 +2,23 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-23 · Chat mode first: Panko runs inside the learner's own Claude.**
+A third-party app can't bill a model call to someone's Claude subscription, so a Panko that only calls the API makes
+every learner buy credits (~$30 a textbook). Instead Panko becomes an MCP server: the learner's Claude (Desktop,
+claude.ai, Code) reads pages and judges, Panko serves the deterministic parts (pages, rendered prompts, evidence,
+"already in your deck?", schema-checked submit, inbox, Anki sync). Same prompts and schemas as API mode, so results
+match; API mode stays for unattended and batch runs. Spec: `docs/SPEC-mcp.md`.
+
+**2026-11-23 · Opus stays the model for every step.**
+A three-model test of the packaged prompts (about $0.80) found no step where a cheaper model is safe for the
+learner. On checking, Haiku agreed with the earlier evidence-backed verdicts about as often as Opus (24 vs 27 of
+50) but by saying `ok` to rows that had real errors, so a wrong word would reach a card unflagged; Sonnet agreed on
+15, rewrote good rows and made some wrong corrections. On extraction both broke the house transliteration rules. For
+examples and picture plans all three were usable, with a little Fusha creeping into the cheaper models' sentences.
+The saving lever is batches (half price), not a smaller model. `[llm.tasks]` keeps the per-step override for anyone
+who wants it, and the test should be re-run when evidence lookup lands (S3), since all three models judged from
+memory here.
+
 **2026-11-23 · Prompts ship with Panko; the learner's choices live in config.**
 The briefs that agents followed in chat are now generic prompts in `src/panko/prompts/` (extract, deck, check,
 examples, pictures-plan, pictures-pick), with shared parts (`_item`, `_verdict`, `_evidence`) and a strict JSON

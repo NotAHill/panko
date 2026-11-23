@@ -53,12 +53,16 @@ effort = "medium"         # low | medium | high | xhigh | max; tasks can ask for
 fallbacks = true          # on a policy decline, the API re-runs the request on a fallback model
 
 [llm.tasks]
-# A model per task, when the default isn't worth it. Measured with the packaged extract prompt on a dense Peace Corps
-# page (31 items, 2026-11-23): Opus $0.17, Sonnet $0.07, Haiku $0.005. All three read the page correctly, but only
-# Opus kept the house style (3/7/9 Arabizi, nouns without the article, schwas, plurals). Sonnet wrote q for ق,
-# added articles and dropped plurals; Haiku did that on almost every noun and mixed spellings. So extract stays on
-# Opus. Judgment steps (check, examples, pictures) haven't been compared yet.
-# extract = "claude-sonnet-5-5"
+# A model per task, when the default isn't worth it. Measured 2026-11-23 (eval on the SSD, panko-scratch/eval3):
+# - extract, one dense Peace Corps page: Opus $0.17, Sonnet $0.07, Haiku $0.005. All read it right; only Opus kept
+#   the house style (3/7/9, no article on nouns, schwas, plurals).
+# - check, 50 raw deck rows vs the earlier evidence-backed verdicts (no evidence given): Opus agreed on 27, Haiku
+#   24, Sonnet 15. Haiku passes real errors as ok (6 of 12 known fixes, a calque, a wrong gloss); Sonnet over-edits
+#   and some of its corrections are wrong. Per item: Opus $0.0057, Sonnet $0.0022, Haiku $0.0002.
+# - examples, pictures-plan: all three usable. Sonnet and Haiku let a few Fusha words into sentences; Sonnet wrote
+#   two muddled picture prompts; Haiku's picture plans were as good as Opus's.
+# So everything stays on Opus. Haiku is the one option for pictures-plan (saves ~$2 on a big source).
+# pictures-plan = "claude-haiku-5-5"
 
 [llm.openai]
 model = ""                # set a model (and its price below) to use OpenAI instead

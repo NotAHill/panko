@@ -16,7 +16,12 @@ def main(argv=None):
     i.add_argument("path")
     i.add_argument("--verdicts", nargs="*", default=[], help="verification JSON files to apply first")
     i.add_argument("--overrides", help="hand-made overrides JSON {key: {field: value} | {drop: true}}")
-    sub.add_parser("inbox", help="list candidates waiting to become cards")
+    ib = sub.add_parser("inbox", help="list candidates waiting to become cards")
+    ib.add_argument("--html", action="store_true", help="write a review page (cache/review/inbox.html)")
+    ib.add_argument("--tag", help="only candidates with this tag, e.g. src::textbook::peace-corps")
+    ib.add_argument("--plans", nargs="*", default=[], help="picture-plan JSON files to show on the cards")
+    rj = sub.add_parser("reject", help="retire candidates you don't want (ids from the review page)")
+    rj.add_argument("ids", nargs="+")
     a = sub.add_parser("activate", help="turn candidates into cards on next sync")
     a.add_argument("ids", nargs="*")
     a.add_argument("--batch", type=int)
@@ -75,10 +80,30 @@ def main(argv=None):
         r = ingest(args.path, verdicts=load_verdicts(args.verdicts), overrides=ov)
         print(f"{r['source']}: {len(r['new'])} new candidates, {len(r['known'])} already known: {', '.join(r['known'])}")
     elif args.cmd == "inbox":
+        import json
+        from pathlib import Path
+
         from panko.store import Store
-        for e in Store().entries("candidate"):
+        es = [e for e in Store().entries("candidate") if not args.tag or args.tag in e.get("tags", [])]
+        if args.html:
+            from panko import review
+            plans = {}
+            for f in args.plans:
+                plans.update(json.loads(Path(f).read_text()))
+            print(review.write(es, plans, title=f"Inbox review{' · ' + args.tag.split('::')[-1] if args.tag else ''}"))
+            return
+        for e in es:
             pic = "pic" if e.get("image") else "   "
             print(f"{e['id']}  {pic}  b{e.get('batch', '-')}  {e['ar']:<28} {e.get('tl', ''):<24} {e.get('gloss', '')}")
+    elif args.cmd == "reject":
+        from panko.store import Store
+        s, done = Store(), []
+        for eid in args.ids:
+            e = s.get(eid)
+            if e and e.get("status", "candidate") == "candidate":
+                s.set_status(eid, "retired")
+                done.append(eid)
+        print(f"retired {len(done)} candidates" + (f"; skipped {len(args.ids) - len(done)} (not candidates)" if len(done) < len(args.ids) else ""))
     elif args.cmd == "activate":
         from panko.ingest import activate
         from panko.store import Store

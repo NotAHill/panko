@@ -57,3 +57,13 @@ def test_ask_builds_a_request():
     a = prompts.ask("check", "x1", ["items here"], effort="high")
     assert a.id == "x1" and a.parts == ["items here"] and a.effort == "high"
     assert a.schema == prompts.schema("check") and a.system == prompts.render("check")
+
+
+def test_review_page_renders_candidates_and_flags():
+    from panko import review
+    es = [{"id": "dw-1", "ar": "ضحّك", "tl": "de77ek", "gloss": "to make laugh", "pos": "verb", "tags": ["pc::page-148"],
+           "examples": [{"ar": "كتضحّكني", "tl": "katde77ekni", "en": "You make me laugh.", "source": "book p. 148"}]},
+          {"id": "dw-2", "ar": "جوا", "gloss": "envelope", "tags": [], "check": {"verdict": "doubtful", "summary": "Unconfirmed."}}]
+    page = review.render(es, {"ضحّك": {"choice": "draw", "query": "", "prompt": "A clown and laughing kids.", "reason": ""}})
+    assert 'data-id="dw-1"' in page and "Page 148" in page and "A clown and laughing kids." in page
+    assert 'data-v="doubtful"' in page and "Unconfirmed." in page and "{{" not in page

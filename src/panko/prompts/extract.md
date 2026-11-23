@@ -4,6 +4,10 @@ You are given one piece of a source: a page image, its text layer, or a stretch 
 teaches, in the order it appears. The text layer can garble Arabic word order or interleave two-column tables;
 when a page image is given, the image is the truth.
 
+Grammar pages: sentences that only illustrate a pattern (a conjugation, an agreement rule) are examples, not items.
+Put the best one or two in the headword's `examples` and make a phrase item only for a sentence a learner would use
+as it is (a set phrase, a common question, a polite formula).
+
 {{#source_note}}About this source: {{source_note}}
 
 {{/source_note}}{{> item}}
