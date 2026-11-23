@@ -22,22 +22,30 @@ from panko.anki.sync import MEDIA_DIRS, PREFIX
 from panko.cards import build as B
 from panko.cards import note_types as T
 
-COLLECTION = Path.home() / "Library/Application Support/Anki2/User 1/collection.anki2"
 KEEP = ("Spare3", "Spare4")   # old Front, old Back
-
-# old note type → (old card ord → Panko card) by which side the old card shows first
-CARD_MAP = {
-    "Basic (and reversed card)++": {0: "recognition", 1: "production"},
-    "Basic (and reversed card)+++": {0: "recognition", 1: "production"},
-    "Darija Vocab": {0: "recognition", 1: "production"},
-    "Basic++": {0: "recognition"},
-    "Basic-64524": {0: "production"},   # front {{English}}
-}
+ARABIC = re.compile(r"[\u0600-\u06ff]")
 TEMPLATE_INDEX = {"recognition": 0, "production": 1}
 
 
 def anki_running() -> bool:
     return subprocess.run(["pgrep", "-x", "Anki"], capture_output=True).returncode == 0
+
+
+def card_map(note) -> dict[int, str]:
+    """Old card ord → Panko card for this note's type: `[anki.card_map]` in config if it names the type, else by
+    which side each template shows first (Arabic on the front → recognition, anything else → production)."""
+    from panko.config import anki
+    model = note.note_type()
+    given = anki()["card_map"].get(model["name"])
+    if given:
+        return {i: c for i, c in enumerate(given) if c}
+    out = {}
+    for t in model["tmpls"]:
+        names = [re.sub(r"^(type|text|furigana|kana|kanji):", "", f).strip()
+                 for f in re.findall(r"\{\{([^#/^!}][^}]*)\}\}", t["qfmt"])]
+        shown = " ".join(note[f] for f in names if f in note.keys())
+        out[t["ord"]] = "recognition" if ARABIC.search(shown) else "production"
+    return out
 
 
 def plan(store, col) -> list[dict]:
@@ -56,9 +64,10 @@ def plan(store, col) -> list[dict]:
         taken.add(nid)
         note = col.get_note(nid)
         old_model = note.note_type()["name"]
-        if old_model not in CARD_MAP:
-            raise ValueError(f"{e['id']}: no card map for note type {old_model!r}")
-        cards = [{"cid": c.id, "ord": c.ord, "to": CARD_MAP[old_model][c.ord], "reps": c.reps,
+        cmap = card_map(note)
+        if any(c.ord not in cmap for c in note.cards()):
+            raise ValueError(f"{e['id']}: [anki.card_map] for {old_model!r} doesn't cover all its cards")
+        cards = [{"cid": c.id, "ord": c.ord, "to": cmap[c.ord], "reps": c.reps,
                   "deck": col.decks.name(c.did)} for c in note.cards()]
         rows.append({"eid": e["id"], "nid": nid, "ar": e["ar"], "gloss": e.get("gloss", ""), "kind": e["kind"],
                      "old_model": old_model, "old_fields": dict(note.items()), "cards": cards})
@@ -105,8 +114,8 @@ def convert(store, col, rows: list[dict], narrator=None) -> dict:
         req.new_fields[:] = [KEEP.index(f["name"]) if f["name"] in KEEP and KEEP.index(f["name"]) < n_old else -1
                              for f in new["flds"]]
         tmpl = [-1] * len(new["tmpls"])
-        for ord_, card in CARD_MAP[old_name].items():
-            tmpl[TEMPLATE_INDEX[card]] = ord_
+        for c in (c for r in rs for c in r["cards"]):   # same note type → same map
+            tmpl[TEMPLATE_INDEX[c["to"]]] = c["ord"]
         req.new_templates[:] = tmpl
         req.note_ids[:] = [r["nid"] for r in rs]
         col.models.change_notetype_of_notes(req)
@@ -156,13 +165,16 @@ def report(rows: list[dict]) -> str:
     return "\n".join(out)
 
 
-def run(dry_run: bool = True, ids: list[str] | None = None, collection: Path = COLLECTION,
+def run(dry_run: bool = True, ids: list[str] | None = None, collection: Path | None = None,
         scratch: Path | None = None, store=None, narrator=None) -> dict:
     """Dry run: plan against a throwaway copy (safe with Anki open). Real run: Anki must be closed; backs up first."""
     import tempfile
     import time
 
     from anki.collection import Collection
+
+    from panko.config import collection_path
+    collection = Path(collection) if collection else collection_path()
 
     from panko.store import Store
 

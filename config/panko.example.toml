@@ -1,0 +1,99 @@
+# Panko settings. `panko init` writes config/panko.toml from this file with your answers; edit it any time.
+# Lists of providers are tried in order: the first one that returns a result wins. Keys go in .env, never here.
+
+[audio]
+# native = real human audio you already have (a teacher's clip, a course recording).
+chain = ["native", "elevenlabs", "azure"]
+allow_placeholder = false          # never fall back to a voice that speaks the wrong variety
+
+[audio.elevenlabs]
+model = "eleven_v3"
+format = "mp3_44100_128"
+# Voices per variety, in order: the headword and every example are read by each voice listed. Pick voices that
+# really speak the variety (`panko voices --all` auditions candidates), then map names to IDs below.
+{{voices}}
+
+[audio.elevenlabs.voice_ids]
+# Name = "ElevenLabs voice id"
+
+[images]
+# source = a picture cropped from the material; then free photo sites (pexels/pixabay need free keys); the paid
+# drawing last. Off by default: "inaturalist" (animals, plants), "arasaac" (pictograms, CC BY-NC-SA).
+chain = ["source", "wikidata", "commons", "openverse", "pexels", "pixabay", "generate"]
+
+[images.generate]
+provider = "openai"
+model = "gpt-image-2"
+quality = "low"
+# The house style added to every drawing prompt. Write your own rules for people, clothing and setting here.
+style = """Simple hand-drawn picture-dictionary illustration: ink lines with soft watercolour, warm muted colours, \
+plain off-white paper background, simple uncluttered composition with only the props the idea needs, \
+one clear idea that shows the meaning at a glance, memorable and a little playful. \
+Don't add people the scene doesn't need. No text, no letters, no numbers, no speech bubbles with words."""
+
+[llm]
+# Language model for extraction, checking and picture decisions (API mode). In chat mode (`panko mcp`) your own
+# Claude does this and no key is needed.
+chain = ["anthropic", "openai"]
+budget_usd = 5                     # a run whose estimate is over this stops before spending; override with --budget
+
+[llm.anthropic]
+model = "claude-opus-5-5"
+effort = "medium"
+fallbacks = true
+
+[llm.tasks]
+# A model per task, e.g. pictures-plan = "claude-haiku-5-5". A test on one source found only the strongest model
+# kept the house style and caught errors, so the default is the same model everywhere.
+
+[llm.openai]
+model = ""
+
+[llm.prices]
+# USD per million tokens: [input, output, cache read, cache write]. Batches cost half.
+"claude-opus-5-5" = [4.0, 20.0, 0.20, 5.0]
+"claude-sonnet-5-5" = [2.0, 10.0, 0.10, 2.5]
+"claude-haiku-5-5" = [0.10, 0.50, 0.01, 0.125]
+
+[anki]
+backend = "mcp"                    # the Anki MCP Server add-on, while Anki is open
+url = "http://127.0.0.1:3141/"
+profile = {{profile}}              # the Anki profile migrations open
+
+[anki.decks]                       # where each variety's cards go
+{{decks}}
+
+[anki.card_map]                    # migrations only: old note type = ["recognition", "production"] per template;
+                                   # types not listed are detected (target language on the front → recognition)
+
+# ---- You, the learner: what the prompts assume. Change these, never the prompt files. ----
+[learner]
+language = {{language}}            # what the cards teach
+varieties = {{varieties}}          # names for the store and decks, e.g. ["darija", "fusha"]
+learner = {{learner}}
+gloss_language = {{gloss_language}}
+mainstream = ""                    # the standard treated as the "usual" word, e.g. a city or region
+regions = []                       # regions a word can be tagged with
+topics = ["home", "food", "shopping", "people", "family", "time", "places", "body", "greetings", "numbers", "money",
+          "emotions", "work", "school", "health", "travel", "clothes", "weather", "colors", "animals", "nature",
+          "verbs-daily", "grammar"]
+keep = ""                          # anything the checks should always keep
+drop = ""                          # anything they should always drop
+
+[learner.translit]
+main = {{translit}}                # the romanisation shown first on cards
+main_rules = ""                    # its conventions, e.g. which digits stand for which letters
+alt = "scholarly transliteration"
+
+[learner.pictures]
+# Rules for choosing photos and writing drawing prompts, one per line.
+rules = [
+  "Avoid anything political, violent or gory.",
+]
+skip = "grammar/function words a picture can't show without text, numbers above 10, and anything sensitive or violent"
+
+# ---- Evidence the checks are given (looked up by Panko, free) ----
+[evidence]
+web_search = true                  # API mode: let the model search the web for what local evidence doesn't settle
+web_searches_per_item = 2
+{{evidence}}

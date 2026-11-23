@@ -80,6 +80,19 @@ model = ""                # set a model (and its price below) to use OpenAI inst
 [anki]
 backend = "mcp"          # mcp (Anki MCP Server add-on) | pylib (Anki closed; used for migrations)
 url = "http://127.0.0.1:3141/"
+profile = "User 1"       # the Anki profile migrations open (collection = "/path/to/collection.anki2" to override)
+
+[anki.decks]             # where each variety's cards go
+darija = "Panko Sandbox::Darija"
+fusha = "Panko Sandbox::Fusha"
+
+[anki.card_map]          # migrations: old note type → Panko card per template (Card 1, Card 2…); others are
+                         # detected (Arabic on the front → recognition, otherwise production)
+"Basic (and reversed card)++" = ["recognition", "production"]
+"Basic (and reversed card)+++" = ["recognition", "production"]
+"Darija Vocab" = ["recognition", "production"]
+"Basic++" = ["recognition"]
+"Basic-64524" = ["production"]   # front {{English}}
 
 # ---- The learner: what the prompts assume. Another learner changes these, not the prompts. ----
 [learner]
@@ -119,11 +132,14 @@ web_searches_per_item = 2
 [[evidence.corpora]]                        # open datasets, looked up by word (downloaded automatically)
 name = "Darija Open Dataset (DODa)"
 path = "cache/refs/doda"
+url = "https://github.com/darija-open-dataset/dataset"   # `panko refs` downloads it
+include = ["semantic categories/", "syntactic categories/", "sentences/", "x-tra/"]
 notes = "word lists (nouns, verbs, adjectives, synonyms…) and a sentence corpus, mostly mainstream (Casablanca/Rabat) Darija; word lists sometimes list regional synonyms side by side"
 
 [[evidence.corpora]]
 name = "Wiktionary, Moroccan Arabic entries"
 path = "cache/refs/wiktionary-moroccan.jsonl"
+url = "https://kaikki.org/dictionary/Moroccan%20Arabic/kaikki.org-dictionary-MoroccanArabic.jsonl"
 notes = "sense tags like Northern or Jebli mark regional words"
 
 [[evidence.dictionaries]]                   # private reference texts: a path on your machine, never shipped

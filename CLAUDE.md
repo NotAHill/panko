@@ -12,6 +12,7 @@ Arabic. Single user. They review on Anki desktop, AnkiMobile and AnkiWeb.
 
 ## Run
 - `uv sync --all-extras`, `uv run pytest -q`, `uv run ruff check .`
+- `uv run panko init [--check]`: starter config for a new learner (from `config/panko.example.toml`) and a check of what's ready. `uv run panko refs [--download]`: reference data, fetching the open ones.
 - `uv run panko providers`: which providers are ready.
 - `uv run panko voices [--all]`: audition ElevenLabs Moroccan voices (paid plan); writes `cache/voices/index.html`.
 - `uv run panko seed`: load the hand-written sandbox entries into the store (`data/panko.db`).

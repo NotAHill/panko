@@ -140,13 +140,15 @@ reaches every card without touching review history. Panko never writes `MyNotes`
 
 | Path | What |
 |---|---|
-| `config/panko.toml` | provider chains and settings |
+| `config/panko.toml` | provider chains and settings (yours); `config/panko.example.toml` is the generic template `panko init` fills |
+| `src/panko/config.py` | loads config and `.env`; `anki()` / `deck()` / `collection_path()` with defaults |
+| `src/panko/setup.py` | `panko init`: starter config from answers, and the readiness check (`--check`) |
 | `src/panko/providers/` | one file per provider, registered by name |
 | `src/panko/providers/images/` | picture search: `wikidata.py` (query → Wikidata item → its P18 Commons file), `commons.py`, `openverse.py`, `pexels.py`, `pixabay.py` (free keys), `inaturalist.py`, `arasaac.py` (off by default), `source.py` (crops, not built); `web.py` = polite spacing per site, one retry on 429 then pause the site, answers cached in `cache/images/` |
 | `src/panko/mcp_server.py` | chat mode (`panko mcp`, `--config` prints the Claude Desktop/Code snippet): thin MCP tools over the modules below; the workflow Claude follows is `prompts/chat.md` (`panko_guide`) |
 | `src/panko/work.py` | sources split into units (PDF pages, photos, transcript chunks), one validated result per unit in `data/work/<source>/units/`, resumable; `ingest_source` merges results: known → sighting + the source's sentences, homograph → own entry with shadda, near-duplicate → held |
 | `src/panko/pipeline.py` | API mode (`panko work run [--batch] [--budget] [--estimate]`): extract → local evidence → check → picture plan per unit through `panko.llm`, then `work.submit` like a chat result |
-| `src/panko/evidence.py` | free local evidence per word: the learner's entry, same-letter words, near-duplicates, hits from `[evidence]` corpora and dictionaries (read by file shape) |
+| `src/panko/evidence.py` | free local evidence per word: the learner's entry, same-letter words, near-duplicates, hits from `[evidence]` corpora and dictionaries (read by file shape); `download()` fetches the open ones (`panko refs --download`) |
 | `src/panko/dedupe.py` | duplicate checks: transliteration consonant skeletons (ضحك d7ek ≠ ضحّك de77ek), shadda insertion, fuzzy near-duplicate index |
 | `src/panko/llm.py` | runs language-model work for every command: cost estimate (output size measured per task from the usage log), budget cap, answer cache (`cache/llm/`), usage log (`data/llm-usage.jsonl`), half-price batches (`panko llm collect`) |
 | `src/panko/providers/llm/` | `claude.py` (Anthropic SDK: JSON schema output, vision, prompt caching, token counting, batches, refusal fallbacks), `openai_chat.py` |

@@ -9,7 +9,6 @@ import json
 import sys
 import urllib.request
 
-URL = "http://127.0.0.1:3141/"
 _sid: str | None = None
 
 
@@ -24,7 +23,8 @@ def rpc(method: str, params: dict | None = None, id_: int = 1, notify: bool = Fa
                "MCP-Protocol-Version": "2025-06-18"}
     if _sid:
         headers["Mcp-Session-Id"] = _sid
-    req = urllib.request.Request(URL, data=json.dumps(body).encode(), method="POST", headers=headers)
+    from panko.config import anki
+    req = urllib.request.Request(anki()["url"], data=json.dumps(body).encode(), method="POST", headers=headers)
     with urllib.request.urlopen(req, timeout=120) as r:
         _sid = r.headers.get("Mcp-Session-Id") or _sid
         raw = r.read().decode()

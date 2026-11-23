@@ -42,6 +42,13 @@ def main(argv=None):
     wd.add_argument("ar")
     wd.add_argument("--known", default="")
     wd.add_argument("--distinct", action="store_true")
+    it = sub.add_parser("init", help="set up Panko: write config/panko.toml from your answers, then check what's ready")
+    it.add_argument("--yes", action="store_true", help="take the defaults without asking")
+    it.add_argument("--force", action="store_true", help="replace an existing config (kept as .bak)")
+    it.add_argument("--check", action="store_true", help="only check what's ready")
+    rf = sub.add_parser("refs", help="the reference corpora and dictionaries: show them, download the open ones")
+    rf.add_argument("--download", action="store_true", help="fetch the open ones that are missing")
+    rf.add_argument("--force", action="store_true", help="with --download: fetch them again even if present")
     mc = sub.add_parser("mcp", help="run Panko as an MCP server for Claude (chat mode, no API key needed)")
     mc.add_argument("--config", action="store_true", help="print the Claude Desktop / Claude Code config instead")
     i = sub.add_parser("ingest", help="load an extraction JSON into the store")
@@ -109,6 +116,16 @@ def main(argv=None):
                   f"audio to generate: {p['audio_clips']} clips {p['audio_chars']}")
         else:
             sync.sync()
+    elif args.cmd == "init":
+        _init(args)
+    elif args.cmd == "refs":
+        from panko import evidence
+        if args.download:
+            evidence.download(force=args.force)
+        for r in evidence.references_status():
+            how = "present" if r["present"] else ("missing: `panko refs --download`" if r["url"]
+                                                  else "missing: add this file yourself")
+            print(f"{r['name']:<45} {how:<36} {r['path']}")
     elif args.cmd == "work":
         _work(args, wk)
     elif args.cmd == "mcp":
@@ -178,6 +195,35 @@ def main(argv=None):
         _pictures(args, pic)
     else:
         ap.print_help()
+
+
+def _init(args):
+    from panko import setup
+    if not args.check and (args.force or not setup.CONFIG.exists()):
+        d = dict(setup.DEFAULTS)
+        profiles = setup.anki_profiles()
+        if profiles:
+            d["profile"] = profiles[0]
+
+        def ask(key, q):
+            if args.yes:
+                return d[key]
+            shown = ", ".join(d[key]) if isinstance(d[key], list) else d[key]
+            got = input(f"{q} [{shown}]: ").strip()
+            return ([x.strip() for x in got.split(",")] if isinstance(d[key], list) else got) if got else d[key]
+
+        answers = {"language": ask("language", "Language your cards teach"),
+                   "gloss_language": ask("gloss_language", "Your language (for meanings)"),
+                   "varieties": ask("varieties", "Varieties, comma-separated (deck per variety)"),
+                   "deck_root": ask("deck_root", "Deck to put them under"),
+                   "profile": ask("profile", f"Anki profile{' (found: ' + ', '.join(profiles) + ')' if profiles else ''}"),
+                   "translit": ask("translit", "Romanisation to show first"),
+                   "wiktionary": ask("wiktionary", "Wiktionary language name for evidence (blank to skip)")}
+        print("wrote", setup.write_config(answers, force=args.force))
+    elif not args.check:
+        print(f"{setup.CONFIG} exists (edit it, or `panko init --force` to start over). Checking what's ready:")
+    for what, ok, detail in setup.check():
+        print(f"  {'✓' if ok else '✗'} {what:<34} {detail}")
 
 
 def _work(args, parser):

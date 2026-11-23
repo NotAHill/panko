@@ -145,3 +145,60 @@ def lookup(words: list[dict], store: Store | None = None, refs: bool = True) -> 
                     "near": [] if panko else index.near(item, skip=skip),
                     "hits": _hits(ar, w.get("tl_alt", "")) if refs else []})
     return out
+
+
+# ---- downloading the open references -------------------------------------------------------------------------------
+
+def references_status() -> list[dict]:
+    """Each configured corpus/dictionary: where it lives, whether it's there, and whether Panko can download it."""
+    ev = settings().get("evidence", {})
+    out = []
+    for c in [*ev.get("corpora", []), *ev.get("dictionaries", [])]:
+        p = _path(c.get("path", ""))
+        there = p.is_dir() and any(p.iterdir()) if p.is_dir() else p.exists()
+        out.append({"name": c["name"], "path": str(p), "present": bool(there), "url": c.get("url", ""),
+                    "include": c.get("include", [])})
+    return out
+
+
+def _github_files(url: str, include: list[str], client) -> list[tuple[str, str]]:
+    """(raw URL, file name) for the CSVs of a GitHub repo under the `include` folders (people-name lists skipped)."""
+    owner, repo = re.match(r"https://github\.com/([^/]+)/([^/#?]+)", url).groups()
+    tree = client.get(f"https://api.github.com/repos/{owner}/{repo}/git/trees/HEAD?recursive=1").raise_for_status()
+    paths = [t["path"] for t in tree.json()["tree"] if t["type"] == "blob" and t["path"].endswith(".csv")
+             and (not include or t["path"].startswith(tuple(include))) and "names" not in t["path"].rsplit("/", 1)[-1]]
+    return [(f"https://raw.githubusercontent.com/{owner}/{repo}/HEAD/{p}", p.rsplit("/", 1)[-1]) for p in paths]
+
+
+def download(force: bool = False, client=None, say=print) -> list[dict]:
+    """Fetch every configured reference that has a `url` and isn't on disk yet (all of them with `force`)."""
+    import httpx
+    client = client or httpx.Client(timeout=120, follow_redirects=True, headers={"User-Agent": "panko"})
+    report = []
+    for r in references_status():
+        p = Path(r["path"])
+        if not r["url"]:
+            report.append({**r, "done": "present" if r["present"] else "missing: add this file yourself"})
+            continue
+        if r["present"] and not force:
+            report.append({**r, "done": "present"})
+            continue
+        if r["url"].startswith("https://github.com/"):
+            p.mkdir(parents=True, exist_ok=True)
+            files = _github_files(r["url"], r["include"], client)
+            for raw, name in files:
+                (p / name).write_bytes(client.get(raw).raise_for_status().content)
+            report.append({**r, "done": f"downloaded {len(files)} files"})
+        else:
+            p.parent.mkdir(parents=True, exist_ok=True)
+            tmp = p.with_suffix(p.suffix + ".part")
+            with client.stream("GET", r["url"]) as resp:
+                resp.raise_for_status()
+                with open(tmp, "wb") as f:
+                    for chunk in resp.iter_bytes():
+                        f.write(chunk)
+            tmp.replace(p)
+            report.append({**r, "done": f"downloaded {p.stat().st_size // 1024} KB"})
+        say(f"{r['name']}: {report[-1]['done']}")
+    _references.cache_clear()
+    return report

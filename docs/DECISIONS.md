@@ -2,6 +2,16 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-23 · Settings for another learner: a generic template, your config states your choices.**
+`panko init` writes `config/panko.toml` from `config/panko.example.toml`, a template with no personal choices (no
+dress rules, teacher, voices or private books), filled with a few answers; a learner adds their own rules to it.
+Everything that was hard-coded for one person moved to config with the old values as defaults: deck names, the Anki
+address and profile, the collection path (per operating system), and the migration card map, which is now detected
+from the old note type's templates when config doesn't name it, since other people's decks use other note types. Open
+reference data downloads itself (`panko refs --download`: DODa from its repo, Wiktionary from kaikki.org's extracts);
+private books are only ever a path. Media file prefixes and note type names stay fixed: changing them would orphan
+existing media and notes.
+
 **2026-11-23 · "Same letters, another word" only when a doubled consonant says so.**
 Transliterations are noisy: a model wrote شحال as `chhal` where the card has `sh7al`, and comparing whole consonant
 skeletons made it a new word. Real same-letter pairs in Darija differ by gemination (ضحك d7ek / ضحّك de77ek,

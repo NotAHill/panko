@@ -89,7 +89,8 @@ def sync(store: Store | None = None, narrator: audio.Narrator | None = None) -> 
     notes = {e["id"]: B.to_note(e, narrator) for e in entries}   # audio generated here, before Anki is touched
     mcp.init()
     push_models()
-    for d in set(B.DECKS.values()):
+    from panko.config import deck
+    for d in {deck(e["variety"]) for e in entries}:
         tool("create_deck", {"deck_name": d})
     stored, stale = push_media(list(notes.values()))
     added = updated = same = 0

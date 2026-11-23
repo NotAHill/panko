@@ -9,9 +9,9 @@ import json
 
 from panko.cards import note_types as T
 from panko.cards import render as R
+from panko.config import deck
 from panko.media.audio import Narrator, Silent
 
-DECKS = {"darija": "Panko Sandbox::Darija", "fusha": "Panko Sandbox::Fusha"}
 CARD_SWITCH = {"production": "EnableProduction", "listening": "EnableListening", "picture": "EnablePicture",
                "plural": "EnablePlural", "verb-forms": "EnableVerbForms", "root": "EnableRoot", "typed": "EnableTyped"}
 DEFAULT_CARDS = ["recognition", "production"]   # recognition is always on
@@ -69,7 +69,7 @@ def to_note(entry: dict, narrator: Narrator | None = None) -> dict:
     tags = sorted({f"register::{entry['variety']}", f"kind::{entry['kind']}", "panko::prototype", *entry.get("tags", [])}
                   | ({"panko::needs-review"} if entry.get("review", True) else set()))
     fields = {k: f.get(k, "") for k in all_fields if k != "MyNotes"}   # MyNotes is the user's, never written
-    return {"model": model, "deck": DECKS[entry["variety"]], "fields": fields, "tags": tags}
+    return {"model": model, "deck": deck(entry["variety"]), "fields": fields, "tags": tags}
 
 
 def note_hash(note: dict) -> str:
