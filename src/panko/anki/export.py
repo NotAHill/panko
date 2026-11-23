@@ -10,15 +10,27 @@ import json
 from pathlib import Path
 
 
+def _note_ids(query: str) -> list[int]:
+    """Every matching note id. The add-on returns at most 500 per call, so page until it says there are no more."""
+    from panko.anki.sync import tool
+    ids: list[int] = []
+    while True:
+        r = tool("find_notes", {"query": query, "limit": 500, "offset": len(ids)})
+        page = r.get("noteIds", [])
+        ids += page
+        if not page or not r.get("hasMore"):
+            return ids
+
+
 def export_deck(name: str, path: Path) -> dict:
     from panko.anki import mcp_client as mcp
     from panko.anki.sync import tool
     mcp.init()
     q = 'deck:"' + name.replace('"', '\\"') + '"'
-    ids = tool("find_notes", {"query": q}).get("noteIds", [])
+    ids = _note_ids(q)
     if not ids:
         raise ValueError(f"no notes in an Anki deck called {name!r}")
-    studied = set(tool("find_notes", {"query": q + " -is:new"}).get("noteIds", []))
+    studied = set(_note_ids(q + " -is:new"))
     notes = []
     for i in range(0, len(ids), 100):
         for n in tool("notes_info", {"notes": ids[i:i + 100]})["notes"]:

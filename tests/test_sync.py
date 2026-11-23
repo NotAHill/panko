@@ -99,3 +99,24 @@ def test_export_deck_marks_studied_notes(monkeypatch, tmp_path):
     assert [n["studied"] for n in out["notes"]] == [True, False]
     assert list(out["notes"][0]["fields"]) == ["Front", "Back"] and calls[0][1]["query"] == 'deck:"My \\"old\\" deck"'
     assert not any(c[0] not in ("find_notes", "notes_info") for c in calls)   # read-only
+
+
+def test_export_deck_pages_through_every_note(monkeypatch, tmp_path):
+    """The add-on's find_notes returns 100 ids by default (500 at most) with offset/hasMore paging."""
+    from panko.anki import export
+    ids = list(range(1, 1235))
+    studied = set(ids[::3])
+
+    def fake(name, args):
+        if name == "find_notes":
+            pool = [i for i in ids if "-is:new" not in args["query"] or i in studied]
+            limit, off = min(args.get("limit", 100), 500), args.get("offset", 0)
+            page = pool[off:off + limit]
+            return {"noteIds": page, "total": len(pool), "hasMore": off + len(page) < len(pool), "offset": off}
+        return {"notes": [{"noteId": n, "modelName": "Basic", "tags": [], "fields": {"Front": {"value": "x", "order": 0}}}
+                          for n in args["notes"]]}
+    monkeypatch.setattr(sync, "tool", fake)
+    monkeypatch.setattr(sync.mcp, "init", lambda: None)
+    out = export.export_deck("Big deck", tmp_path / "d.json")
+    assert [n["nid"] for n in out["notes"]] == ids
+    assert {n["nid"] for n in out["notes"] if n["studied"]} == studied
