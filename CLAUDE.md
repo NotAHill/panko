@@ -16,7 +16,8 @@ Arabic. Single user. They review on Anki desktop, AnkiMobile and AnkiWeb.
 - `uv run panko voices [--all]`: audition ElevenLabs Moroccan voices (paid plan); writes `cache/voices/index.html`.
 - `uv run panko seed`: load the hand-written sandbox entries into the store (`data/panko.db`).
 - `uv run panko ingest PATH`: add an extraction JSON's new items to the inbox; `panko inbox` lists them; `panko activate [ids] [--batch N]` promotes them.
-- `uv run panko draw FILE`: generate a drawing for each `{entry id: scene}` in FILE (OpenAI, style in `config/panko.toml`; skips entries that have a picture unless `--force`). Scene prompts: `data/sources/decks/DRAW-BRIEF.md`.
+- `uv run panko pictures export|search|apply`: pictures for cards without one. Real photos first (Commons/Openverse contact sheets), drawings otherwise; the per-card decisions follow `data/sources/decks/PICTURE-BRIEF.md`.
+- `uv run panko draw FILE [--force] [--batch]`, `panko draw --collect`: drawings for `{entry id: scene}` (OpenAI, style in `config/panko.toml`). `--batch` = OpenAI Batch API, half price, results within 24 h.
 - `uv run panko sync`: render active entries and push templates/CSS/media/notes to Anki, updating notes in place (Anki must be open with the MCP add-on on 127.0.0.1:3141).
 - Personal data (transcripts, extractions, the store, ingested pictures) lives in `data/`, which is git-ignored.
 

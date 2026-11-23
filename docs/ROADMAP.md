@@ -11,7 +11,8 @@ Update the **Now** section at the end of every work session: it's what a fresh s
 - **Stage 2 checks**: filtered to rows common in DODa (1,763 rows) → extracted + checked + region in one pass → 1,541 items → duplicates merged, gloss clashes resolved (192 sharpened, 24 recognition-only, 27 retired). Long deck sentences became 110 checked examples (`SENTENCE-BRIEF.md`), plus 15 everyday words/formulas they revealed. Report: `data/sources/decks/CHECK-REPORT.md`.
 - **Inbox: ~125**: 98 entries from old-deck notes you studied (Phase 6 converts those notes in place so history survives), and doubtful items (`panko::doubtful`).
 - Waiting on: the learner asking Oussama about doubtful/low-confidence items (both CHECK-REPORTs); غتاصب keep/drop.
-- Next: make the picture step a command (`panko pictures`: apply photo picks + draw, maybe via OpenAI's Batch API at half price); Phase 6 (migrate the 98 studied notes with history); more sources (Peace Corps book + audio).
+- Picture step is a command: `panko pictures export → search → apply [--batch]` (drawings by OpenAI batch at half price, `panko draw --collect`). A 2-picture test batch was submitted 2026-11-23 (dp-00194, dp-00195); collect it to confirm the batch path end to end.
+- Next: Phase 6 (migrate the 98 studied notes with history); more sources (Peace Corps book + audio).
 
 ## Phases
 | # | Phase | Status |

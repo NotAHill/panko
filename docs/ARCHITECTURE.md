@@ -52,7 +52,7 @@ flowchart TB
     end
     subgraph Pictures
         direction LR
-        p1[source<br/>crop from the PDF/clip]:::part --> p2[Wikimedia Commons]:::built --> p3[Openverse]:::built --> p4[generate<br/>gpt-image-2 drawings<br/>panko draw]:::built
+        p1[source<br/>crop from the PDF/clip]:::part --> p2[Wikimedia Commons]:::built --> p3[Openverse]:::built --> p4[generate<br/>gpt-image-2 drawings<br/>now or batch]:::built
     end
     subgraph Text["Writing + checking"]
         direction LR
@@ -135,7 +135,7 @@ reaches every card without touching review history. Panko never writes `MyNotes`
 | `src/panko/cards/note_types.py` | Anki fields, card templates, CSS |
 | `src/panko/cards/render.py` | entry data → card HTML |
 | `src/panko/anki/mcp_client.py` | talks to the Anki MCP Server add-on |
-| `src/panko/media/pictures.py` | picture search + contact sheet for picking; `draw` = generated drawings (`panko draw`) |
+| `src/panko/media/pictures.py` | the picture step (`panko pictures export/search/apply`): photo candidates + contact sheets, applying decisions, drawings now (`draw`) or by OpenAI batch (`draw_batch`, `collect`) |
 | `src/panko/media/audio.py` | walks the audio chain, caches results in `cache/media/` |
 | `src/panko/store/` | SQLite store: entries, sources, sightings, Anki links; Arabic normalisation for dedup |
 | `src/panko/ingest/` | extraction JSON → candidates (inbox); `activate` promotes them |

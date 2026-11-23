@@ -1,12 +1,19 @@
-"""Find candidate pictures for a word and lay them out on a numbered contact sheet
-so a human (or a vision model) can pick one. Usage:
-    uv run python -m panko.media.pictures "sofa living room" out_dir
+"""Pictures for cards: real photos first, generated drawings as the fallback.
+
+The flow (`panko pictures …`, see data/sources/decks/PICTURE-BRIEF.md):
+1. export   cards without a picture → a JSON list for whoever decides (Claude, following PICTURE-BRIEF).
+2. search   English queries → candidates from Wikimedia Commons / Openverse + numbered contact sheets.
+3. apply    decisions {id: {"photo": {dir, index}} | {"prompt": …} | {"skip": …}}: downloads and credits the
+            chosen photos, then draws the prompts now (`draw`) or as an OpenAI batch (`draw_batch` + `collect`).
 """
 from __future__ import annotations
 
 import io
 import json
+import subprocess
 import sys
+import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import httpx
@@ -14,6 +21,36 @@ import httpx
 from panko import providers
 from panko.providers.images.commons import UA
 
+GEN_PREFIX = "_panko_proto_gen_"
+PHOTO_PREFIX = "_panko_proto_"
+
+
+def _media() -> Path:
+    from panko.config import ROOT
+    return ROOT / "data" / "media"
+
+
+def _batches_file() -> Path:
+    from panko.config import ROOT
+    return ROOT / "data" / "draw-batches.json"
+
+
+# 1. export ------------------------------------------------------------------------------------------------------
+
+def export(store, status: str = "active", batch: int | None = None, ids: list[str] | None = None) -> list[dict]:
+    """Cards without a picture, with what a decider needs to judge them."""
+    rows = []
+    for e in store.entries(status):
+        if e.get("image") or (batch is not None and e.get("batch") != batch) or (ids and e["id"] not in ids):
+            continue
+        ex = next((x.get("en") for x in e.get("examples", []) if x.get("en")), "")
+        rows.append({"id": e["id"], "ar": e["ar"], "tl": e.get("tl", ""), "pos": e.get("pos", ""), "kind": e["kind"],
+                     "gloss": e.get("gloss", ""), "note": e.get("gloss_note", "") or e.get("usage", ""),
+                     "example_en": ex})
+    return rows
+
+
+# 2. search ------------------------------------------------------------------------------------------------------
 
 def candidates(query: str, per_provider: int = 6) -> list[dict]:
     out = []
@@ -28,69 +65,139 @@ def candidates(query: str, per_provider: int = 6) -> list[dict]:
     return [c for c in out if c.get("thumb")]
 
 
-def contact_sheet(cands: list[dict], out: Path, cell: int = 300) -> Path:
+def _fetch(c: dict):
+    from PIL import Image
+    try:
+        im = Image.open(io.BytesIO(httpx.get(c["thumb"], headers=UA, timeout=30, follow_redirects=True).content))
+        im.load()
+        return im
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def search(queries: dict[str, str], outdir: Path, per_slug: int = 7) -> list[Path]:
+    """{slug: English query} → outdir/cands.json and contact sheets (one row per slug, candidates numbered 0–6)."""
     from PIL import Image, ImageDraw
 
-    cols = 4
-    rows = (len(cands) + cols - 1) // cols
-    sheet = Image.new("RGB", (cols * cell, rows * cell), "white")
-    draw = ImageDraw.Draw(sheet)
-    for i, c in enumerate(cands):
+    outdir.mkdir(parents=True, exist_ok=True)
+    with ThreadPoolExecutor(6) as ex:
+        found = dict(zip(queries, ex.map(lambda q: candidates(q, 5)[:per_slug], queries.values()), strict=True))
+    (outdir / "cands.json").write_text(json.dumps(found, ensure_ascii=False, indent=1))
+    cell, slugs, sheets = 170, list(queries), []
+    for part in range(0, len(slugs), 6):
+        rows = slugs[part:part + 6]
+        sheet = Image.new("RGB", (per_slug * cell + 90, len(rows) * cell), "white")
+        d = ImageDraw.Draw(sheet)
+        for r, slug in enumerate(rows):
+            d.text((4, r * cell + cell // 2), slug[:12], fill="black")
+            with ThreadPoolExecutor(7) as ex:
+                ims = list(ex.map(_fetch, found[slug]))
+            for i, im in enumerate(ims):
+                if im is None:
+                    continue
+                im.thumbnail((cell - 6, cell - 18))
+                x, y = 90 + i * cell, r * cell
+                sheet.paste(im.convert("RGB"), (x + 3, y + 15))
+                d.text((x + 3, y + 2), str(i), fill="red")
+        p = outdir / f"sheet{part // 6}.jpg"
+        sheet.save(p)
+        sheets.append(p)
+    return sheets
+
+
+# 3. apply -------------------------------------------------------------------------------------------------------
+
+def _credit(c: dict) -> str:
+    prov = "Wikimedia Commons" if c.get("provider") == "commons" else "Openverse"
+    return f'<a href="{c.get("page", "")}">{prov}</a> · {c.get("author", "")} · {c.get("license", "")}'
+
+
+def _download(c: dict, path: Path):
+    r = httpx.get(c["thumb"], headers=UA, follow_redirects=True, timeout=60)
+    r.raise_for_status()
+    path.write_bytes(r.content)
+    subprocess.run(["sips", "-s", "format", "jpeg", "-Z", "800", str(path), "--out", str(path)],
+                   check=True, capture_output=True)
+
+
+def apply(decisions: dict[str, dict], store=None, out: Path | None = None, download=_download) -> dict:
+    """Download and credit chosen photos; return {"photo": n, "skip": n, "failed": [ids], "prompts": {id: prompt}}.
+    A photo that can't be fetched is reported in "failed" (give it a prompt and re-apply)."""
+    from panko.store import Store
+
+    st = store or Store()
+    out = out or _media()
+    cp = out / "credits.json"
+    credits = json.loads(cp.read_text()) if cp.exists() else {}
+    res = {"photo": 0, "skip": 0, "failed": [], "prompts": {}}
+    for eid, d in decisions.items():
+        if "prompt" in d:
+            res["prompts"][eid] = d["prompt"]
+            continue
+        if "photo" not in d:
+            res["skip"] += 1
+            continue
+        e = st.get(eid)
+        if not e or e.get("image"):
+            continue
         try:
-            img = Image.open(io.BytesIO(httpx.get(c["thumb"], headers=UA, timeout=30, follow_redirects=True).content))
-            img.thumbnail((cell - 8, cell - 28))
-            sheet.paste(img.convert("RGB"), ((i % cols) * cell + 4, (i // cols) * cell + 24))
-        except Exception as e:  # noqa: BLE001
-            c["error"] = str(e)
-        draw.rectangle([(i % cols) * cell, (i // cols) * cell, (i % cols) * cell + 60, (i // cols) * cell + 20], fill="black")
-        draw.text(((i % cols) * cell + 4, (i // cols) * cell + 4), f"{i} {c['provider'][:2]}", fill="white")
-    sheet.save(out)
-    return out
+            c = json.loads((Path(d["photo"]["dir"]) / "cands.json").read_text())[eid][d["photo"]["index"]]
+            name = f"{PHOTO_PREFIX}{eid}.jpg"
+            download(c, out / name)
+        except Exception as ex:  # noqa: BLE001
+            print("photo failed", eid, ex, file=sys.stderr)
+            res["failed"].append(eid)
+            continue
+        credits[name] = {k: c.get(k, "") for k in ("provider", "title", "author", "license", "page")}
+        e["image"] = {"file": name, "credit": _credit(c)}
+        st.put(e)
+        res["photo"] += 1
+    cp.write_text(json.dumps(credits, indent=1, ensure_ascii=False))
+    return res
 
 
-if __name__ == "__main__":
-    q, d = sys.argv[1], Path(sys.argv[2])
-    d.mkdir(parents=True, exist_ok=True)
-    slug = q.replace(" ", "_")
-    cs = candidates(q)
-    (d / f"{slug}.json").write_text(json.dumps(cs, indent=1, ensure_ascii=False))
-    print(contact_sheet(cs, d / f"{slug}.jpg"), len(cs))
+# drawings -------------------------------------------------------------------------------------------------------
+
+def _model() -> str:
+    from panko.config import settings
+    return settings()["images"]["generate"].get("model", "")
 
 
-GEN_PREFIX = "_panko_proto_gen_"
+def _save_drawing(st, out: Path, eid: str, png: Path, prompt: str, model: str) -> str:
+    """PNG → small JPEG in the media folder, set as the entry's picture."""
+    name = f"{GEN_PREFIX}{eid}.jpg"
+    subprocess.run(["sips", "-s", "format", "jpeg", "-s", "formatOptions", "80", "-Z", "640",
+                    str(png), "--out", str(out / name)], check=True, capture_output=True)
+    png.unlink()
+    e = st.get(eid)
+    e["image"] = {"file": name, "credit": f"Illustration generated ({model})", "prompt": prompt}
+    st.put(e)
+    return name
+
+
+def _todo(st, prompts: dict[str, str], force: bool) -> dict[str, str]:
+    return {i: p for i, p in prompts.items() if p and st.get(i) and (force or not st.get(i).get("image"))}
 
 
 def draw(prompts: dict[str, str], force: bool = False, workers: int = 6, store=None, out: Path | None = None,
          gen=None) -> dict[str, str]:
-    """Generate a memorable illustration for each entry id in `prompts` ({id: what to draw}) and set it as the
-    entry's picture. Entries that already have a picture are skipped unless `force`. Returns {id: file | error}."""
-    import subprocess
-    from concurrent.futures import ThreadPoolExecutor
-
-    from panko.config import ROOT, settings
+    """Draw each {entry id: scene} now and set it as the entry's picture. Entries that already have a picture are
+    skipped unless `force`. Stops early when the account is out of credits. Returns {id: file | error}."""
     from panko.providers.imagegen import Generate, OutOfCredits
     from panko.store import Store
 
     st = store or Store()
-    out = out or ROOT / "data" / "media"
-    model = settings()["images"]["generate"].get("model", "")
-    gen = gen or Generate({})
-    todo = {i: p for i, p in prompts.items() if p and (force or not (st.get(i) or {}).get("image"))}
-
-    stop = []
+    out = out or _media()
+    model, gen, stop = _model(), gen or Generate({}), []
 
     def one(item):
         eid, prompt = item
         if stop:
             return eid, None, "error: skipped (out of credits)"
-        name = f"{GEN_PREFIX}{eid}.jpg"
         png = out / f"{GEN_PREFIX}{eid}.png"
         try:
             gen.generate(prompt, png)
-            subprocess.run(["sips", "-s", "format", "jpeg", "-s", "formatOptions", "80", "-Z", "640",
-                            str(png), "--out", str(out / name)], check=True, capture_output=True)
-            png.unlink()
-            return eid, name, prompt
+            return eid, png, prompt
         except OutOfCredits as e:
             stop.append(1)
             return eid, None, f"error: {e}"
@@ -99,11 +206,55 @@ def draw(prompts: dict[str, str], force: bool = False, workers: int = 6, store=N
 
     res = {}
     with ThreadPoolExecutor(workers) as ex:
-        for eid, name, info in ex.map(one, todo.items()):
-            if name:
-                e = st.get(eid)
-                e["image"] = {"file": name, "credit": f"Illustration generated ({model})", "prompt": info}
-                st.put(e)
-            res[eid] = name or info
+        for eid, png, info in ex.map(one, _todo(st, prompts, force).items()):
+            res[eid] = _save_drawing(st, out, eid, png, info, model) if png else info
             print(eid, res[eid], flush=True)
     return res
+
+
+def draw_batch(prompts: dict[str, str], force: bool = False, store=None, gen=None) -> str | None:
+    """Submit the drawings as one OpenAI batch (half price, done within 24 h). `collect` saves them later."""
+    from panko.providers.imagegen import Generate
+    from panko.store import Store
+
+    st = store or Store()
+    todo = _todo(st, prompts, force)
+    if not todo:
+        return None
+    bid = (gen or Generate({})).batch_submit(todo)
+    f = _batches_file()
+    rec = json.loads(f.read_text()) if f.exists() else {}
+    rec[bid] = {"prompts": todo, "model": _model(), "submitted": time.strftime("%Y-%m-%d %H:%M"), "done": False}
+    f.write_text(json.dumps(rec, ensure_ascii=False, indent=1))
+    return bid
+
+
+def collect(store=None, out: Path | None = None, gen=None, batches: Path | None = None) -> dict[str, dict]:
+    """Save the drawings of every finished batch; report the status of the rest. Returns {batch id: summary}."""
+    from panko.providers.imagegen import Generate
+    from panko.store import Store
+
+    st, out, gen = store or Store(), out or _media(), gen or Generate({})
+    f = batches or _batches_file()
+    rec = json.loads(f.read_text()) if f.exists() else {}
+    report = {}
+    for bid, r in rec.items():
+        if r.get("done"):
+            continue
+        b = gen.batch_status(bid)
+        report[bid] = {"status": b.get("status"), "counts": b.get("request_counts")}
+        if b.get("status") not in ("completed", "expired", "cancelled", "failed"):
+            continue
+        saved, errors = 0, {}
+        for eid, got in gen.batch_results(b).items():
+            if isinstance(got, bytes):
+                png = out / f"{GEN_PREFIX}{eid}.png"
+                png.write_bytes(got)
+                _save_drawing(st, out, eid, png, r["prompts"].get(eid, ""), r.get("model", ""))
+                saved += 1
+            else:
+                errors[eid] = got
+        r.update(done=True, saved=saved, errors=errors)
+        report[bid].update(saved=saved, errors=len(errors))
+    f.write_text(json.dumps(rec, ensure_ascii=False, indent=1))
+    return report

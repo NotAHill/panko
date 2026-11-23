@@ -2,6 +2,12 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-23 · The picture step is a command: `panko pictures export → search → apply`.**
+It used to be agents plus scripts in a scratch folder. Now `export` lists cards without a picture, an agent decides
+photo / drawing / skip per card (`PICTURE-BRIEF.md`) using `search` for Commons/Openverse contact sheets, and `apply`
+downloads and credits the photos and draws the rest. Drawings can go through OpenAI's Batch API (`--batch`, collected
+with `panko draw --collect`): half the price, no rate limit, results within 24 hours. Use it for big runs.
+
 **2026-11-23 · No separate picture check; the hijab rule lives in the prompt.**
 A vision check after each picture run (hijab, text, modesty) flagged mostly false positives: you looked at
 every flagged picture and found them all fine. Once the hijab rule was in the house style, none of the ~1,400
