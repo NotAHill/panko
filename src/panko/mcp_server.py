@@ -71,12 +71,33 @@ def panko_sources() -> dict:
 
 @tool()
 def panko_add_source(path: str, kind: str, title: str, id: str = "", date: str = "", trust: int = 70,
-                     page_offset: int = 0, first_page: int = 1, last_page: int = 0) -> dict:
-    """Register a PDF, a folder of page photos or a text transcript (path absolute or relative to the Panko folder).
-    kind: textbook | teacher-sheet | lesson | media | notes. trust 0-100 (teacher material high, shared decks low).
-    PDFs: page_offset = PDF page number minus printed page number; first_page/last_page limit the range."""
-    s = work.add_source(path, kind, title, id, date, trust, page_offset=page_offset, first=first_page, last=last_page)
-    return {k: v for k, v in s.items() if k != "files"} | {"units": f"{len(s['units'])} ({s['units'][0]}…{s['units'][-1]})"}
+                     page_offset: int = 0, first_page: int = 1, last_page: int = 0, tracks: list[str] | None = None,
+                     speakers: list[str] | None = None, learner: str = "", transcript: str = "") -> dict:
+    """Register a PDF, a folder of page photos, a text transcript, an exported deck (.json) or a lesson recording
+    (path absolute or relative to the Panko folder). kind: textbook | teacher-sheet | lesson | media | notes.
+    trust 0-100 (teacher material high, shared decks low). PDFs: page_offset = PDF page number minus printed page
+    number; first_page/last_page limit the range. Recordings: tracks = more files of the same session (one per mic),
+    speakers = a name per track (or per speaker, for one track), learner = which name is the learner, transcript = a
+    speech-to-text JSON already made. A recording without one needs `panko_transcribe` before its units exist."""
+    s = work.add_source(path, kind, title, id, date, trust, page_offset=page_offset, first=first_page, last=last_page,
+                        tracks=tracks or [], speakers=speakers or [], learner=learner, transcript=transcript)
+    units = f"{len(s['units'])} ({s['units'][0]}…{s['units'][-1]})" if s["units"] else "none yet: transcribe it first"
+    return {k: v for k, v in s.items() if k != "files"} | {"units": units}
+
+
+@tool()
+def panko_transcribe(source: str, confirm: bool = False) -> dict:
+    """Speech-to-text for a recording source, with word times, so it splits into units and items get native clips.
+    Paid (the [stt] chain, billed per minute of audio). Without confirm: how much audio would be sent. confirm=true
+    only after the learner agrees."""
+    s = work.source(source)
+    if s["type"] != "audio":
+        raise ValueError(f"{source} isn't a recording")
+    mins = round(s["duration"] * len(s["tracks"]) / 60, 1)
+    if not confirm:
+        return {"source": source, "tracks": len(s["tracks"]), "minutes": mins, "note": "nothing sent; ask the learner"}
+    s = work.transcribe(source)
+    return {"source": source, "minutes": mins, "units": s["units"]}
 
 
 @tool()
@@ -271,7 +292,9 @@ def panko_audio(id: str, confirm: bool = False) -> list:
                             "characters": sum(len(t) for _, t in dry.todo), "note": "dry run"}, ensure_ascii=False)]
     note = build.to_note(e, audio.Narrator())
     files = re.findall(r"\[sound:([^\]]+)\]", note["fields"].get("Audio", ""))
-    return [*(Audio(path=audio.MEDIA / f) for f in files if (audio.MEDIA / f).exists()),
+    from panko.media import clips
+    paths = [next((d / f for d in (audio.MEDIA, clips._media()) if (d / f).exists()), None) for f in files]
+    return [*(Audio(path=p) for p in paths if p),
             json.dumps({"id": id, "generated": len(dry.todo), "headword_clips": files}, ensure_ascii=False)]
 
 

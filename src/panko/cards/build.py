@@ -28,13 +28,24 @@ def _examples(entry) -> list[R.Example]:
                       x.get("cite", "")) for x in entry.get("examples", [])]
 
 
+def _said(narrator: Narrator, text: str, variety: str, n: int) -> list:
+    """Every voice in turn; a native clip (the same file for every slot) is played once."""
+    out, seen = [], set()
+    for v in (narrator.say(text, variety, s) for s in range(max(n, 1))):
+        if v and v.filename not in seen:
+            seen.add(v.filename)
+            out.append(v)
+    return out
+
+
 def _voice(entry, exs: list[R.Example], narrator: Narrator) -> tuple[str, str]:
-    """Headword and every example are read by every voice (man, then woman). Scripture is never voiced."""
+    """Headword and every example are read by every voice (man, then woman), or by the real speaker when a recording
+    of it is held (panko.media.clips). Scripture is never voiced."""
     variety = entry["variety"]
     n = narrator.count(variety)
-    said = [v for v in (narrator.say(entry["ar"].rstrip(".؟?"), variety, s) for s in range(n)) if v]
+    said = _said(narrator, entry["ar"].rstrip(".؟?"), variety, n)
     for e in (x for x in exs if not x.cite and not x.audio):
-        e.audio = [v.filename for v in (narrator.say(e.ar, variety, s) for s in range(n)) if v]
+        e.audio = [v.filename for v in _said(narrator, e.ar, variety, n)]
     return "".join(f"[sound:{v.filename}]" for v in said), " + ".join(v.source for v in said)
 
 

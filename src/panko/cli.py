@@ -24,7 +24,8 @@ def _main(argv=None):
     sy.add_argument("--dry-run", action="store_true", help="list what would change and the audio still to pay for")
     wk = sub.add_parser("work", help="work through a source in units: add, status, run (API mode), ingest, decide")
     wsub = wk.add_subparsers(dest="wcmd")
-    wa = wsub.add_parser("add", help="register a PDF, a folder of page photos, a text transcript or an exported deck (.json)")
+    wa = wsub.add_parser("add", help="register a PDF, a folder of page photos, a text transcript, an exported deck "
+                                     "(.json) or a lesson recording")
     wa.add_argument("path", nargs="?", default="", help="the file or folder (not needed with --deck)")
     wa.add_argument("--deck", default="", help="export this Anki deck (read-only; Anki open) and add it as a source")
     wa.add_argument("--kind", required=True, help="textbook | teacher-sheet | lesson | media | notes | deck")
@@ -35,6 +36,15 @@ def _main(argv=None):
     wa.add_argument("--page-offset", type=int, default=0, help="PDF page number minus printed page number")
     wa.add_argument("--first", type=int, default=1, help="first PDF page to work on")
     wa.add_argument("--last", type=int, default=0, help="last PDF page to work on")
+    wa.add_argument("--track", action="append", default=[], help="recordings: another file of the same session "
+                    "(each mic recorded separately); repeat for more")
+    wa.add_argument("--speakers", default="", help="recordings: names, comma-separated, one per track (or per "
+                    "speaker in order of first speaking, for one track), e.g. teacher,me")
+    wa.add_argument("--learner", default="", help="recordings: which of those names is you (never used for clips)")
+    wa.add_argument("--transcript", default="", help="recordings: a speech-to-text JSON you already have (free)")
+    wt = wsub.add_parser("transcribe", help="speech-to-text for a recording, with word times (paid: [stt] chain)")
+    wt.add_argument("source")
+    wt.add_argument("--estimate", action="store_true", help="only print how much audio it would send")
     wst = wsub.add_parser("status", help="sources and their progress, or one source in detail")
     wst.add_argument("source", nargs="?")
     wr = wsub.add_parser("run", help="extract, check and plan pictures with the language model (API mode)")
@@ -314,8 +324,25 @@ def _work(args, parser):
         elif not args.path:
             parser.error("give a PATH or --deck NAME")
         s = work.add_source(args.path, args.kind, args.title, args.id, args.date, args.trust,
-                            page_offset=args.page_offset, first=args.first, last=args.last)
-        print(f"{s['id']}: {len(s['units'])} units ({s['units'][0]}…{s['units'][-1]})")
+                            page_offset=args.page_offset, first=args.first, last=args.last, tracks=args.track,
+                            speakers=[x.strip() for x in args.speakers.split(",") if x.strip()],
+                            learner=args.learner, transcript=args.transcript)
+        if not s["units"]:
+            print(f"{s['id']}: a recording of {s['duration'] / 60:.1f} min; next: panko work transcribe {s['id']} "
+                  "--estimate (or add it again with --transcript FILE)")
+        else:
+            print(f"{s['id']}: {len(s['units'])} units ({s['units'][0]}…{s['units'][-1]})")
+    elif args.wcmd == "transcribe":
+        s = work.source(args.source)
+        if s["type"] != "audio":
+            parser.error(f"{args.source} isn't a recording")
+        mins = s["duration"] * len(s["tracks"]) / 60
+        if args.estimate:
+            print(f"{args.source}: {len(s['tracks'])} track(s), {mins:.1f} min of audio to send to speech-to-text "
+                  "([stt] chain; billed per minute of audio on your provider's plan)")
+            return
+        s = work.transcribe(args.source)
+        print(f"{s['id']}: transcribed ({mins:.1f} min); {len(s['units'])} units ({s['units'][0]}…{s['units'][-1]})")
     elif args.wcmd == "status":
         if args.source:
             print(json.dumps(work.pending(args.source), ensure_ascii=False, indent=1))
@@ -339,6 +366,10 @@ def _work(args, parser):
         r = work.ingest_source(args.source)
         print(f"{len(r['units'])} units: {r['new']} new candidates, {r['known']} known (sightings), "
               f"{r['dropped']} dropped, {r['merged']} merged, {len(r['homographs'])} homographs kept apart")
+        if "clips" in r:
+            c = r["clips"]
+            print(f"  native clips: {c['cut']} cut, {c['kept']} already held"
+                  + (f"; not found in the recording: {', '.join(c['not_found'][:12])}" if c["not_found"] else ""))
         for h in r["held"]:
             m = "; ".join(f"{x['id']} {x['ar']} '{x['gloss']}'" for x in h["matches"]) or "-"
             print(f"  held {h['unit']} {h['ar']} '{h.get('gloss', '')}' ~ {m}")

@@ -1,7 +1,9 @@
 """Work through a source in units, whoever does the reading: the learner's Claude in chat (MCP) or, later, API mode.
 
-A source (a PDF, a folder of page photos, a transcript) is registered once and split into units: PDF pages, image
-files or transcript chunks. For each unit the reader submits one result, the unit's items, each already checked
+A source (a PDF, a folder of page photos, a transcript, an exported deck, a lesson recording) is registered once and
+split into units: PDF pages, image files, transcript chunks, deck rows or stretches of a recording. A recording is
+transcribed first (speech-to-text with word times, `transcribe`); at ingest each item the recording says gets a
+native clip (panko.media.clips) that the card plays instead of a synthetic voice. For each unit the reader submits one result, the unit's items, each already checked
 and given a picture plan (the `extract`, `check` and `pictures-plan` prompts in one pass). Results wait in
 `data/work/<source>/units/<unit>.json` until `ingest_source` merges them into the store, so a book can be done over
 many chats and nothing reaches the store before it has been validated and checked for duplicates.
@@ -30,6 +32,9 @@ WORK = ROOT / "data" / "work"
 PAGES = ROOT / "cache" / "pages"
 IMAGE_EXT = {".png", ".jpg", ".jpeg", ".webp", ".heic", ".gif"}
 TEXT_EXT = {".txt", ".md", ".srt", ".vtt"}
+AUDIO_EXT = {".mp3", ".m4a", ".wav", ".ogg", ".oga", ".opus", ".flac", ".aac", ".mp4", ".mov", ".webm", ".mkv"}
+CHUNK_SECS = 180        # seconds of a recording per unit
+PAUSE = 1.5             # a silence this long starts a new transcript line
 CHUNK_LINES = 60
 DECK_ROWS = 25          # rows of an old deck per unit (one `deck` answer, well under the output limit)
 
@@ -70,9 +75,14 @@ def source(sid: str) -> dict:
 
 
 def add_source(path: str, kind: str, title: str, sid: str = "", date: str = "", trust: int = 70, tag: str = "",
-               page_offset: int = 0, first: int = 1, last: int = 0) -> dict:
+               page_offset: int = 0, first: int = 1, last: int = 0, tracks: list[str] = (), speakers: list[str] = (),
+               learner: str = "", transcript: str = "") -> dict:
     """Register a source. `kind`: textbook | teacher-sheet | lesson | media | notes (free text, stored on sightings).
-    PDFs: `page_offset` = PDF page − printed page; `first`/`last` limit the PDF pages worked on."""
+    PDFs: `page_offset` = PDF page − printed page; `first`/`last` limit the PDF pages worked on.
+    Recordings: `tracks` = more files of the same session recorded separately (each mic its own file), `speakers` =
+    a name per track, or per diarized speaker when there's one track; `learner` = the name that is the learner, whose
+    voice is never used for a clip; `transcript` = a speech-to-text JSON you already have (ElevenLabs format), so
+    nothing is paid for. Without one, run `transcribe` before working through it."""
     p = _abs(path)
     if not p.exists():
         raise FileNotFoundError(f"{p} does not exist")
@@ -99,16 +109,113 @@ def add_source(path: str, kind: str, title: str, sid: str = "", date: str = "", 
         rp.write_text(json.dumps(rs, ensure_ascii=False))
         s |= {"type": "deck", "deck": title, "rows": len(rs),
               "units": [f"d{i:03d}" for i in range(1, (len(rs) - 1) // DECK_ROWS + 2)]}
+    elif p.suffix.lower() in AUDIO_EXT:
+        paths = [p, *(_abs(t) for t in tracks)]
+        for t in paths:
+            if not t.exists():
+                raise FileNotFoundError(f"{t} does not exist")
+        names = list(speakers)
+        s |= {"type": "audio", "learner": learner, "units": [],
+              "tracks": [{"path": str(t), "speaker": names[i] if len(paths) > 1 and i < len(names) else ""}
+                         for i, t in enumerate(paths)],
+              "speakers": names if len(paths) == 1 else [], "duration": round(sum(duration(t) for t in paths)
+                                                                              / len(paths), 1)}
+        if transcript:
+            if len(paths) > 1:
+                raise ValueError("a ready transcript works for a single recording; transcribe several tracks instead")
+            _save_transcript(sid, s, [json.loads(_abs(transcript).read_text())], engine="given")
     elif p.suffix.lower() in TEXT_EXT:
         n = len(p.read_text(encoding="utf-8").splitlines())
         s |= {"type": "text", "units": [f"c{i:03d}" for i in range(1, n // CHUNK_LINES + 2)]}
     else:
-        raise ValueError(f"can't split {p.suffix} files yet: use a PDF, a folder of images, a text transcript or an "
-                         "exported deck (.json)")
+        raise ValueError(f"can't split {p.suffix} files yet: use a PDF, a folder of images, a text transcript, an "
+                         "exported deck (.json) or a recording")
     reg = sources()
     reg[sid] = s
     _save_sources(reg)
     return s
+
+
+# ---- recordings ----------------------------------------------------------------------------------------------------
+
+def duration(path: Path) -> float:
+    out = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(path)],
+                         capture_output=True, text=True, check=True).stdout
+    return float(out.strip() or 0)
+
+
+def _transcript_path(sid: str) -> Path:
+    return WORK / sid / "transcript.json"
+
+
+def transcript(sid: str) -> dict:
+    p = _transcript_path(sid)
+    if not p.exists():
+        raise ValueError(f"{sid} isn't transcribed yet: run `panko work transcribe {sid}` (paid speech-to-text)")
+    return json.loads(p.read_text())
+
+
+def _save_transcript(sid: str, s: dict, outs: list[dict], engine: str) -> None:
+    """Speech-to-text answers (one per track) → WORK/<sid>/transcript.json: every word with its time, speaker and
+    track, in time order; the source gets one unit per CHUNK_SECS."""
+    words, dur = [], s.get("duration") or 0
+    for t, out in enumerate(outs):
+        for w in out.get("words", []):
+            if w.get("type", "word") != "word" or w.get("start") is None:
+                continue
+            spk = s["tracks"][t]["speaker"] if len(outs) > 1 else w.get("speaker_id", "")
+            if len(outs) == 1 and s.get("speakers") and re.fullmatch(r"speaker_\d+", spk or ""):
+                i = int(spk.split("_")[1])
+                spk = s["speakers"][i] if i < len(s["speakers"]) else spk
+            words.append({"text": w["text"], "start": w["start"], "end": w.get("end", w["start"]), "speaker": spk or "",
+                          "track": t})
+        dur = max(dur, out.get("audio_duration_secs") or 0)
+    words.sort(key=lambda w: (w["start"], w["track"]))
+    dur = max(dur, words[-1]["end"] if words else 0)
+    _transcript_path(sid).parent.mkdir(parents=True, exist_ok=True)
+    _transcript_path(sid).write_text(json.dumps({"engine": engine or outs[0].get("engine", ""), "duration": dur,
+                                                 "language": outs[0].get("language_code", ""), "words": words},
+                                                ensure_ascii=False))
+    s["duration"] = round(dur, 1)
+    s["units"] = [f"a{i:03d}" for i in range(1, int(dur // CHUNK_SECS) + 2)] if words else []
+
+
+def transcribe(sid: str, stt=None) -> dict:
+    """Speech-to-text for a recording (paid: the first ready provider in the [stt] chain). Returns the source."""
+    from panko import providers
+    reg = sources()
+    s = source(sid)
+    if s["type"] != "audio":
+        raise ValueError(f"{sid} isn't a recording")
+    stt = stt or next((p for p in providers.chain("stt") if p.ready()), None)
+    if stt is None:
+        raise RuntimeError("no speech-to-text provider is ready: add ELEVENLABS_API_KEY to .env (see [stt] in config)")
+    outs = [stt.transcribe(Path(t["path"]), diarize=len(s["tracks"]) == 1) for t in s["tracks"]]
+    _save_transcript(sid, s, outs, engine=outs[0].get("engine", stt.name))
+    reg[sid] = s
+    _save_sources(reg)
+    return s
+
+
+def _clock(t: float) -> str:
+    m, sec = divmod(int(t), 60)
+    return f"{m}:{sec:02d}"
+
+
+def transcript_lines(words: list[dict]) -> list[str]:
+    """Words → lines "[m:ss] speaker: text", a new line when the speaker changes or after a pause."""
+    lines, cur, last = [], None, None
+    for w in words:
+        if cur is None or w["speaker"] != cur["speaker"] or w["start"] - last > PAUSE:
+            if cur:
+                lines.append(cur)
+            cur = {"start": w["start"], "speaker": w["speaker"], "words": []}
+        cur["words"].append(w["text"])
+        last = w["end"]
+    if cur:
+        lines.append(cur)
+    return [f"[{_clock(c['start'])}] " + (f"{c['speaker']}: " if c["speaker"] else "") + " ".join(c["words"])
+            for c in lines]
 
 
 def book_page(s: dict, unit: str) -> int | None:
@@ -120,10 +227,18 @@ def book_page(s: dict, unit: str) -> int | None:
 def page(sid: str, unit: str, dpi: int = 110) -> dict:
     """One unit to read: {unit, page (printed page number), image (path or None), text}."""
     s = source(sid)
+    if not s["units"]:
+        raise ValueError(f"{sid} has no units yet: transcribe it first (`panko work transcribe {sid}`)")
     if unit not in s["units"]:
         raise KeyError(f"{sid} has no unit {unit!r} (units run {s['units'][0]}…{s['units'][-1]})")
     p = _abs(s["path"])
     image, text = None, ""
+    if s["type"] == "audio":
+        i = int(unit[1:]) - 1
+        lo, hi = i * CHUNK_SECS, (i + 1) * CHUNK_SECS
+        ws = [w for w in transcript(sid)["words"] if lo <= w["start"] < hi]
+        return {"source": sid, "unit": unit, "page": None, "image": None, "text": "\n".join(transcript_lines(ws)),
+                "start": lo, "end": hi}
     if s["type"] == "pdf":
         n = int(unit[1:])
         out = PAGES / sid / f"{unit}.png"
@@ -192,7 +307,9 @@ def pending(sid: str) -> dict:
     for u, v in st.items():
         if v == "held":
             held += [{"unit": u, **h} for h in result(sid, u).get("held", [])]
-    return {"source": sid, "units": len(st), **counts,
+    s = source(sid)
+    extra = {"transcribe_first": True} if s["type"] == "audio" and not s["units"] else {}
+    return {"source": sid, "units": len(st), **counts, **extra,
             "to_ingest": [u for u, v in st.items() if v == "submitted"], "held": held,
             "next": [u for u, v in st.items() if v == "todo"][:5]}
 
@@ -394,6 +511,8 @@ def ingest_source(sid: str, store=None, units: list[str] | None = None) -> dict:
     if known or new:
         r = ingest({"source": src, "items": [*known.values(), *new]}, store)
         rep["new"], rep["known"] = len(r["new"]), len(r["known"])
+    if s["type"] == "audio" and (known or new):
+        rep["clips"] = _clips(s, [*known.values(), *new])
     if plans:
         p = WORK / sid / "pictures.json"
         old = json.loads(p.read_text()) if p.exists() else {}
@@ -407,6 +526,27 @@ def ingest_source(sid: str, store=None, units: list[str] | None = None) -> dict:
         r["ingested"] = _now()
         _save_result(sid, u, r)
         rep["held"] += [{"unit": u, **{k: v for k, v in h.items() if k != "item"}} for h in r["held"]]
+    return rep
+
+
+def _clips(s: dict, items: list[dict]) -> dict:
+    """Native clips of what the recording says: each item's headword and its sentences from this recording. A clip is
+    never cut from the learner's voice; text already clipped keeps its first clip."""
+    from panko.media import clips
+    words = transcript(s["id"])["words"]
+    rep = {"cut": 0, "kept": 0, "not_found": []}
+    for it in items:
+        texts = [it["ar"].rstrip(".؟?!")] + [ex["ar"] for ex in it.get("examples", [])
+                                             if ex.get("source", "").startswith(s["title"])]
+        for i, t in enumerate(texts):
+            had = clips.lookup(t)
+            got = had or clips.clip(t, words, s["tracks"], s["title"], avoid=s.get("learner", ""))
+            if had:
+                rep["kept"] += 1
+            elif got:
+                rep["cut"] += 1
+            elif i == 0:
+                rep["not_found"].append(it["ar"])
     return rep
 
 

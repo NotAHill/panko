@@ -37,6 +37,15 @@ first as above. Submit in the same unit format as pages: the verdict goes in `ve
 corrected values you put in the item), a `picture` plan, and `origin` = `{"deck": source id, "nid": row id,
 "studied": row studied}`. Rows you drop are simply left out.
 
+## Recordings (`a001`…)
+A lesson or film recording is a source once it has a transcript with word times. A recording added without one has
+no units: `panko_transcribe(source)` says how many minutes would be sent to speech-to-text; ask the learner, then
+`panko_transcribe(source, confirm=true)`. Each unit is three minutes of transcript, one line per turn as
+`[m:ss] speaker: words`. Speech-to-text mishears: rely on context and evidence, and spell headwords the way the
+learner's sources do, keeping the speaker's words in the examples (a native clip is found by matching them). What
+the teacher teaches, corrects or repeats matters most; the learner's own lines can hold mistakes. Then extract and
+check as for pages. At ingest, each item the recording says gets a clip of the real speaker as its card audio.
+
 ## End of a batch or session
 - `panko_ingest(source)` merges submitted units into the inbox. Items close to an existing entry come back as `held`:
   decide each one with `panko_decide(source, unit, ar, known_id=…)` (same word) or `distinct=true` (a different

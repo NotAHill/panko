@@ -13,9 +13,9 @@ chain"* or *"add YouTube as a source"*. Box names match names in the code and in
 flowchart TB
     subgraph Sources
         direction LR
-        L[Lessons<br/>recording + Granola]:::part
+        L[Lessons<br/>recordings via speech-to-text<br/>+ Granola text]:::part
         T[Teacher sheets<br/>PDF + notes]:::part
-        PC[Peace Corps<br/>book done, audio not]:::part
+        PC[Peace Corps<br/>book done; recordings ready<br/>to give native clips]:::part
         M[Film / TV clips]:::plan
         D[Old Darija decks<br/>stages 1–2 in Anki]:::built
     end
@@ -53,7 +53,7 @@ lives in `config/panko.toml`, so changing it needs no code.
 flowchart TB
     subgraph Audio["Audio (word + examples)"]
         direction LR
-        a1[native<br/>teacher clip / Peace Corps]:::part --> a2[ElevenLabs v3<br/>Darija: Badr + Ghalia<br/>Fusha: George]:::built --> a3[Azure<br/>ar-MA / ar-SA]:::part
+        a1[native<br/>clips cut from recordings]:::built --> a2[ElevenLabs v3<br/>Darija: Badr + Ghalia<br/>Fusha: George]:::built --> a3[Azure<br/>ar-MA / ar-SA]:::part
     end
     subgraph Pictures
         direction LR
@@ -68,9 +68,9 @@ flowchart TB
         direction LR
         l0[Prompts<br/>src/panko/prompts + config learner/evidence]:::built --> l1[Claude<br/>Opus 5.5, structured JSON,<br/>vision, batches]:::built --> l2[OpenAI<br/>chat, once a model is set]:::part
     end
-    subgraph Speech["Lesson speech-to-text"]
+    subgraph Speech["Speech-to-text (recordings → words with times)"]
         direction LR
-        s1[Gemini]:::plan ~~~ s2[ElevenLabs Scribe]:::plan ~~~ s3[Whisper fine-tune]:::plan
+        s2[ElevenLabs Scribe<br/>word times, speakers]:::built --> s1[Gemini]:::plan --> s3[Whisper fine-tune]:::plan
     end
     subgraph Anki["Anki access"]
         direction LR
@@ -82,8 +82,8 @@ flowchart TB
     classDef plan fill:#f1f3f5,stroke:#868e96,color:#000
 ```
 
-Speech-to-text engines and the two Anki paths aren't chains (no arrows). The speech engines run side by side: where they disagree, Panko
-flags the word for your teacher.
+The two Anki paths aren't a chain (no arrows). Speech-to-text is a chain like the others: the first ready engine
+transcribes. Running two engines side by side and flagging the words they disagree on for your teacher is planned.
 
 ## 3. Building one card
 
@@ -109,15 +109,19 @@ card body looks the same whatever the source.
 sequenceDiagram
     participant You
     participant Panko
-    participant Granola
-    You->>Panko: start lesson (records mic + call audio as two tracks)
-    You->>Granola: (as now) transcript
-    Panko->>Panko: speech-to-text guided by the sheet, your lexicon and the Granola text
-    Panko->>Panko: cut teacher clips per sentence
-    Panko->>Panko: find words the teacher said that aren't in Panko yet
-    Panko-->>You: new cards (teacher's voice as example audio)
-    Panko-->>You: short "ask your teacher" list where engines disagreed
+    participant STT as Speech-to-text
+    participant Reader as Reader (your Claude or panko.llm)
+    You->>Panko: work add lesson.m4a [--track call.m4a] --speakers teacher,me --learner me
+    Panko->>STT: work transcribe (paid; or --transcript you already have)
+    STT-->>Panko: every word with its time and speaker
+    Panko->>Reader: 3-minute units: "[m:ss] teacher: …"
+    Reader-->>Panko: items, checked, with pictures planned
+    Panko->>Panko: ingest: duplicates, then a clip of each word and sentence the recording says (never your voice)
+    Panko-->>You: new cards that play the real speaker
 ```
+
+Recording the lesson itself (mic and call audio as two tracks) is up to you for now; record only with your
+teacher's consent. Guiding speech-to-text with the sheet and your lexicon, and a second engine to compare, are planned.
 
 ## 5. Where data lives
 
@@ -146,7 +150,7 @@ reaches every card without touching review history. Panko never writes `MyNotes`
 | `src/panko/providers/` | one file per provider, registered by name |
 | `src/panko/providers/images/` | picture search: `wikidata.py` (query → Wikidata item → its P18 Commons file), `commons.py`, `openverse.py`, `pexels.py`, `pixabay.py` (free keys), `inaturalist.py`, `arasaac.py` (off by default), `source.py` (crops, not built); `web.py` = polite spacing per site, one retry on 429 then pause the site, answers cached in `cache/images/` |
 | `src/panko/mcp_server.py` | chat mode (`panko mcp`, `--config` prints the Claude Desktop/Code snippet): thin MCP tools over the modules below; the workflow Claude follows is `prompts/chat.md` (`panko_guide`) |
-| `src/panko/work.py` | sources split into units (PDF pages, photos, transcript chunks, 25-row stretches of an exported deck), one validated result per unit in `data/work/<source>/units/`, resumable; `ingest_source` merges results: known → sighting + the source's sentences, homograph → own entry with shadda, near-duplicate → held |
+| `src/panko/work.py` | sources split into units (PDF pages, photos, transcript chunks, 25-row stretches of an exported deck, 3-minute stretches of a transcribed recording: `transcribe`, `transcript.json`), one validated result per unit in `data/work/<source>/units/`, resumable; `ingest_source` merges results: known → sighting + the source's sentences, homograph → own entry with shadda, near-duplicate → held |
 | `src/panko/pipeline.py` | API mode (`panko work run [--batch] [--budget] [--estimate]`): extract → local evidence → check → picture plan per unit through `panko.llm`, then `work.submit` like a chat result; deck units: local evidence (rows you have become known) → `deck` prompt (extract + check in one) → picture plan |
 | `src/panko/evidence.py` | free local evidence per word: the learner's entry, same-letter words, near-duplicates, hits from `[evidence]` corpora and dictionaries (read by file shape); `download()` fetches the open ones (`panko refs --download`) |
 | `src/panko/dedupe.py` | duplicate checks: transliteration consonant skeletons (ضحك d7ek ≠ ضحّك de77ek), shadda insertion, fuzzy near-duplicate index |
@@ -158,6 +162,8 @@ reaches every card without touching review history. Panko never writes `MyNotes`
 | `src/panko/anki/mcp_client.py` | talks to the Anki MCP Server add-on |
 | `src/panko/media/pictures.py` | the picture step (`panko pictures export/search [--providers …]/apply`): photo candidates taken in turn from each site + contact sheets (10 per row, site-tagged), applying decisions, drawings now (`draw`) or by OpenAI batch (`draw_batch`, `collect`) |
 | `src/panko/media/audio.py` | walks the audio chain, caches results in `cache/media/` |
+| `src/panko/media/clips.py` | native clips: finds where a recording says an item (word times, article-tolerant, never the learner's voice), cuts it with ffmpeg to `data/media/`, and indexes it by text (`data/media/native.json`) for the `native` audio provider |
+| `src/panko/providers/stt/` | speech-to-text chain (`[stt]`): `elevenlabs.py` (Scribe: word times, diarized speakers, language forced from config) |
 | `src/panko/store/` | SQLite store: entries, sources, sightings, Anki links; Arabic normalisation for dedup |
 | `src/panko/ingest/` | extraction JSON → candidates (inbox); `activate` promotes them |
 | `src/panko/ingest/verify.py` | applies check verdicts + overrides to items before ingest |

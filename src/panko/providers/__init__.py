@@ -46,4 +46,4 @@ def get(capability: str, name: str) -> Provider | None:
 
 def _load_all():
     # importing the modules runs their @register decorators
-    from panko.providers import imagegen, images, llm, tts  # noqa: F401
+    from panko.providers import imagegen, images, llm, stt, tts  # noqa: F401

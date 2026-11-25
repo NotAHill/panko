@@ -2,6 +2,16 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-25 · Recordings are sources; the words they say get the real speaker as card audio.**
+A lesson or film recording is added like a PDF and transcribed once by the speech-to-text chain (ElevenLabs Scribe
+first, language forced from config because auto-detect can take Darija for English). Word times turn it into
+three-minute units the reader works through with the same prompts. At ingest Panko finds each item's words in the
+transcript, cuts that moment with ffmpeg and indexes the clip by its text; the `native` audio provider, first in
+the chain, then plays it on the card instead of a synthetic voice (once, not once per voice). The learner's own
+voice is never used for a clip, and an existing clip is never replaced. Clips live in `data/media` because they are
+the learner's material. Product first: moving the learner's own cards waits while Panko itself is built (your
+call).
+
 **2026-11-23 · Pictures are converted with Pillow, a core dependency; no macOS-only tools.**
 Photo downloads and drawings were turned into JPEGs with `sips`, which exists only on macOS. CI (Ubuntu) failed
 on it, and so would any learner on Linux or Windows. Pillow does the same job everywhere (JPEG, longest side

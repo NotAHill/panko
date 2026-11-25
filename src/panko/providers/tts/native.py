@@ -1,9 +1,6 @@
-"""Real human audio we already hold (teacher clips cut from lesson recordings,
-Peace Corps recordings). Lookup is by exact text; the index is filled by the
-ingestion pipeline (Phase 2), so for now this finds nothing."""
+"""Real human audio we hold: clips cut from lesson recordings and other audio sources (panko.media.clips), looked
+up by their text (harakat and punctuation ignored). First in the [audio] chain, so a card plays the real speaker."""
 from __future__ import annotations
-
-from pathlib import Path
 
 from panko.providers import register
 from panko.providers.base import TTS, Audio
@@ -11,8 +8,9 @@ from panko.providers.base import TTS, Audio
 
 @register("audio", "native")
 class NativeAudio(TTS):
-    index: dict[str, tuple[Path, str]] = {}
-
     def speak(self, text, variety, out, voice=None) -> Audio | None:
-        hit = self.index.get(text)
-        return Audio(path=hit[0], source=hit[1], native=True) if hit else None
+        from panko.media import clips
+        hit = clips.lookup(text)
+        if not hit:
+            return None
+        return Audio(path=clips._media() / hit["file"], source=hit["source"], native=True)

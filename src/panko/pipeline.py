@@ -27,6 +27,11 @@ VERDICT_KEYS = ("verdict", "region", "urban_rural", "register", "usual_word", "l
 def _source_note(s: dict) -> str:
     if s["type"] == "deck":
         return f"{s['title']}, an old shared deck ({s.get('deck', '')})"
+    if s["type"] == "audio":
+        who = f"; {s['learner']} is the learner, so their lines may contain mistakes" if s.get("learner") else ""
+        return (f"{s['title']} ({s['kind']}), a recording transcribed by speech-to-text: words can be misheard or "
+                f"written in the wrong script, so trust what the context and evidence support; what the teacher "
+                f"teaches, corrects or repeats matters most{who}")
     return f"{s['title']} ({s['kind']})" + ("; the page image is the truth, the text layer may interleave columns"
                                             if s["type"] == "pdf" else "")
 

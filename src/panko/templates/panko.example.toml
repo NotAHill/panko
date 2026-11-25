@@ -16,6 +16,14 @@ format = "mp3_44100_128"
 [audio.elevenlabs.voice_ids]
 # Name = "ElevenLabs voice id"
 
+[stt]
+# Speech-to-text for lesson recordings and other audio sources (`panko work transcribe`).
+chain = ["elevenlabs"]
+
+[stt.elevenlabs]
+model = "scribe_v1"
+language = ""             # an ISO 639-3 code (e.g. "ara") when auto-detect gets your language wrong
+
 [images]
 # source = a picture cropped from the material; then free photo sites (pexels/pixabay need free keys); the paid
 # drawing last. Off by default: "inaturalist" (animals, plants), "arasaac" (pictograms, CC BY-NC-SA).

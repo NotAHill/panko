@@ -56,6 +56,13 @@ class ImageSearch(Provider):
         return c
 
 
+class STT(Provider):
+    def transcribe(self, path: Path, language: str = "", diarize: bool = True) -> dict:
+        """{"text", "language_code", "audio_duration_secs", "engine", "words": [{text, start, end, type
+        ("word" | "spacing"), speaker_id?}]}: the transcript with word times (seconds)."""
+        raise NotImplementedError
+
+
 class ImageGen(Provider):
     def generate(self, prompt: str, out: Path) -> Image | None:
         raise NotImplementedError

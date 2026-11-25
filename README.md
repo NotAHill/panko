@@ -15,7 +15,7 @@ already have are recognised, so a second book only adds what's new.
 - **Card design:** [docs/SPEC-note-types.md](docs/SPEC-note-types.md)
 
 ## What you need
-- Python 3.12+ and [uv](https://docs.astral.sh/uv/).
+- Python 3.12+ and [uv](https://docs.astral.sh/uv/). Poppler for PDFs, ffmpeg for recordings.
 - Anki desktop with the [Anki MCP Server add-on](https://ankiweb.net/shared/info/124672614). Panko pushes cards
   through it while Anki is open.
 - Someone to do the reading, in one of two modes:
@@ -23,7 +23,7 @@ already have are recognised, so a second book only adds what's new.
     needed, and there's nothing to pay beyond your Claude plan.
   - **API mode:** Panko calls the language model itself. You need an Anthropic (or OpenAI) key. It's good for big
     sources, and half price with `--batch`.
-- Optional keys in `.env`: ElevenLabs for audio, Pexels or Pixabay for more photos, OpenAI for drawings when no
+- Optional keys in `.env`: ElevenLabs for audio and speech-to-text, Pexels or Pixabay for more photos, OpenAI for drawings when no
   photo fits.
 
 ## Quickstart
@@ -64,7 +64,19 @@ An old Anki deck can be a source too. Panko exports it read-only while Anki is o
 panko work add --deck "My old Darija deck" --kind deck --title "Old deck" --trust 30
 ```
 
-The source is split into units: one per page, photo, stretch of transcript or 25 deck rows. `panko work status` shows where
+A lesson or film recording works too. It is transcribed once (speech-to-text, paid, or a transcript you already
+have), and each word it says becomes the card's audio in the real speaker's voice. Record a lesson only with your
+teacher's consent:
+
+```bash
+panko work add lesson-12.m4a --kind lesson --title "Lesson 12" --speakers teacher,me --learner me
+```
+
+```bash
+panko work transcribe lesson-12 --estimate   # minutes of audio it would send; drop --estimate to run it
+```
+
+The source is split into units: one per page, photo, stretch of transcript, 25 deck rows or three minutes of a recording. `panko work status` shows where
 you are.
 
 ### Chat mode (no key)

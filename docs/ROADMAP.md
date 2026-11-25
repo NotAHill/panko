@@ -4,7 +4,7 @@ Update the **Now** section at the end of every work session: it's what a fresh s
 (or one after context compaction) reads first. Personal details (names, collection numbers, paid plans) go in
 `data/STATUS.md` (git-ignored), not here: this repo is public.
 
-## Now (2026-11-23)
+## Now (2026-11-25)
 - **Built:** the Panko store (SQLite) with in-place sync to Anki; provider chains for audio (ElevenLabs), pictures
   (real photos from Wikidata, Commons, Openverse, Pexels and Pixabay first; generated drawings otherwise) and the
   language model (Claude by default); migration of studied old-deck notes with their history (`panko migrate`).
@@ -37,8 +37,17 @@ Update the **Now** section at the end of every work session: it's what a fresh s
   listed for the learner). Chat mode has all of it as tools (`panko_pictures_todo`, `panko_photo_search`,
   `panko_pictures_save`, `panko_pictures_apply`, `panko_clashes`, `panko_clashes_apply`, `panko_audio` to hear a
   card before syncing), and `panko mcp --skill DIR` writes the workflow as a Claude skill. Tested with a fake model.
-- **Next:** the Peace Corps pictures on the chat-mode picture step (the photo search finished: all 574 searched cards
-  have candidates, but Wikidata/Commons were often rate-limited, so a second pass may add better ones).
+- **Focus: the product (your call, 2026-11-25).** Work on Panko itself comes first; moving your own cards (Peace
+  Corps pictures, activation and sync, the Fusha round of Phase 6) is paused and tracked in `data/STATUS.md`.
+- **Phase 4 built (2026-11-25): recordings are sources.** `panko work add lesson.m4a [--track call.m4a] --speakers
+  teacher,me --learner me` registers a recording; `panko work transcribe SOURCE [--estimate]` runs speech-to-text
+  (the new `[stt]` chain, ElevenLabs Scribe first; paid) or `--transcript FILE` uses one you have. Word times give
+  three-minute units read like pages (`[m:ss] speaker: …`, chat tool `panko_transcribe`). At ingest each item the
+  recording says, and each of its sentences from it, gets a clip of the real speaker (ffmpeg, `data/media`), which
+  the card plays instead of a synthetic voice; never the learner's voice. Tried free on a Peace Corps track with its
+  existing transcript: six clips cut and found by the audio chain. Not yet: a real lesson end to end, guiding
+  speech-to-text with the sheet, a second engine to compare.
+- **Next:** Phase 5, verification (CAMeL Tools checks of harakat and morphology, doubt flags).
 - The learner's own state (deck sizes, what's waiting on whom, plans) is in `data/STATUS.md` (git-ignored).
 
 ## Phases
@@ -48,7 +57,7 @@ Update the **Now** section at the end of every work session: it's what a fresh s
 | 1 | Provider layer: audio, pictures, LLM, behind swappable chains | ElevenLabs working (cached); OpenAI image generation working (`panko draw`); Azure untested (no key) |
 | 2 | Panko store (SQLite) as source of truth; re-render notes from it | built: store, ingest inbox, in-place sync |
 | 3 | Source adapters: teacher PDFs (vision LLM), Granola transcripts, Peace Corps, old Darija decks | lesson + 6 teacher PDFs + notes ingested and in Anki (extraction by Claude in chat); old Darija decks stages 1–2 in Anki (checked + region pass) |
-| 4 | Lesson recording (two tracks) + guided speech-to-text + teacher clips | not started; needs teacher's consent |
+| 4 | Lessons and recordings as sources: speech-to-text, timed units, native clips | built 2026-11-25 (Scribe, units, clips at ingest); still to do: a real lesson end to end, speech-to-text guided by the sheet, a second engine to compare. Recording your own lessons needs your teacher's consent |
 | 5 | Verification: lexicon grounding, CAMeL Tools checks, doubt flags | verdict files (Routledge, DODa, web) applied at ingest; CAMeL not started |
 | 6 | Migrate studied notes from old decks (pylib, Anki closed, one full sync) | Darija: done (studied notes converted, history kept). Second round (Fusha decks, Serious Explorer) after other languages are supported: one Fusha deck, production cards on, no transliteration; Serious Explorer's pictures and word recordings are kept, example sentences and their audio generated |
 | 7 | Chat interface: Panko's own MCP server | built as Standalone S3 (`panko mcp`); spec in `docs/SPEC-mcp.md` |
@@ -72,8 +81,9 @@ sentences, clashes, picture decisions) are briefs in `data/` (git-ignored) run b
 | S9 | **Any language** (at the end of building the system, your call 2026-11-23) | Nothing Arabic-specific left in code or prompts: script detection, romanisation rules, references and voices come from config; a worked setup for a second language. |
 | S10 | **Panko hub** (idea, 2026-11-23) | A web dashboard or app: search pre-built language decks, or configure your own (language, varieties, sources, card types) and have Panko build it; the same pipeline behind it. |
 
-Order (your call, 2026-11-23): S8, then the Peace Corps pictures in chat mode, then the later phases (4, 5), then S9, then
-the Fusha round of Phase 6, then S10. Settled: AGPL-3.0-or-later, published on GitHub; Opus for every step, batches
+Order (your call, 2026-11-23; product first from 2026-11-25): Phase 4 (lessons and recordings, built), Phase 5
+(verification), S9, S10. Card migration (Peace Corps pictures and sync, the Fusha round of Phase 6) waits until
+you pick it up again. Settled: AGPL-3.0-or-later, published on GitHub; Opus for every step, batches
 for big runs; one Fusha deck, production cards on by default for every language, no transliteration on Fusha cards.
 
 ## Open questions
