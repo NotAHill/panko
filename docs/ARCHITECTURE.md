@@ -62,7 +62,7 @@ flowchart TB
     end
     subgraph Text["Writing + checking"]
         direction LR
-        t1[Lexicons<br/>Wiktionary, Qabas, DODa, Lane]:::plan --> t2[Claude<br/>drafts entry]:::plan --> t3[CAMeL Tools<br/>checks harakat + morphology]:::plan
+        t1[References<br/>DODa, Wiktionary, Routledge<br/>dialect grounding]:::built --> t2[Claude<br/>check prompt, with readings<br/>as evidence]:::built --> t3[CAMeL Tools<br/>Fusha harakat, root, forms<br/>panko verify, at ingest]:::built --> t4[CATT<br/>second vote on harakat]:::plan
     end
     subgraph LLM["Language model (panko.llm: estimate, budget, cache, batches)"]
         direction LR
@@ -152,7 +152,7 @@ reaches every card without touching review history. Panko never writes `MyNotes`
 | `src/panko/mcp_server.py` | chat mode (`panko mcp`, `--config` prints the Claude Desktop/Code snippet): thin MCP tools over the modules below; the workflow Claude follows is `prompts/chat.md` (`panko_guide`) |
 | `src/panko/work.py` | sources split into units (PDF pages, photos, transcript chunks, 25-row stretches of an exported deck, 3-minute stretches of a transcribed recording: `transcribe`, `transcript.json`), one validated result per unit in `data/work/<source>/units/`, resumable; `ingest_source` merges results: known → sighting + the source's sentences, homograph → own entry with shadda, near-duplicate → held |
 | `src/panko/pipeline.py` | API mode (`panko work run [--batch] [--budget] [--estimate]`): extract → local evidence → check → picture plan per unit through `panko.llm`, then `work.submit` like a chat result; deck units: local evidence (rows you have become known) → `deck` prompt (extract + check in one) → picture plan |
-| `src/panko/evidence.py` | free local evidence per word: the learner's entry, same-letter words, near-duplicates, hits from `[evidence]` corpora and dictionaries (read by file shape); `download()` fetches the open ones (`panko refs --download`) |
+| `src/panko/evidence.py` | free local evidence per word: the learner's entry, same-letter words, near-duplicates, hits from `[evidence]` corpora and dictionaries (read by file shape, token-indexed once), the `[morph]` analyser's readings for Standard Arabic; `download()` fetches the open ones (`panko refs --download`) |
 | `src/panko/dedupe.py` | duplicate checks: transliteration consonant skeletons (ضحك d7ek ≠ ضحّك de77ek), shadda insertion, fuzzy near-duplicate index |
 | `src/panko/llm.py` | runs language-model work for every command: cost estimate (output size measured per task from the usage log), budget cap, answer cache (`cache/llm/`), usage log (`data/llm-usage.jsonl`), half-price batches (`panko llm collect`) |
 | `src/panko/providers/llm/` | `claude.py` (Anthropic SDK: JSON schema output, vision, prompt caching, token counting, batches, refusal fallbacks), `openai_chat.py` |
@@ -162,6 +162,8 @@ reaches every card without touching review history. Panko never writes `MyNotes`
 | `src/panko/anki/mcp_client.py` | talks to the Anki MCP Server add-on |
 | `src/panko/media/pictures.py` | the picture step (`panko pictures export/search [--providers …]/apply`): photo candidates taken in turn from each site + contact sheets (10 per row, site-tagged), applying decisions, drawings now (`draw`) or by OpenAI batch (`draw_batch`, `collect`) |
 | `src/panko/media/audio.py` | walks the audio chain, caches results in `cache/media/` |
+| `src/panko/checks.py` | deterministic checks (`panko verify`, `panko_verify`, and at ingest): Standard Arabic headword, forms, root, POS and example words against the `[morph]` analyser's readings (harakat a subset), hard problems → `panko::doubtful`; dialect words without a reference hit listed (`ungrounded`) |
+| `src/panko/providers/morph/` | morphology chain (`[morph]`): `camel.py` runs CAMeL Tools in any environment that has it (helper over stdin, `PANKO_CAMEL_PYTHON`), readings cached in `cache/morph/` |
 | `src/panko/media/clips.py` | native clips: finds where a recording says an item (word times, article-tolerant, never the learner's voice), cuts it with ffmpeg to `data/media/`, and indexes it by text (`data/media/native.json`) for the `native` audio provider |
 | `src/panko/providers/stt/` | speech-to-text chain (`[stt]`): `elevenlabs.py` (Scribe: word times, diarized speakers, language forced from config) |
 | `src/panko/store/` | SQLite store: entries, sources, sightings, Anki links; Arabic normalisation for dedup |

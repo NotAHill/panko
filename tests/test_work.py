@@ -105,7 +105,7 @@ def test_mcp_tools_round_trip(ws):
         async with Client(mcp_server.server) as c:
             names = {t.name for t in (await c.list_tools()).tools}
             assert {"panko_guide", "panko_page", "panko_submit", "panko_ingest", "panko_sync", "panko_photo_search",
-                    "panko_pictures_todo", "panko_pictures_save", "panko_pictures_apply", "panko_audio", "panko_transcribe"} <= names
+                    "panko_pictures_todo", "panko_pictures_save", "panko_pictures_apply", "panko_audio", "panko_transcribe", "panko_verify"} <= names
             guide = (await c.call_tool("panko_guide", {})).content[0].text
             assert "panko_evidence" in guide and '"items"' in guide
             p = await c.call_tool("panko_prompt", {"name": "check"})

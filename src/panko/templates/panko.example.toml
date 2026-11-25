@@ -24,6 +24,15 @@ chain = ["elevenlabs"]
 model = "scribe_v1"
 language = ""             # an ISO 639-3 code (e.g. "ara") when auto-detect gets your language wrong
 
+[morph]
+# Morphological analysis for the checks (`panko verify`, and evidence for the check prompt). camel = CAMeL Tools;
+# it needs its database (`camel_data -i morphology-db-msa-r13`) and, if it lives in its own environment, that
+# environment's python (PANKO_CAMEL_PYTHON in .env). Never check a dialect with a Standard Arabic database.
+chain = ["camel"]
+
+[morph.camel]
+dbs = {}                  # {variety = database}, e.g. {fusha = "calima-msa-r13"}
+
 [images]
 # source = a picture cropped from the material; then free photo sites (pexels/pixabay need free keys); the paid
 # drawing last. Off by default: "inaturalist" (animals, plants), "arasaac" (pictograms, CC BY-NC-SA).

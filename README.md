@@ -111,6 +111,20 @@ panko inbox --html        # a review page of the new candidates
 ```
 
 ```bash
+panko verify              # free checks by tools: harakat and roots (Standard Arabic), dictionary look-ups (dialect)
+```
+
+Standard Arabic checks need [CAMeL Tools](https://camel-tools.readthedocs.io) and its database. It pulls in torch,
+so give it its own environment and point `PANKO_CAMEL_PYTHON` in `.env` at that environment's python:
+
+```bash
+uv venv -p 3.12 /path/to/camel && uv pip install -p /path/to/camel/bin/python camel-tools==1.6.0
+CAMELTOOLS_DATA=/path/to/camel-data /path/to/camel/bin/camel_data -i morphology-db-msa-r13
+```
+
+Then set `PANKO_CAMEL_PYTHON=/path/to/camel/bin/python` and `CAMELTOOLS_DATA=/path/to/camel-data` in `.env`.
+
+```bash
 panko work decide SOURCE UNIT WORD --known ID   # a held near-duplicate is the same word (or --distinct)
 ```
 

@@ -298,6 +298,20 @@ def panko_audio(id: str, confirm: bool = False) -> list:
             json.dumps({"id": id, "generated": len(dry.todo), "headword_clips": files}, ensure_ascii=False)]
 
 
+# ---- deterministic checks -----------------------------------------------------------------------------------------
+
+@tool()
+def panko_verify(ids: list[str] | None = None, status: str = "candidate", apply: bool = False) -> dict:
+    """Check entries with tools, not judgement: Standard Arabic headwords, forms, roots and example sentences against
+    the morphological analyser ([morph]); dialect words against the references (the ones none lists are for the
+    teacher). Free. apply=true tags candidates with a spelling, harakat or root problem `panko::doubtful` (kept out
+    of Anki until cleared); fix them with `panko_edit` using the suggested reading, then `panko_activate` by id."""
+    from panko import checks
+    st = ("candidate", "active") if status == "all" else (status,)
+    r = checks.run(Store(), st, ids=ids, apply=apply)
+    return {**r, "doubtful": r["doubtful"][:40], "listed": r["listed"][:40], "ungrounded": r["ungrounded"][:60]}
+
+
 # ---- gloss clashes ------------------------------------------------------------------------------------------------
 
 @tool()

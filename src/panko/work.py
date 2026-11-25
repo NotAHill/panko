@@ -508,6 +508,9 @@ def ingest_source(sid: str, store=None, units: list[str] | None = None) -> dict:
                                                                                        "reason")}
     src = {"id": s["id"], "kind": s["kind"], "tag": s["tag"], "title": s["title"], "date": s.get("date", ""),
            "path": s["path"], "trust": s.get("trust", 70)}
+    if new:
+        from panko import checks
+        rep["morph_doubtful"] = checks.flag(new)    # Standard Arabic items against the analyser ([morph])
     if known or new:
         r = ingest({"source": src, "items": [*known.values(), *new]}, store)
         rep["new"], rep["known"] = len(r["new"]), len(r["known"])

@@ -90,18 +90,48 @@ def _references() -> list[dict]:
     return refs
 
 
+_INDEX: dict[int, tuple] = {}
+
+
+def _index(i: int) -> tuple[dict, dict, tuple]:
+    """For reference i (rows, sentences or text lines): {token: [row numbers]}, {whole entry: [row numbers]} and, for
+    text, (its lines lowercased, {latin word: [line numbers]}), built once per loaded reference, so looking a
+    word up doesn't re-read every row."""
+    ref = _references()[i]
+    hit = _INDEX.get(id(ref["data"]))
+    if hit and hit[0] is ref["data"]:
+        return hit[1]
+    tok, whole = {}, {}
+    rows = ref["data"] if ref["kind"] == "text" else [a for a, _ in ref["data"]] if ref["kind"] != "jsonl" else []
+    for n, a in enumerate(rows):
+        for t in _tokens(a):
+            tok.setdefault(t, []).append(n)
+        whole.setdefault(strip_article(a), []).append(n)
+    text = ("", [])
+    if ref["kind"] == "text":
+        low = [line.lower() for line in rows]
+        words: dict[str, list[int]] = {}
+        for n, line in enumerate(low):
+            for w in set(re.findall(r"\w+", line)):
+                words.setdefault(w, []).append(n)
+        text = (low, words)
+    _INDEX[id(ref["data"])] = (ref["data"], (tok, whole, text))
+    return tok, whole, text
+
+
 def _hits(ar: str, tl_alt: str) -> list[str]:
     from panko.store.normalize import bare
     b = strip_article(ar)
     one_word = " " not in b
     out, rows = [], {}
-    for ref in _references():
+    for i, ref in enumerate(_references()):
         if ref["kind"] == "rows":
-            for a, en in ref["data"]:
-                if b == strip_article(a) or (one_word and b in _tokens(a)):
-                    rows.setdefault((a, en.strip().lower()), ref["name"])
+            tok, whole, _ = _index(i)
+            for n in sorted({*whole.get(b, []), *(tok.get(b, []) if one_word else [])}):
+                a, en = ref["data"][n]
+                rows.setdefault((a, en.strip().lower()), ref["name"])
         elif ref["kind"] == "sentences" and one_word:
-            ss = [(a, en) for a, en in ref["data"] if b in _tokens(a)]
+            ss = [ref["data"][n] for n in _index(i)[0].get(b, [])]
             if ss:
                 out.append(f"{ref['name']}: {len(ss)} sentences, e.g. {ss[0][0]} '{ss[0][1]}'")
         elif ref["kind"] == "jsonl":
@@ -112,8 +142,13 @@ def _hits(ar: str, tl_alt: str) -> list[str]:
         elif ref["kind"] == "text":
             k = (tl_alt or "").lower().replace("ʿ", "ɛ").replace("ḥ", "ħ")
             pat = re.compile(rf"(?<![\wɛħ]){re.escape(k)}(?![\wɛħ])") if len(k) >= 3 else None
-            out += [f"{ref['name']} l.{i + 1}: {line.strip()[:140]}" for i, line in enumerate(ref["data"])
-                    if (pat and pat.search(line.lower())) or (one_word and len(b) >= 3 and b in _tokens(line))][:2]
+            tok, _, (low, words) = _index(i)
+            found = set(tok.get(b, [])) if one_word and len(b) >= 3 else set()
+            if pat:
+                first = re.match(r"\w+", k)
+                lines = words.get(first.group(), []) if first else range(len(low))
+                found |= {n for n in lines if pat.search(low[n])}
+            out += [f"{ref['name']} l.{n + 1}: {ref['data'][n].strip()[:140]}" for n in sorted(found)][:2]
     rows_out = [f"{name}: {a} '{en}'" for (a, en), name in rows.items()][:MAX_HITS]
     return rows_out + out
 
@@ -155,7 +190,32 @@ def lookup(words: list[dict], store: Store | None = None, refs: bool = True) -> 
         out.append({"ar": ar, "panko": _short(panko) if panko else None, "same_letters": same,
                     "near": [] if panko else index.near(item, skip=skip),
                     "hits": _hits(ar, w.get("tl_alt", "")) if refs else []})
+    if refs:
+        _morph_hits(words, out, default_variety)
     return out
+
+
+def _morph_hits(words: list[dict], out: list[dict], default_variety: str) -> None:
+    """For a variety with a morphology database ([morph]), the analyser's readings of a one-word item go first in
+    its hits: the harakat, root and POS a checked item should match."""
+    from panko.checks import TOKEN, morph_for
+    by_var: dict[str, list[int]] = {}
+    for i, w in enumerate(words):
+        if len(TOKEN.findall(w["ar"])) == 1:
+            by_var.setdefault(w.get("variety") or default_variety, []).append(i)
+    for variety, idx in by_var.items():
+        m = morph_for(variety)
+        if not m:
+            continue
+        db = m.dbs()[variety]
+        an = m.analyse([TOKEN.findall(words[i]["ar"])[0] for i in idx], variety)
+        for i in idx:
+            rs = an.get(TOKEN.findall(words[i]["ar"])[0], [])
+            seen = dict.fromkeys(f"{r['diac']} {r.get('pos', '')}" + (f", root {r['root']}" if r.get("root") else "")
+                                 for r in rs)
+            line = (f"{m.name} ({db}) readings: " + "; ".join(list(seen)[:6])) if rs else \
+                f"{m.name} ({db}): no reading of this word (check the spelling)"
+            out[i]["hits"] = [line, *out[i]["hits"]]
 
 
 # ---- downloading the open references -------------------------------------------------------------------------------
@@ -212,4 +272,5 @@ def download(force: bool = False, client=None, say=print) -> list[dict]:
             report.append({**r, "done": f"downloaded {p.stat().st_size // 1024} KB"})
         say(f"{r['name']}: {report[-1]['done']}")
     _references.cache_clear()
+    _INDEX.clear()
     return report

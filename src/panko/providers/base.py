@@ -63,6 +63,18 @@ class STT(Provider):
         raise NotImplementedError
 
 
+class Morph(Provider):
+    """Morphological analysis for the varieties it has a database for ([morph.<name>] dbs = {variety = db})."""
+
+    def dbs(self) -> dict[str, str]:
+        return dict(self.cfg.get("dbs", {}))
+
+    def analyse(self, words: list[str], variety: str) -> dict[str, list[dict]]:
+        """{word: [reading]}, each reading {"diac", "lex", "root" (letters joined by "."), "pos", "pattern", "asp",
+        "num", "gen", ...}; an empty list = no reading (a typo, a rare or a foreign word)."""
+        raise NotImplementedError
+
+
 class ImageGen(Provider):
     def generate(self, prompt: str, out: Path) -> Image | None:
         raise NotImplementedError

@@ -2,6 +2,22 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-25 · Standard Arabic is checked by an analyser; dialect only against references.**
+The model's harakat and roots are the weakest part of a Fusha card, and a deterministic analyser knows them. Each
+headword, form and example word must be one of the analyser's readings (letters equal, the harakat written a subset
+of a reading's, so leaving harakat out is fine but a wrong one isn't; sukun, a fatha before alif and where tanween
+sits are conventions, not errors), and the card's root must be one of theirs. Only spelling, harakat and root
+problems hold a card back (`panko::doubtful`), and only candidates unless you ask: a part of speech that doesn't fit
+or a word the analyser doesn't know is often the analyser's gap, so it's listed. A Standard Arabic analyser would
+"correct" good Darija, so dialect words are only looked up in the references, and the misses go to your teacher,
+untagged. The analyser sits behind a `[morph]` chain like every other tool. CAMeL Tools comes first; it pulls in
+torch, so Panko calls it in whatever environment has it (a helper over stdin), keeping the project environment small.
+Its real output added conventions to even out: the case ending is often left off and a headword's case is arbitrary
+anyway, so the ending is loose (tanween counts as its vowel, anything goes where the reading has none); a dagger
+alif counts as a fatha; the shadda of a sun letter after the article is dropped. CAMeL knows few imperatives
+(ساعِدْ but not سافِرْ or مَثِّلْ), so an imperative is compared only with its imperative readings, and listed when
+it has none.
+
 **2026-11-25 · Recordings are sources; the words they say get the real speaker as card audio.**
 A lesson or film recording is added like a PDF and transcribed once by the speech-to-text chain (ElevenLabs Scribe
 first, language forced from config because auto-detect can take Darija for English). Word times turn it into

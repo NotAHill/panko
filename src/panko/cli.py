@@ -135,6 +135,15 @@ def _main(argv=None):
     cl.add_argument("--llm-batch", action="store_true")
     cl.add_argument("--budget", type=float)
     cl.add_argument("--apply", action="store_true", help="write the saved decisions to the store")
+    vf = sub.add_parser("verify", help="check entries with deterministic tools: Standard Arabic against the "
+                        "morphological analyser ([morph]), dialect words against the references (free)")
+    vf.add_argument("ids", nargs="*", help="these entries (default: every entry with --status)")
+    vf.add_argument("--status", default="candidate", help="candidate | active | all (default candidate)")
+    vf.add_argument("--apply", action="store_true", help="tag candidates with a spelling, harakat or root problem "
+                    "panko::doubtful (kept out of Anki until you clear them) and save the problems on the entry")
+    vf.add_argument("--tag-active", action="store_true", help="with --apply: tag active entries too (they stay in "
+                    "Anki, tagged)")
+    vf.add_argument("--report", default="", help="also write the full report as JSON here")
     lm = sub.add_parser("llm", help="language model: ping, usage, collect batches")
     lsub = lm.add_subparsers(dest="lcmd")
     lsub.add_parser("ping", help="one tiny request to check the model works (costs a fraction of a cent)")
@@ -149,7 +158,7 @@ def _main(argv=None):
 
     if args.cmd == "providers":
         from panko import providers
-        for cap in ("audio", "images", "llm"):
+        for cap in ("audio", "images", "llm", "stt", "morph"):
             print(f"{cap}: available={providers.available(cap)} ready={[p.name for p in providers.chain(cap)]}")
     elif args.cmd == "voices":
         from panko.media.audition import run
@@ -275,6 +284,8 @@ def _main(argv=None):
         clashes.save(d, path)
         kinds = {k: sum(1 for v in d.values() if k in v) for k in ("gloss", "cards", "drop")}
         print(f"{len(groups)} groups: {kinds}; saved to {path}. Look it over, then `panko clashes --apply`.")
+    elif args.cmd == "verify":
+        _verify(args)
     elif args.cmd == "pictures":
         _pictures(args, pic)
     else:
@@ -308,6 +319,32 @@ def _init(args):
         print(f"{setup.CONFIG} exists (edit it, or `panko init --force` to start over). Checking what's ready:")
     for what, ok, detail in setup.check():
         print(f"  {'✓' if ok else '✗'} {what:<34} {detail}")
+
+
+def _verify(args):
+    import json
+    from pathlib import Path
+
+    from panko import checks, providers
+    from panko.store import Store
+    ready = {v: p.name for p in providers.chain("morph") for v in p.dbs()}
+    print("analyser: " + (", ".join(f"{v} ({n})" for v, n in ready.items()) or "none ready (see [morph] in config)"))
+    st = ("candidate", "active") if args.status == "all" else (args.status,)
+    r = checks.run(Store(), st, ids=args.ids or None, apply=args.apply, tag_active=args.tag_active)
+    print(f"checked {r['checked']} with the analyser: {r['fine']} fine, {len(r['doubtful'])} with a spelling, harakat "
+          f"or root problem, {len(r['listed'])} with something to look at" + (f"; tagged {r['tagged']}" if args.apply else ""))
+    for row in [*r["doubtful"], *r["listed"]][:40]:
+        for p in row["problems"]:
+            print(f"  {row['id']} {row['ar']}: {p['problem']} in {p['field']} {p['text']}"
+                  + (f" → {p['suggest']}" if p.get("suggest") else ""))
+    if r["ungrounded"]:
+        print(f"{len(r['ungrounded'])} dialect words no reference lists (ask your teacher): "
+              + ", ".join(f"{u['ar']} '{u['gloss']}'" for u in r["ungrounded"][:25]))
+    if args.report:
+        Path(args.report).write_text(json.dumps(r, ensure_ascii=False, indent=1))
+        print(f"report: {args.report}")
+    if r["doubtful"] and not args.apply:
+        print("tag them with --apply (candidates only; --tag-active for cards already in Anki)")
 
 
 def _work(args, parser):

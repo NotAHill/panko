@@ -47,7 +47,17 @@ Update the **Now** section at the end of every work session: it's what a fresh s
   the card plays instead of a synthetic voice; never the learner's voice. Tried free on a Peace Corps track with its
   existing transcript: six clips cut and found by the audio chain. Not yet: a real lesson end to end, guiding
   speech-to-text with the sheet, a second engine to compare.
-- **Next:** Phase 5, verification (CAMeL Tools checks of harakat and morphology, doubt flags).
+- **Phase 5 built (2026-11-25): checks by tools, not judgement.** `panko verify [ids] [--status] [--apply]` (chat
+  tool `panko_verify`) checks Standard Arabic entries against a morphological analyser (the new `[morph]` chain,
+  CAMeL Tools first): headword, plural, present, imperative, masdar and every word of a written example must be one
+  of the analyser's readings (same letters, harakat a subset), the card's root one of theirs, the part of speech
+  fitting. Spelling, harakat or root problems hold a candidate as `panko::doubtful`; the rest is listed. New items
+  are checked at ingest, and the analyser's readings are evidence for the check prompt. Dialect words are never
+  checked with a Standard Arabic analyser: the ones no reference lists are listed for your teacher. Reference look-ups are indexed once, so a full run takes seconds.
+  Run for real with CAMeL Tools 1.6 (`calima-msa-r13`, in its own environment on another disk): its output showed
+  more spelling conventions (case ending left off, dagger alif for fatha, no shadda on a sun letter after the
+  article), now evened out, and it knows few imperatives, so imperatives are judged only by the ones it has.
+- **Next:** S9, any language.
 - The learner's own state (deck sizes, what's waiting on whom, plans) is in `data/STATUS.md` (git-ignored).
 
 ## Phases
@@ -58,7 +68,7 @@ Update the **Now** section at the end of every work session: it's what a fresh s
 | 2 | Panko store (SQLite) as source of truth; re-render notes from it | built: store, ingest inbox, in-place sync |
 | 3 | Source adapters: teacher PDFs (vision LLM), Granola transcripts, Peace Corps, old Darija decks | lesson + 6 teacher PDFs + notes ingested and in Anki (extraction by Claude in chat); old Darija decks stages 1–2 in Anki (checked + region pass) |
 | 4 | Lessons and recordings as sources: speech-to-text, timed units, native clips | built 2026-11-25 (Scribe, units, clips at ingest); still to do: a real lesson end to end, speech-to-text guided by the sheet, a second engine to compare. Recording your own lessons needs your teacher's consent |
-| 5 | Verification: lexicon grounding, CAMeL Tools checks, doubt flags | verdict files (Routledge, DODa, web) applied at ingest; CAMeL not started |
+| 5 | Verification: lexicon grounding, CAMeL Tools checks, doubt flags | built 2026-11-25: `panko verify`, `[morph]` chain (CAMeL Tools, in its own environment), checks at ingest, readings as evidence, ungrounded dialect words listed; run with real CAMeL Tools 2026-11-25. Later: CATT as a second vote on harakat, roots from Qabas/kaikki, conjugation tables generated |
 | 6 | Migrate studied notes from old decks (pylib, Anki closed, one full sync) | Darija: done (studied notes converted, history kept). Second round (Fusha decks, Serious Explorer) after other languages are supported: one Fusha deck, production cards on, no transliteration; Serious Explorer's pictures and word recordings are kept, example sentences and their audio generated |
 | 7 | Chat interface: Panko's own MCP server | built as Standalone S3 (`panko mcp`); spec in `docs/SPEC-mcp.md` |
 
@@ -82,7 +92,7 @@ sentences, clashes, picture decisions) are briefs in `data/` (git-ignored) run b
 | S10 | **Panko hub** (idea, 2026-11-23) | A web dashboard or app: search pre-built language decks, or configure your own (language, varieties, sources, card types) and have Panko build it; the same pipeline behind it. |
 
 Order (your call, 2026-11-23; product first from 2026-11-25): Phase 4 (lessons and recordings, built), Phase 5
-(verification), S9, S10. Card migration (Peace Corps pictures and sync, the Fusha round of Phase 6) waits until
+(verification, built), S9, S10. Card migration (Peace Corps pictures and sync, the Fusha round of Phase 6) waits until
 you pick it up again. Settled: AGPL-3.0-or-later, published on GitHub; Opus for every step, batches
 for big runs; one Fusha deck, production cards on by default for every language, no transliteration on Fusha cards.
 
