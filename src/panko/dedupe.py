@@ -15,11 +15,10 @@ import re
 from collections import defaultdict
 from difflib import SequenceMatcher
 
-from panko.store.normalize import bare
+from panko import lang
 
 STOP = {"to", "the", "a", "an", "of", "for", "you", "i", "is", "it", "be", "in", "on", "and", "or", "please", "with",
         "me", "my", "your", "man", "woman", "do", "something", "someone", "one"}
-SHADDA = "ّ"
 
 
 def skel(tl: str) -> str:
@@ -30,20 +29,9 @@ def skel(tl: str) -> str:
 
 
 def nar(ar: str) -> str:
-    """Arabic folded for fuzzy matching: no harakat or article, ة=ه, ديال=د, one-letter prepositions glued on."""
-    t = bare(ar).replace("ة", "ه").replace("ؤ", "و").replace("ئ", "ي").replace("ء", "").replace("…", " ")
-    t = re.sub(r"\.\.\.", " ", t)
-    t = re.sub(r"(^|\s)ديال(\s|$)", r"\1د\2", t)
-    toks = [x[2:] if x.startswith("ال") and len(x) > 3 else x for x in t.split()]
-    out, i = [], 0
-    while i < len(toks):
-        if toks[i] in ("ف", "ب", "ل", "د", "و") and i + 1 < len(toks):
-            out.append(toks[i] + toks[i + 1])
-            i += 2
-        else:
-            out.append(toks[i])
-            i += 1
-    return " ".join(re.sub(r"^([فبلدو])ال(?=..)", r"\1", t) for t in out)   # فالدار = ف+دار
+    """The item's text folded for fuzzy matching (`panko.lang.fuzzy`: no marks or articles; for Arabic also ة=ه,
+    ديال=د, one-letter prepositions glued on)."""
+    return lang.fuzzy(ar)
 
 
 def ntl(tl: str) -> str:
@@ -51,7 +39,7 @@ def ntl(tl: str) -> str:
 
 
 def gloss_words(g: str) -> set[str]:
-    return {w for w in re.findall(r"[a-z']+", (g or "").lower()) if w not in STOP and len(w) > 2}
+    return {w for w in re.findall(r"[^\W\d_]+(?:'[^\W\d_]+)*", (g or "").lower()) if w not in STOP and len(w) > 2}
 
 
 FUNCTION_POS = {"adverb", "pronoun", "conjunction", "particle", "preposition", "interjection"}
@@ -83,11 +71,9 @@ def same_word(item: dict, entry: dict) -> bool:
 
 
 def add_shadda(ar: str, tl: str) -> str:
-    """Shadda on the middle letter of a three-letter verb whose transliteration doubles it (de77ek, sekken)."""
-    s = skel(tl)
-    if SHADDA in ar or len(ar) != 3 or len(s) < 4 or s[1] != s[2]:
-        return ar
-    return ar[:2] + SHADDA + ar[2:]
+    """A homograph told apart by a doubled consonant gets it marked, where the script marks doubling (Arabic: a shadda
+    on the middle letter of a three-letter verb whose transliteration doubles it, de77ek, sekken)."""
+    return lang.mark_doubling(ar, skel(tl))
 
 
 class Index:
@@ -101,9 +87,9 @@ class Index:
 
     @staticmethod
     def _keys(ar: str) -> list[tuple]:
-        """Words, and their consonants without long vowels, so علاحقاش finds علحقاش and فاين finds فين."""
+        """Words, and for scripts that drop vowels their consonants, so علاحقاش finds علحقاش and فاين finds فين."""
         toks = nar(ar).split()
-        return [("a", t) for t in toks] + [("c", c) for t in toks if len(c := re.sub("[اوي]", "", t)) >= 2]
+        return [("a", t) for t in toks] + [("c", c) for t in toks if len(c := lang.consonants(t)) >= 2]
 
     def add(self, e: dict):
         for k in self._keys(e["ar"]):

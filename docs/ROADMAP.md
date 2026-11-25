@@ -57,7 +57,15 @@ Update the **Now** section at the end of every work session: it's what a fresh s
   Run for real with CAMeL Tools 1.6 (`calima-msa-r13`, in its own environment on another disk): its output showed
   more spelling conventions (case ending left off, dagger alif for fatha, no shadda on a sun letter after the
   article), now evened out, and it knows few imperatives, so imperatives are judged only by the ones it has.
-- **Next:** S9, any language.
+- **S9 built (2026-11-25): any language.** The language is config, not code: `[learner] script` (Unicode script
+  names) drives the submit check, card fonts and direction, and reference columns; matching keys work for any script
+  (case, articles, optional accent folding) and the Arabic rules sit in `panko.lang.arabic`, touching Arabic letters
+  only (every stored key unchanged). The Darija wording left the prompts for `[learner]` / `[learner.examples]`; a
+  test keeps prompt files language-free. `panko init --language spanish` (or `moroccan-darija`) fills script, prompt
+  wording, references, speech-to-text language and voice audition from a preset; Spanish is tested end to end
+  (source → submit without romanisation → ingest → Latin-script card). The card class rename means the next sync
+  updates every note's HTML once (normal sync).
+- **Next:** S10, the Panko hub (your call on scope first).
 - The learner's own state (deck sizes, what's waiting on whom, plans) is in `data/STATUS.md` (git-ignored).
 
 ## Phases
@@ -88,11 +96,11 @@ sentences, clashes, picture decisions) are briefs in `data/` (git-ignored) run b
 | S7 ✅ | **Check it matches** (done 2026-11-23 on a teacher sheet and 25 deck rows; the Fusha round waits for your call) | Re-run one teacher sheet and one old-deck batch through the commands and compare with what the agents produced. Fix the prompts until they agree. Then the Fusha round (Phase 6, second round) runs on the commands too. |
 
 | S8 ✅ | **The steps still done by agents** (built 2026-11-23) | Picture choice from the contact sheets as a command (`pictures-pick` prompt, API) and as chat tools; example sentences (`examples` prompt) and gloss clashes as commands; an audio tool and a packaged skill file for chat mode. Then the Peace Corps pictures run on the chat-mode picture step. |
-| S9 | **Any language** (at the end of building the system, your call 2026-11-23) | Nothing Arabic-specific left in code or prompts: script detection, romanisation rules, references and voices come from config; a worked setup for a second language. |
+| S9 ✅ | **Any language** (built 2026-11-25) | Nothing Arabic-specific left in code or prompts: script detection, romanisation rules, references and voices come from config; a worked setup for a second language. Built as `panko.lang` + language presets (Moroccan Darija, Spanish); Arabic rules kept in one module; Spanish tested end to end. Not yet: a real Spanish source run with the model, presets for more languages, a morphological analyser for a second language. |
 | S10 | **Panko hub** (idea, 2026-11-23) | A web dashboard or app: search pre-built language decks, or configure your own (language, varieties, sources, card types) and have Panko build it; the same pipeline behind it. |
 
 Order (your call, 2026-11-23; product first from 2026-11-25): Phase 4 (lessons and recordings, built), Phase 5
-(verification, built), S9, S10. Card migration (Peace Corps pictures and sync, the Fusha round of Phase 6) waits until
+(verification, built), S9 (any language, built), S10. Card migration (Peace Corps pictures and sync, the Fusha round of Phase 6) waits until
 you pick it up again. Settled: AGPL-3.0-or-later, published on GitHub; Opus for every step, batches
 for big runs; one Fusha deck, production cards on by default for every language, no transliteration on Fusha cards.
 

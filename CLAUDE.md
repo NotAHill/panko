@@ -12,7 +12,7 @@ Arabic. Single user. They review on Anki desktop, AnkiMobile and AnkiWeb.
 
 ## Run
 - `uv sync --all-extras`, `uv run pytest -q`, `uv run ruff check .`
-- `uv run panko init [--check]`: starter config for a new learner (from `src/panko/templates/panko.example.toml`; writes `config/` and `.env` in the Panko folder) and a check of what's ready. `uv run panko refs [--download]`: reference data, fetching the open ones.
+- `uv run panko init [--language L] [--check]`: starter config for a new learner (from `src/panko/templates/panko.example.toml` plus a language preset in `src/panko/templates/languages/`; writes `config/` and `.env` in the Panko folder) and a check of what's ready. Everything about the language (script, matching, card fonts, prompt wording) comes from `[learner]` via `src/panko/lang/`; Arabic rules live in `lang/arabic.py`, never in prompts or other modules. `uv run panko refs [--download]`: reference data, fetching the open ones.
 - `uv run panko providers`: which providers are ready.
 - `uv run panko voices [--all]`: audition ElevenLabs Moroccan voices (paid plan); writes `cache/voices/index.html`.
 - `uv run panko seed`: load the hand-written sandbox entries into the store (`data/panko.db`).

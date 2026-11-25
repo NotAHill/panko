@@ -8,9 +8,11 @@
 - `hits`: lines from the corpora and dictionaries in `[evidence]` (config/panko.toml).
 
 Reference files are read by shape, so another learner points config at their own:
-- a folder of CSVs (one column of Arabic, one of English; a file named *sentences* is a sentence corpus);
+- a folder of CSVs (one column in the target language, one of glosses; a file named *sentences* is a sentence
+  corpus). The target column is the first in the language's script ([learner] script), or `columns = {target =
+  "...", gloss = "..."}` on the reference when the gloss language shares the script;
 - a JSON-lines dictionary (`word` plus `senses[].glosses`, as Wiktionary extracts are);
-- a plain-text dictionary, searched for the scholarly transliteration (and the Arabic).
+- a plain-text dictionary, searched for the scholarly transliteration (and the word itself).
 """
 from __future__ import annotations
 
@@ -20,6 +22,7 @@ import re
 from functools import cache
 from pathlib import Path
 
+from panko import lang
 from panko.config import ROOT, settings
 from panko.dedupe import Index, same_word
 from panko.store import Store
@@ -28,7 +31,6 @@ from panko.store.normalize import strip_article
 POS_ALIASES = {"n": "noun", "v": "verb", "adj": "adjective", "adv": "adverb", "prep": "preposition",
                "pron": "pronoun", "conj": "conjunction", "interj": "interjection", "num": "number",
                "part": "particle", "phrase": ""}
-ARABIC = re.compile(r"[؀-ۿ]")
 MAX_HITS = 4
 
 
@@ -38,16 +40,8 @@ def norm_pos(pos: str | None) -> str:
 
 
 def variants(ar: str) -> list[str]:
-    """Spellings to try: گ/ڭ for g written as ك or ق, and a final ا/ى/ي."""
-    out = [ar]
-    for g in "گڭ":
-        if g in ar:
-            out += [ar.replace(g, "ك"), ar.replace(g, "ق")]
-    if ar.endswith("ا"):
-        out.append(ar[:-1] + "ى")
-    elif ar.endswith(("ى", "ي")):
-        out.append(ar[:-1] + "ا")
-    return list(dict.fromkeys(out))
+    """Spellings to try (`panko.lang.variants`; Arabic: گ/ڭ for g written as ك or ق, and a final ا/ى/ي)."""
+    return lang.variants(ar)
 
 
 def _tokens(s: str) -> set[str]:
@@ -71,9 +65,11 @@ def _references() -> list[dict]:
                 rows = list(csv.DictReader(open(f, encoding="utf-8")))
                 if not rows:
                     continue
-                cols = list(rows[0])
-                ar = next((k for k in cols if any(ARABIC.search(r.get(k) or "") for r in rows[:20])), None)
-                en = next((k for k in cols if k.lower() in ("eng", "en", "english", "gloss", "meaning")), None)
+                cols, named = list(rows[0]), c.get("columns", {})
+                en = named.get("gloss") or next((k for k in cols if k.lower() in ("eng", "en", "english", "gloss",
+                                                                                  "meaning")), None)
+                ar = named.get("target") or next((k for k in cols if k != en and any(
+                    lang.in_target(r.get(k) or "") for r in rows[:20])), None)
                 if ar:
                     kind = "sentences" if "sentence" in f.stem else "rows"
                     refs.append({"name": f"{c['name']} ({f.stem})", "kind": kind,
@@ -170,7 +166,7 @@ def _short(e: dict) -> dict:
 
 def lookup(words: list[dict], store: Store | None = None, refs: bool = True) -> list[dict]:
     store = store or Store()
-    default_variety = (settings().get("learner", {}).get("varieties") or ["darija"])[0]
+    default_variety = lang.default_variety()
     index = Index(store.entries(None))
     out = []
     for w in words:
@@ -198,19 +194,19 @@ def lookup(words: list[dict], store: Store | None = None, refs: bool = True) -> 
 def _morph_hits(words: list[dict], out: list[dict], default_variety: str) -> None:
     """For a variety with a morphology database ([morph]), the analyser's readings of a one-word item go first in
     its hits: the harakat, root and POS a checked item should match."""
-    from panko.checks import TOKEN, morph_for
+    from panko.checks import morph_for
     by_var: dict[str, list[int]] = {}
     for i, w in enumerate(words):
-        if len(TOKEN.findall(w["ar"])) == 1:
+        if len(lang.tokens(w["ar"])) == 1:
             by_var.setdefault(w.get("variety") or default_variety, []).append(i)
     for variety, idx in by_var.items():
         m = morph_for(variety)
         if not m:
             continue
         db = m.dbs()[variety]
-        an = m.analyse([TOKEN.findall(words[i]["ar"])[0] for i in idx], variety)
+        an = m.analyse([lang.tokens(words[i]["ar"])[0] for i in idx], variety)
         for i in idx:
-            rs = an.get(TOKEN.findall(words[i]["ar"])[0], [])
+            rs = an.get(lang.tokens(words[i]["ar"])[0], [])
             seen = dict.fromkeys(f"{r['diac']} {r.get('pos', '')}" + (f", root {r['root']}" if r.get("root") else "")
                                  for r in rs)
             line = (f"{m.name} ({db}) readings: " + "; ".join(list(seen)[:6])) if rs else \

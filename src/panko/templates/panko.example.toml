@@ -12,6 +12,8 @@ format = "mp3_44100_128"
 # Voices per variety, in order: the headword and every example are read by each voice listed. Pick voices that
 # really speak the variety (`panko voices --all` auditions candidates), then map names to IDs below.
 {{voices}}
+# `panko voices`: which library voices to audition (`library` filters ElevenLabs' shared library), and what they read
+{{audition}}
 
 [audio.elevenlabs.voice_ids]
 # Name = "ElevenLabs voice id"
@@ -22,7 +24,7 @@ chain = ["elevenlabs"]
 
 [stt.elevenlabs]
 model = "scribe_v1"
-language = ""             # an ISO 639-3 code (e.g. "ara") when auto-detect gets your language wrong
+language = {{stt_language}}             # an ISO 639-3 code (e.g. "ara"): auto-detect can get the language wrong
 
 [morph]
 # Morphological analysis for the checks (`panko verify`, and evidence for the check prompt). camel = CAMeL Tools;
@@ -31,7 +33,7 @@ language = ""             # an ISO 639-3 code (e.g. "ara") when auto-detect gets
 chain = ["camel"]
 
 [morph.camel]
-dbs = {}                  # {variety = database}, e.g. {fusha = "calima-msa-r13"}
+dbs = {{morph_dbs}}                  # {variety = database}, e.g. {fusha = "calima-msa-r13"}
 
 [images]
 # source = a picture cropped from the material; then free photo sites (pexels/pixabay need free keys); the paid
@@ -86,22 +88,27 @@ profile = {{profile}}              # the Anki profile migrations open
 # ---- You, the learner: what the prompts assume. Change these, never the prompt files. ----
 [learner]
 language = {{language}}            # what the cards teach
+script = {{script}}                # its script: a Unicode script name ("Latin", "Arabic", "Cyrillic"…) or a list
 varieties = {{varieties}}          # names for the store and decks, e.g. ["darija", "fusha"]
 learner = {{learner}}
 gloss_language = {{gloss_language}}
-mainstream = ""                    # the standard treated as the "usual" word, e.g. a city or region
-regions = []                       # regions a word can be tagged with
+{{learner_extra}}
+mainstream = {{mainstream}}                    # the standard treated as the "usual" word, e.g. a city or region
+regions = {{regions}}                       # regions a word can be tagged with; the first means "everywhere"
 topics = ["home", "food", "shopping", "people", "family", "time", "places", "body", "greetings", "numbers", "money",
           "emotions", "work", "school", "health", "travel", "clothes", "weather", "colors", "animals", "nature",
           "verbs-daily", "grammar"]
 keep = ""                          # anything the checks should always keep
 drop = ""                          # anything they should always drop
 
+[learner.examples]                 # short examples the prompts show, in your language
+{{examples}}
+
 [learner.translit]
-main = {{translit}}                # the romanisation shown first on cards
-main_rules = ""                    # its conventions, e.g. which digits stand for which letters
-alt = "scholarly transliteration"
-none_for = []                      # varieties whose cards show only the script, e.g. ["fusha"]
+main = {{translit}}                # the romanisation shown first on cards; "" for none (a Latin-script language)
+main_rules = {{translit_rules}}                    # its conventions, e.g. which digits stand for which letters
+alt = {{translit_alt}}
+none_for = {{none_for}}                      # varieties whose cards show only the script, e.g. ["fusha"]
 
 [learner.pictures]
 # Rules for choosing photos and writing drawing prompts, one per line.

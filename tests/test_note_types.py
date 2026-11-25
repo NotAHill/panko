@@ -4,6 +4,7 @@ from panko.cards import note_types as T
 
 
 def fields_used(tmpl: str) -> set[str]:
+    tmpl = tmpl.replace('data-v="{{Register}}"', "")    # the variety, for the script's CSS: never shown
     return {m.split(":")[-1] for m in re.findall(r"{{[#^/]?([^}]+)}}", tmpl)} - {"FrontSide"}
 
 
@@ -20,8 +21,8 @@ def test_fronts_give_no_hints():
 
 
 def test_register_is_never_shown():
-    for t in T.WORD_TEMPLATES + T.PHRASE_TEMPLATES:
-        assert "{{Register}}" not in t["Front"] + t["Back"]
+    for t in T.WORD_TEMPLATES + T.PHRASE_TEMPLATES:   # only as an attribute, for the script's CSS
+        assert "{{Register}}" not in (t["Front"] + t["Back"]).replace('data-v="{{Register}}"', "")
 
 
 def test_field_lists_frozen():

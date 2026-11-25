@@ -8,7 +8,7 @@ I will have work"), a grammar note with an example inside, or a word with its pl
 
 For each entry, return up to the number of new examples asked for (usually one), best first:
 1. Prefer a candidate that is natural, everyday {{language}}{{#mainstream}} ({{mainstream}} standard){{/mainstream}},
-   not Fusha and not a word-for-word calque of {{gloss_language}}, and that uses this entry in this sense so the
+   {{#standard}}not {{standard}} and {{/standard}}not a word-for-word calque of {{gloss_language}}, and that uses this entry in this sense so the
    sentence makes its meaning clear. Split run-together candidates and take the real sentence. Fix small problems
    (spelling, a wrong preposition, a missing negation particle) and say so in `note`; if it needs more, don't use
    it. Set `candidate` to its `cid` and keep its `source`.

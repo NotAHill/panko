@@ -1,0 +1,45 @@
+# Preset for `panko init`: Moroccan Darija (written in Arabic script), optionally with Fusha.
+[answers]                       # the defaults init offers
+language = "Moroccan Darija"
+varieties = ["darija"]
+wiktionary = "Moroccan Arabic"
+
+[learner]
+script = "Arabic"
+spelling = "no harakat (vowel marks) or shadda unless the variety is Fusha or the source writes them"
+standard = "Fusha"
+loans = "French, Spanish, Amazigh"
+mainstream = "Casablanca/Rabat"
+regions = ["pan-Moroccan", "north (Tangier, Tetouan, Jbala, Chefchaouen)", "Fes-Meknes", "Rabat-Casablanca",
+           "Marrakech", "east (Oujda, Berkane)", "south (Souss, Agadir)", "Saharan/Hassaniya", "rural/aroubi"]
+
+[learner.examples]
+verb = 'Darija: past 3rd-person masculine singular, شرى "to buy"'
+fixed_preposition = 'تخلص من "to get rid of", حكم على "to sentence"'
+present = "Darija with ka-: كنشري"
+learner_note = "Mainly northern (Tangier, Tetouan); elsewhere شرجم sherjem."
+everyday_word = "The everyday word is ساروت sarut."
+
+[learner.translit]
+main = "Arabizi"
+main_rules = "3/7/9 for ع/ح/ق, kh, gh, ch, `e` for schwa, doubled consonants (chno, wach, n9der, l-bit)"
+alt = "scholarly transliteration (ʿ ḥ q x ġ š ž ə ā ī ū ṭ ṣ ḍ ẓ)"
+none_for = ["fusha"]
+
+[stt]
+language = "ara"                # forced: auto-detect can take Darija for English
+
+[morph]
+dbs = {fusha = "calima-msa-r13"}   # CAMeL Tools checks Fusha; Darija is never checked with an MSA analyser
+
+[audio]
+library = {language = "ar", accent = "moroccan"}
+shortlist = ["Badr", "Ghalia", "Loubna", "Houssam", "Mouhcine", "Saad"]
+audition = "سلام، كنقلب على كنابي كبير. واش تقدر تدير ليا تخفيض؟ إلا ما عندكش، ماشي مشكل، نرجع غدا."
+
+[[evidence.corpora]]
+name = "Darija Open Dataset (DODa)"
+path = "cache/refs/doda"
+url = "https://github.com/darija-open-dataset/dataset"
+include = ["semantic categories/", "syntactic categories/", "sentences/", "x-tra/"]
+notes = "word lists and a sentence corpus, mostly mainstream (Casablanca/Rabat) Darija"

@@ -11,6 +11,7 @@ import re
 from functools import cache
 from pathlib import Path
 
+from panko import lang
 from panko.prompts.schemas import SCHEMAS
 
 DIR = Path(__file__).parent
@@ -26,10 +27,20 @@ def context() -> dict:
     from panko.config import settings
     s = settings()
     L, ev = s.get("learner", {}), s.get("evidence", {})
-    tr, pics = L.get("translit", {}), L.get("pictures", {})
+    tr, pics, ex = L.get("translit", {}), L.get("pictures", {}), L.get("examples", {})
     dicts = ev.get("dictionaries", [])
     return {
         "language": L.get("language", "the target language"),
+        "script": lang.label(),
+        "rtl": lang.is_rtl(),
+        "spelling": L.get("spelling", ""),
+        "standard": L.get("standard", ""),
+        "loans": L.get("loans", ""),
+        "ex_verb": ex.get("verb", ""),
+        "ex_fixed_prep": ex.get("fixed_preposition", ""),
+        "ex_present": ex.get("present", ""),
+        "ex_learner_note": ex.get("learner_note", "Mainly in the north; elsewhere people say …"),
+        "ex_everyday": ex.get("everyday_word", "The everyday word is …"),
         "learner": L.get("learner", "a learner"),
         "gloss_language": L.get("gloss_language", "English"),
         "varieties": ", ".join(f"`{v}`" for v in L.get("varieties", [])),
@@ -38,9 +49,9 @@ def context() -> dict:
         "topics": ", ".join(L.get("topics", [])),
         "keep": L.get("keep", ""),
         "drop": L.get("drop", ""),
-        "tl_main": tr.get("main", "a learner-friendly romanisation"),
+        "tl_main": tr.get("main", "a learner-friendly romanisation") or "\"\" (no romanisation: the script is enough)",
         "tl_main_rules": tr.get("main_rules", ""),
-        "tl_alt": tr.get("alt", "a scholarly transliteration"),
+        "tl_alt": tr.get("alt", "a scholarly transliteration") or "\"\"",
         "picture_rules": _bullets(pics.get("rules", [])),
         "picture_skip": pics.get("skip", "words a picture can't show"),
         "sources": _bullets([*(f"{c['name']}" + (f": {c['notes']}" if c.get("notes") else "") for c in ev.get("corpora", [])),

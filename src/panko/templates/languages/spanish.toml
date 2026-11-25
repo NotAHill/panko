@@ -1,0 +1,36 @@
+# Preset for `panko init`: Spanish. Written in Latin letters, so no romanisation on the cards.
+[answers]
+language = "Spanish"
+varieties = ["spanish"]
+wiktionary = "Spanish"
+
+[learner]
+script = "Latin"
+spelling = "with its accents and ñ, and ¿ ¡ in questions and exclamations"
+articles = ["el", "la", "los", "las", "un", "una", "unos", "unas", "lo"]
+loans = "English, French, Arabic, Nahuatl"
+mainstream = ""
+regions = ["pan-Hispanic", "Spain", "Mexico and Central America", "Caribbean", "Andes", "Southern Cone"]
+
+[learner.examples]
+verb = 'the infinitive, comprar "to buy"'
+fixed_preposition = 'acordarse de "to remember", tratar de "to try to"'
+present = "compro"
+learner_note = "Mainly Latin America; in Spain, coche."
+everyday_word = "The everyday word is coche."
+
+[learner.translit]
+main = ""                       # none: the script is already Latin
+alt = ""
+none_for = ["spanish"]
+
+[stt]
+language = "spa"
+
+[morph]
+dbs = {}
+
+[audio]
+library = {language = "es"}
+shortlist = []
+audition = "Hola, busco un libro grande. ¿Me puede hacer un descuento? Si no, no pasa nada, vuelvo mañana."

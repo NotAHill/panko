@@ -45,7 +45,7 @@ def say_button(audio: str | list[str]) -> str:
 
 def examples(exs: list[Example]) -> str:
     return "".join(
-        f'<div class="ex"><div class="ar ex-ar">{escape(e.ar)}{say_button(e.audio)}</div>'
+        f'<div class="ex"><div class="tgt ex-tgt" dir="auto">{escape(e.ar)}{say_button(e.audio)}</div>'
         f'<div class="ex-tl">{escape(e.tl)}</div><div class="ex-en">{escape(e.en)}</div>'
         + (f'<div class="cite">{escape(e.cite)}</div>' if e.cite else "") + '</div>'
         for e in exs
@@ -54,7 +54,7 @@ def examples(exs: list[Example]) -> str:
 
 def related(items: list[Related]) -> str:
     rows = "".join(
-        f'<tr><td class="ar">{escape(r.ar)}</td>'
+        f'<tr><td class="tgt" dir="auto">{escape(r.ar)}</td>'
         f'<td>{escape(r.tl) + " · " if r.tl else ""}{escape(r.meaning)}</td></tr>'
         for r in items
     )
@@ -67,12 +67,12 @@ def grammar(pos: str = "", gender: str = "", plural: str = "", root: str = "", f
     first = ", ".join(x for x in [pos, gender, f"form {form}" if form else ""] if x)
     bits = [escape(first)] if first else []
     if plural:
-        bits.append(f'plural <span class="ar">{escape(plural)}</span>')
+        bits.append(f'plural <span class="tgt" dir="auto">{escape(plural)}</span>')
     if root:
-        bits.append(f'root <span class="ar">{escape(root)}</span>')
+        bits.append(f'root <span class="tgt" dir="auto">{escape(root)}</span>')
     line1 = " · ".join(bits)
     conj = [(lbl, v) for lbl, v in [("present", present), ("imperative", imperative), ("masdar", masdar)] if v]
-    line2 = " · ".join(f'{lbl} <span class="ar">{escape(v)}</span>' for lbl, v in conj)
+    line2 = " · ".join(f'{lbl} <span class="tgt" dir="auto">{escape(v)}</span>' for lbl, v in conj)
     return "".join(f"<div>{x}</div>" for x in [line1, line2] if x)
 
 

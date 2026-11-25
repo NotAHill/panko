@@ -1,12 +1,14 @@
 """`panko init`: a starter config for a new learner, and a check of what's ready.
 
 `write_config(answers)` fills templates/panko.example.toml with the learner's answers (language, varieties, decks, Anki
-profile…) and writes config/panko.toml; `.env` is created from `.env.example` for the keys. `check()` reports what
+profile…) and the preset for their language (templates/languages/*.toml: script, prompt wording, references,
+speech-to-text language, voices), and writes config/panko.toml; `.env` is created from `.env.example` for the keys. `check()` reports what
 works: config, keys and providers, Anki, reference data, chat mode.
 """
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import tomllib
 import urllib.request
@@ -16,26 +18,54 @@ from panko.config import ROOT
 
 TEMPLATES = Path(__file__).parent / "templates"      # shipped inside the package
 TEMPLATE = TEMPLATES / "panko.example.toml"
+LANGUAGES = TEMPLATES / "languages"                 # presets: one TOML file per language
 CONFIG = ROOT / "config" / "panko.toml"
 
-DEFAULTS = {"language": "Moroccan Darija", "gloss_language": "English", "varieties": ["darija"],
-            "deck_root": "Panko", "profile": "User 1", "translit": "a learner-friendly romanisation",
-            "wiktionary": "Moroccan Arabic"}
+DEFAULTS = {"language": "Moroccan Darija", "gloss_language": "English", "varieties": ["main"], "deck_root": "Panko",
+            "profile": "User 1", "translit": "a learner-friendly romanisation", "wiktionary": "", "script": ""}
+
+
+def _slug(s: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", (s or "").lower()).strip("-")
+
+
+def presets() -> dict[str, Path]:
+    """Language presets shipped with Panko, by slug ("moroccan-darija", "spanish")."""
+    return {p.stem: p for p in sorted(LANGUAGES.glob("*.toml"))}
+
+
+def preset(language: str) -> dict:
+    """The preset for a language name or slug ({} when there is none: every setting then starts neutral)."""
+    p = presets().get(_slug(language))
+    return tomllib.loads(p.read_text()) if p else {}
+
+
+def defaults(language: str) -> dict:
+    """What init offers for each question once the language is known."""
+    language = language or DEFAULTS["language"]
+    pre = preset(language)
+    language = pre.get("answers", {}).get("language", language)     # "spanish" → "Spanish"
+    d = {**DEFAULTS, "language": language, "wiktionary": language, "varieties": [_slug(language) or "main"],
+         **pre.get("answers", {})}
+    if pre:
+        d["script"] = pre.get("learner", {}).get("script", "")
+        d["translit"] = pre.get("learner", {}).get("translit", {}).get("main", d["translit"])
+    return d
 
 
 def _q(v) -> str:
-    return json.dumps(v, ensure_ascii=False)   # a JSON string or list is a valid TOML value
+    """A TOML value: JSON strings, lists, numbers and booleans are valid TOML; tables become inline tables."""
+    if isinstance(v, dict):
+        return "{" + ", ".join(f"{k} = {_q(x)}" for k, x in v.items()) + "}"
+    return json.dumps(v, ensure_ascii=False)
 
 
-def evidence_block(varieties: list[str], wiktionary: str) -> str:
-    out = []
-    if "darija" in varieties:
-        out.append('''[[evidence.corpora]]
-name = "Darija Open Dataset (DODa)"
-path = "cache/refs/doda"
-url = "https://github.com/darija-open-dataset/dataset"
-include = ["semantic categories/", "syntactic categories/", "sentences/", "x-tra/"]
-notes = "word lists and a sentence corpus, mostly mainstream (Casablanca/Rabat) Darija"''')
+def _lines(d: dict) -> str:
+    return "\n".join(f"{k} = {_q(v)}" for k, v in d.items())
+
+
+def evidence_block(corpora: list[dict], wiktionary: str) -> str:
+    out = [f"[[evidence.corpora]]\n{_lines(c)}" for c in corpora]
     if wiktionary:
         slug = wiktionary.replace(" ", "")
         out.append(f'''[[evidence.corpora]]
@@ -51,15 +81,42 @@ notes = "sense tags can mark regional words"''')
     return "\n\n".join(out)
 
 
+EXAMPLE_HINTS = """# verb = 'the dictionary form, e.g. the infinitive: comprar "to buy"'
+# fixed_preposition = 'verbs that keep their preposition: acordarse de "to remember"'
+# present = "the 1st-person singular present: compro"
+# learner_note = "a regional note as it would read on a card"
+# everyday_word = "The everyday word is …\""""
+
+
 def render(answers: dict) -> str:
-    a = {**DEFAULTS, **{k: v for k, v in answers.items() if v not in (None, "", [])}}
+    """config/panko.toml text from the learner's answers and the preset for their language, if Panko has one."""
+    given = {k: v for k, v in answers.items() if v not in (None, "", [])}
+    a = {**defaults(given.get("language", "")), **{k: v for k, v in given.items() if k != "language"}}
+    if "translit" in answers and answers["translit"] == "":
+        a["translit"] = ""                       # an explicit "none"
+    pre = preset(a["language"])
+    L, audio = pre.get("learner", {}), pre.get("audio", {})
+    tr = L.get("translit", {})
     vs = [v.strip().lower() for v in a["varieties"] if v.strip()]
+    extra = {k: v for k, v in L.items() if k not in ("script", "mainstream", "regions", "examples", "translit")}
     vals = {
         "voices": "\n".join(f"voices_{v} = []" for v in vs),
+        "audition": _lines({"library": audio.get("library", {}), "shortlist": audio.get("shortlist", []),
+                            "audition": audio.get("audition", "")}),
+        "stt_language": _q(pre.get("stt", {}).get("language", "")),
+        "morph_dbs": _q({v: db for v, db in pre.get("morph", {}).get("dbs", {}).items() if v in vs}),
         "decks": "\n".join(f"{v} = {_q(a['deck_root'] + '::' + v.capitalize())}" for v in vs),
         "profile": _q(a["profile"]), "language": _q(a["language"]), "varieties": _q(vs),
-        "learner": _q(f"a {a['gloss_language']}-speaking learner"), "gloss_language": _q(a["gloss_language"]),
-        "translit": _q(a["translit"]), "evidence": evidence_block(vs, a["wiktionary"]),
+        "script": _q(a["script"]),
+        "learner": _q(f"{'an' if a['gloss_language'][:1].lower() in 'aeiou' else 'a'} {a['gloss_language']}-speaking "
+                      "learner"), "gloss_language": _q(a["gloss_language"]),
+        "learner_extra": _lines(extra),
+        "mainstream": _q(L.get("mainstream", "")), "regions": _q(L.get("regions", [])),
+        "examples": _lines(L.get("examples", {})) or EXAMPLE_HINTS,
+        "translit": _q(a["translit"]), "translit_rules": _q(tr.get("main_rules", "")),
+        "translit_alt": _q(tr.get("alt", "scholarly transliteration") if a["translit"] else ""),
+        "none_for": _q([v for v in tr.get("none_for", []) if v in vs] or ([] if a["translit"] else vs)),
+        "evidence": evidence_block(pre.get("evidence", {}).get("corpora", []), a["wiktionary"]),
     }
     text = TEMPLATE.read_text()
     for k, v in vals.items():

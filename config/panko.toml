@@ -15,6 +15,10 @@ format = "mp3_44100_128"
 # voice listed (one tap plays them in turn). Names map to IDs below.
 voices_darija = ["Badr", "Ghalia"]
 voices_fusha = ["George"]
+# `panko voices`: which library voices to audition, and the sentence they read
+library = {language = "ar", accent = "moroccan"}
+shortlist = ["Badr", "Ghalia", "Loubna", "Houssam", "Mouhcine", "Saad"]
+audition = "سلام، كنقلب على كنابي كبير. واش تقدر تدير ليا تخفيض؟ إلا ما عندكش، ماشي مشكل، نرجع غدا."
 
 [audio.elevenlabs.voice_ids]
 Badr = "pNCAEmZFNur1TpjR9TC0"     # Moroccan Darija, man, warm narrator
@@ -114,6 +118,7 @@ fusha = "Panko Sandbox::Fusha"
 # ---- The learner: what the prompts assume. Another learner changes these, not the prompts. ----
 [learner]
 language = "Moroccan Darija"                # what the cards mainly teach
+script = "Arabic"                           # the script cards are written in (a Unicode script name)
 varieties = ["darija", "fusha"]             # store varieties; "fusha" = Modern Standard / Quranic Arabic
 learner = "an English-speaking learner"
 gloss_language = "English"
@@ -123,8 +128,18 @@ regions = ["pan-Moroccan", "north (Tangier, Tetouan, Jbala, Chefchaouen)", "Fes-
 topics = ["home", "furniture", "shopping", "food", "cooking", "emotions", "people", "family", "time", "position",
           "greetings", "numbers", "money", "places", "body", "character", "verbs-daily", "grammar", "animals",
           "nature", "work", "school", "health", "religion", "travel", "clothes", "weather", "colors"]
+spelling = "no harakat (vowel marks) or shadda unless the variety is Fusha or the source writes them"
+standard = "Fusha"                          # the standard language mixed into sources and spoken as a register
+loans = "French, Spanish, Amazigh"          # languages loanwords come from
 keep = "Religious formulas Moroccans say every day (بسم الله, الله يسامح, أعوذ بالله…) are kept as phrases."
 drop = "Drop religious proselytising lines (some shared decks are partly missionary material)."
+
+[learner.examples]                          # examples the prompts show, in your language
+verb = 'Darija: past 3rd-person masculine singular, شرى "to buy"'
+fixed_preposition = 'تخلص من "to get rid of", حكم على "to sentence"'
+present = "Darija with ka-: كنشري"
+learner_note = "Mainly northern (Tangier, Tetouan); elsewhere شرجم sherjem."
+everyday_word = "The everyday word is ساروت sarut."
 
 [learner.translit]
 main = "the teacher's Arabizi"

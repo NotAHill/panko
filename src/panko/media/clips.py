@@ -9,14 +9,13 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 import subprocess
 from pathlib import Path
 
-from panko.store.normalize import bare, strip_article
+from panko import lang
+from panko.store.normalize import bare
 
 PREFIX = "_panko_native_"
-TOKEN = re.compile(r"[\w؀-ۿ']+")
 PAD_BEFORE, PAD_AFTER = 0.12, 0.3
 
 
@@ -55,9 +54,8 @@ def _norm(tok: str) -> str:
 
 
 def _bare_noun(t: str) -> str:
-    """Without the article, as speech-to-text writes it too: ال or a lone ل (لبرية for البرية)."""
-    t = strip_article(t)
-    return t[1:] if t.startswith("ل") and len(t) > 3 else t
+    """Without the article, as speech-to-text may write it (Arabic: ال or a lone ل, لبرية for البرية)."""
+    return lang.bare_noun(t)
 
 
 def _same(a: str, b: str) -> bool:
@@ -67,9 +65,9 @@ def _same(a: str, b: str) -> bool:
 def find(words: list[dict], text: str, avoid: str = "") -> dict | None:
     """Where `text` is said: {start, end, speaker, track} of the first run of transcript words matching its words in
     order, preferring a speaker other than `avoid` (the learner)."""
-    want = [_norm(t) for t in TOKEN.findall(text)]
-    ws = [w for w in words if w.get("type", "word") == "word" and TOKEN.search(w["text"])]
-    toks = [_norm(TOKEN.findall(w["text"])[0]) for w in ws]
+    want = [_norm(t) for t in lang.tokens(text, apostrophes=True)]
+    ws = [w for w in words if w.get("type", "word") == "word" and lang.tokens(w["text"], apostrophes=True)]
+    toks = [_norm(lang.tokens(w["text"], apostrophes=True)[0]) for w in ws]
     if not want:
         return None
     hits = []

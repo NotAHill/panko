@@ -57,7 +57,7 @@ def test_download_open_references(tmp_path, monkeypatch):
 
 def test_decks_come_from_config(monkeypatch):
     monkeypatch.setattr(config, "settings", lambda: {"anki": {"decks": {"darija": "Mine::Darija"}}})
-    assert config.deck("darija") == "Mine::Darija" and config.deck("fusha") == "Panko Sandbox::Fusha"
+    assert config.deck("darija") == "Mine::Darija" and config.deck("fusha") == "Panko::Fusha"
     assert config.deck("masri") == "Panko::Masri"
 
 
@@ -69,7 +69,7 @@ def test_card_map_detected_from_templates(monkeypatch):
         def note_type(self):
             return {"name": "Someone's deck", "tmpls": [{"ord": 0, "qfmt": "{{English}}<br>{{hint:Hint}}"},
                                                          {"ord": 1, "qfmt": "{{#Arabic}}{{Arabic}}{{/Arabic}}"}]}
-    monkeypatch.setattr(config, "settings", lambda: {"anki": {}})
+    monkeypatch.setattr(config, "settings", lambda: {"anki": {}, "learner": {"script": "Arabic"}})
     assert migrate.card_map(Note(English="to dig", Arabic="حفر", Hint="")) == {0: "production", 1: "recognition"}
     monkeypatch.setattr(config, "settings", lambda: {"anki": {"card_map": {"Someone's deck": ["recognition", ""]}}})
     assert migrate.card_map(Note()) == {0: "recognition"}

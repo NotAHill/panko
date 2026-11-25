@@ -2,6 +2,20 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-25 · Any language: the language lives in config and one module; Arabic is a set of rules, not an
+assumption.** Everything that depended on Arabic now asks `panko.lang`, which reads `[learner]`: `script` (a Unicode
+script name or a list; letters are classified by Unicode, so no per-script tables are needed to tell them apart)
+decides the submit check, the card font and direction and which CSV column is the word; matching keys are
+case-folded and NFC for every language, with configured articles (`la casa` finds `casa`) and optional mark folding.
+The Arabic rules (harakat, alef forms, ال, clitics, hamza seats, shadda, comparing with an analyser's reading) moved
+into `lang/arabic.py` and only touch Arabic letters, so they run safely on any text: every stored key came out
+identical. The Darija wording in the prompts (spelling convention, verb forms, Fusha as the standard, loan sources,
+example notes) moved to `[learner]` and `[learner.examples]`, and a test keeps prompt files free of any language.
+`panko init --language` fills all of it from a preset (Moroccan Darija and Spanish ship; any other name starts
+neutral); a Latin-script language sets no romanisation, and items then need no `tl`. Cards mark target text with a
+neutral `tgt` class and the variety (`data-v`) inside existing conditions, since a wrapper round a front would make
+Anki create every optional card. The rename changes every note's field HTML once: a normal sync, no history lost.
+
 **2026-11-25 · Standard Arabic is checked by an analyser; dialect only against references.**
 The model's harakat and roots are the weakest part of a Fusha card, and a deterministic analyser knows them. Each
 headword, form and example word must be one of the analyser's readings (letters equal, the harakat written a subset
@@ -312,7 +326,7 @@ because removing it would force a full sync). On the back, the word plays again.
 **2026-11-23 · Anki's page direction is pinned to LTR in CSS.**
 Anki picks the direction from the first letter on the card. Once the badge was gone, the back
 started with Arabic, so the English turned RTL (full stops at the start, Sources arrow flipped).
-Only `.ar` elements are RTL now.
+Only `.ar` elements are RTL now (since S9: `.tgt`, with the direction from the script).
 
 **2026-11-23 · Production fronts show the picture + English; no separate picture-only card.**
 A picture alone was ambiguous. `EnablePicture` stays unused (the template is kept, because removing it would force a full sync).

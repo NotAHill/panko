@@ -37,9 +37,9 @@ def push_models():
         if name in existing:
             tool("update_model_templates", {"model_name": name,
                                             "templates": {t["Name"]: {"Front": t["Front"], "Back": t["Back"]} for t in tmpls}})
-            tool("update_model_styling", {"model_name": name, "css": T.CSS})
+            tool("update_model_styling", {"model_name": name, "css": T.css()})
         else:
-            tool("create_model", {"model_name": name, "in_order_fields": fields, "card_templates": tmpls, "css": T.CSS})
+            tool("create_model", {"model_name": name, "in_order_fields": fields, "card_templates": tmpls, "css": T.css()})
 
 
 def push_media(notes: list[dict]) -> tuple[int, int]:

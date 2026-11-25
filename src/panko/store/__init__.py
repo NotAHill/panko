@@ -25,7 +25,7 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS entries (
   id TEXT PRIMARY KEY,
   kind TEXT NOT NULL CHECK (kind IN ('word', 'phrase')),
-  variety TEXT NOT NULL,              -- darija | fusha
+  variety TEXT NOT NULL,              -- a variety from [learner] varieties (darija, fusha, spanish…)
   ar TEXT NOT NULL,                   -- headword / phrase as shown
   ar_key TEXT NOT NULL,               -- normalised, for "do we already have this?"
   status TEXT NOT NULL DEFAULT 'candidate' CHECK (status IN ('candidate', 'active', 'retired')),

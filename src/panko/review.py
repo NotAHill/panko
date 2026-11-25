@@ -13,7 +13,13 @@ import re
 from collections import defaultdict
 from pathlib import Path
 
+from panko import lang
 from panko.config import ROOT
+
+
+def _everywhere() -> str:
+    """The first configured region is the one meaning "everywhere" (pan-regional), which needs no flag."""
+    return (lang._learner().get("regions") or [""])[0]
 
 FLAG = {"fix": "fixed", "regional": "regional", "uncommon": "uncommon", "doubtful": "doubtful", "drop": "drop"}
 
@@ -38,7 +44,7 @@ def _card(e: dict, plan: dict | None) -> str:
     extra = len(e.get("examples") or []) - 1
     written = "written by Panko" in (ex.get("source") or "")
     flag = (f'<span class="flag {verdict}">{FLAG[verdict]}</span>' if verdict in FLAG else "")
-    if e.get("region") and e["region"] != "pan-Moroccan" and verdict != "regional":
+    if e.get("region") and e["region"] != _everywhere() and verdict != "regional":
         flag += f'<span class="flag regional">{h(e["region"])}</span>'
     note = e.get("gloss_note") or e.get("usage") or ""
     pic = ""
@@ -48,13 +54,13 @@ def _card(e: dict, plan: dict | None) -> str:
     search = " ".join([e["ar"], e.get("tl", ""), e.get("gloss", ""), verdict]).lower()
     return f"""<article class="card {'flagged' if verdict in FLAG else ''}" data-id="{e['id']}" data-v="{verdict or 'ok'}"
  data-s="{h(search)}">
-  <header><span class="ar" lang="ar" dir="rtl">{h(e['ar'])}</span>{flag}
+  <header><span class="tgt" dir="auto">{h(e['ar'])}</span>{flag}
    <button class="toggle" type="button" aria-pressed="false" title="Drop this item">Drop</button></header>
   <div class="tl">{h(e.get('tl', ''))} <span class="alt">{h(e.get('tl_alt', ''))}</span></div>
   <div class="gloss">{h(e.get('gloss', ''))}</div>
   {f'<div class="gram">{h(gram)}</div>' if gram else ''}
   {f'<div class="note">{h(note)}</div>' if note else ''}
-  {f'''<div class="ex{' written' if written else ''}"><div lang="ar" dir="rtl">{h(ex.get('ar', ''))}</div>
+  {f'''<div class="ex{' written' if written else ''}"><div class="tgt" dir="auto">{h(ex.get('ar', ''))}</div>
    <div class="ex-tl">{h(ex.get('tl', ''))}</div><div>{h(ex.get('en', ''))}</div>
    <div class="src">{'written by Panko, not checked' if written else h(ex.get('source', ''))}{f' · +{extra} more' if extra > 0 else ''}</div></div>''' if ex.get('ar') else ''}
   {f'<div class="why">{h(chk.get("summary", ""))}</div>' if verdict in FLAG and chk.get("summary") else ''}
@@ -73,7 +79,7 @@ def render(entries: list[dict], plans: dict | None = None, title: str = "Inbox r
         cards = "\n".join(_card(e, plans.get(f"{e['ar']}|{e.get('gloss', '')}") or plans.get(e["ar"])) for e in es)
         body.append(f'<section><h2>{html.escape(name)} <span>{len(es)}</span></h2><div class="grid">{cards}</div></section>')
     n_flag = sum(1 for e in entries if (e.get("check") or {}).get("verdict") in FLAG)
-    return TEMPLATE.replace("{{title}}", html.escape(title)).replace("{{n}}", str(len(entries))) \
+    return TEMPLATE.replace("{{font}}", lang.font()[0]).replace("{{title}}", html.escape(title)).replace("{{n}}", str(len(entries))) \
         .replace("{{flagged}}", str(n_flag)).replace("{{body}}", "\n".join(body)) \
         .replace("{{key}}", json.dumps("panko-review-" + title))
 
@@ -104,20 +110,20 @@ h2{font-size:14px;text-transform:uppercase;letter-spacing:.05em;color:var(--soft
 h2 span{font-weight:400}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;
 flex-direction:column;gap:4px}.card.flagged{border-color:color-mix(in srgb,var(--warn) 45%,var(--line))}
-.card.dropped{background:var(--drop);opacity:.55}.card.dropped .ar{text-decoration:line-through}
-header{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.ar{font-size:24px;font-family:"Geeza Pro","Noto Naskh Arabic",serif;
-margin-right:auto}.toggle{padding:3px 10px;font-size:13px}.toggle[aria-pressed=true]{background:var(--bad);color:#fff;border-color:var(--bad)}
+.card.dropped{background:var(--drop);opacity:.55}.card.dropped header .tgt{text-decoration:line-through}
+header{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.tgt{font-family:{{font}}}header .tgt{font-size:24px;
+margin-inline-end:auto}.toggle{padding:3px 10px;font-size:13px}.toggle[aria-pressed=true]{background:var(--bad);color:#fff;border-color:var(--bad)}
 .flag{font-size:12px;padding:1px 7px;border-radius:99px;border:1px solid currentColor;color:var(--warn)}
 .flag.doubtful,.flag.drop{color:var(--bad)}.flag.fix{color:var(--accent)}
 .tl{font-weight:600}.alt{font-weight:400;color:var(--soft)}.gloss{font-size:16px}.gram,.note,.why,.pic,.src,.id{font-size:13px;color:var(--soft)}
 .why{color:var(--warn)}.ex{border-left:3px solid var(--line);padding:2px 0 2px 9px;margin-top:4px;font-size:14px}
-.ex.written{border-left-style:dashed}.ex [lang=ar]{font-size:17px;font-family:"Geeza Pro","Noto Naskh Arabic",serif}
+.ex.written{border-left-style:dashed}.ex .tgt{font-size:17px}
 .ex-tl{color:var(--soft)}.pic b{text-transform:uppercase;font-size:11px;letter-spacing:.04em}.id{margin-top:auto;opacity:.6}
 .hide{display:none!important}.toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--ink);
 color:var(--bg);padding:8px 14px;border-radius:8px;opacity:0;transition:opacity .2s}.toast.on{opacity:1}
 </style></head><body>
 <div class="top"><h1>{{title}}</h1><span class="count"><b id="n">{{n}}</b> items · {{flagged}} flagged · <b id="nd">0</b> to drop</span>
-<input id="q" type="search" placeholder="Search Arabic, Arabizi, gloss…" aria-label="Search">
+<input id="q" type="search" placeholder="Search word, romanisation, gloss…" aria-label="Search">
 <label><input id="fl" type="checkbox"> flagged only</label><label><input id="dr" type="checkbox"> dropped only</label>
 <button id="copy" class="primary" type="button">Copy drop list</button></div>
 <main>{{body}}</main><div class="toast" id="toast">Copied</div>

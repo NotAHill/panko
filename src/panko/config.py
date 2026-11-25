@@ -50,7 +50,7 @@ ANKI_DEFAULTS = {
     "url": "http://127.0.0.1:3141/",          # the Anki MCP Server add-on
     "profile": "User 1",                      # Anki profile whose collection migrations open
     "collection": "",                         # full path to collection.anki2, if not under the usual Anki folder
-    "decks": {"darija": "Panko Sandbox::Darija", "fusha": "Panko Sandbox::Fusha"},
+    "decks": {},                              # variety → deck; unnamed ones go to Panko::<Variety>
     "card_map": {},                           # old note type → Panko card per template ord (migrations)
 }
 

@@ -17,7 +17,7 @@ def _main(argv=None):
     ap = argparse.ArgumentParser(prog="panko")
     sub = ap.add_subparsers(dest="cmd")
     sub.add_parser("providers", help="which providers are ready")
-    v = sub.add_parser("voices", help="audition ElevenLabs Moroccan voices")
+    v = sub.add_parser("voices", help="audition ElevenLabs library voices for your language ([audio.elevenlabs] library, audition)")
     v.add_argument("--all", action="store_true")
     sub.add_parser("seed", help="load the hand-written sandbox entries into the store")
     sy = sub.add_parser("sync", help="push active entries to Anki (updates notes in place)")
@@ -66,6 +66,8 @@ def _main(argv=None):
     it.add_argument("--yes", action="store_true", help="take the defaults without asking")
     it.add_argument("--force", action="store_true", help="replace an existing config (kept as .bak)")
     it.add_argument("--check", action="store_true", help="only check what's ready")
+    it.add_argument("--language", default="", help="the language your cards teach; a preset fills in the rest "
+                    "(moroccan-darija, spanish), any other name starts neutral")
     rf = sub.add_parser("refs", help="the reference corpora and dictionaries: show them, download the open ones")
     rf.add_argument("--download", action="store_true", help="fetch the open ones that are missing")
     rf.add_argument("--force", action="store_true", help="with --download: fetch them again even if present")
@@ -135,11 +137,11 @@ def _main(argv=None):
     cl.add_argument("--llm-batch", action="store_true")
     cl.add_argument("--budget", type=float)
     cl.add_argument("--apply", action="store_true", help="write the saved decisions to the store")
-    vf = sub.add_parser("verify", help="check entries with deterministic tools: Standard Arabic against the "
-                        "morphological analyser ([morph]), dialect words against the references (free)")
+    vf = sub.add_parser("verify", help="check entries with deterministic tools: varieties with a morphological "
+                        "analyser ([morph]) against its readings, the others against the references (free)")
     vf.add_argument("ids", nargs="*", help="these entries (default: every entry with --status)")
     vf.add_argument("--status", default="candidate", help="candidate | active | all (default candidate)")
-    vf.add_argument("--apply", action="store_true", help="tag candidates with a spelling, harakat or root problem "
+    vf.add_argument("--apply", action="store_true", help="tag candidates with a spelling, marks or root problem "
                     "panko::doubtful (kept out of Anki until you clear them) and save the problems on the entry")
     vf.add_argument("--tag-active", action="store_true", help="with --apply: tag active entries too (they stay in "
                     "Anki, tagged)")
@@ -295,7 +297,11 @@ def _main(argv=None):
 def _init(args):
     from panko import setup
     if not args.check and (args.force or not setup.CONFIG.exists()):
-        d = dict(setup.DEFAULTS)
+        language = args.language
+        if not language and not args.yes:
+            names = ", ".join(setup.presets())
+            language = input(f"Language your cards teach (presets: {names}) [{setup.DEFAULTS['language']}]: ").strip()
+        d = setup.defaults(language)
         profiles = setup.anki_profiles()
         if profiles:
             d["profile"] = profiles[0]
@@ -305,15 +311,20 @@ def _init(args):
                 return d[key]
             shown = ", ".join(d[key]) if isinstance(d[key], list) else d[key]
             got = input(f"{q} [{shown}]: ").strip()
+            if got == "-":
+                return ""          # "-" for none (no romanisation, no Wiktionary)
             return ([x.strip() for x in got.split(",")] if isinstance(d[key], list) else got) if got else d[key]
 
-        answers = {"language": ask("language", "Language your cards teach"),
+        print("Preset:", "yes, " + setup._slug(d["language"]) if setup.preset(d["language"]) else
+              "none, so the prompts start neutral: fill in [learner] in the config afterwards")
+        answers = {"language": d["language"],
+                   "script": ask("script", "Script it's written in (Latin, Arabic, Cyrillic, Han…)"),
                    "gloss_language": ask("gloss_language", "Your language (for meanings)"),
                    "varieties": ask("varieties", "Varieties, comma-separated (deck per variety)"),
                    "deck_root": ask("deck_root", "Deck to put them under"),
                    "profile": ask("profile", f"Anki profile{' (found: ' + ', '.join(profiles) + ')' if profiles else ''}"),
-                   "translit": ask("translit", "Romanisation to show first"),
-                   "wiktionary": ask("wiktionary", "Wiktionary language name for evidence (blank to skip)")}
+                   "translit": ask("translit", "Romanisation to show first (- for none)"),
+                   "wiktionary": ask("wiktionary", "Wiktionary language name for evidence (- to skip)")}
         print("wrote", setup.write_config(answers, force=args.force))
     elif not args.check:
         print(f"{setup.CONFIG} exists (edit it, or `panko init --force` to start over). Checking what's ready:")
@@ -331,7 +342,7 @@ def _verify(args):
     print("analyser: " + (", ".join(f"{v} ({n})" for v, n in ready.items()) or "none ready (see [morph] in config)"))
     st = ("candidate", "active") if args.status == "all" else (args.status,)
     r = checks.run(Store(), st, ids=args.ids or None, apply=args.apply, tag_active=args.tag_active)
-    print(f"checked {r['checked']} with the analyser: {r['fine']} fine, {len(r['doubtful'])} with a spelling, harakat "
+    print(f"checked {r['checked']} with the analyser: {r['fine']} fine, {len(r['doubtful'])} with a spelling, marks "
           f"or root problem, {len(r['listed'])} with something to look at" + (f"; tagged {r['tagged']}" if args.apply else ""))
     for row in [*r["doubtful"], *r["listed"]][:40]:
         for p in row["problems"]:
@@ -421,14 +432,14 @@ def _work(args, parser):
 def _llm(args, parser):
     import json
 
-    from panko import llm
+    from panko import lang, llm, prompts
     if args.lcmd == "ping":
         from panko.providers.base import Ask
         p = llm.provider()
         schema = {"type": "object", "properties": {"ok": {"type": "boolean"}, "word": {"type": "string"}},
                   "required": ["ok", "word"], "additionalProperties": False}
         a = Ask(id="ping", system="Answer in JSON.", schema=schema, max_tokens=2000, effort="low",
-                parts=["Give the Moroccan Darija word for 'water' in Arabic script."])
+                parts=[f"Give the {prompts.context()['language']} word for 'water' in {lang.label()}."])
         ans = p.ask(a)
         print(f"{p.name}/{ans.model}: {ans.data if not ans.error else ans.error} · {ans.usage} · ${ans.cost:.5f}")
     elif args.lcmd == "usage":

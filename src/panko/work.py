@@ -25,7 +25,8 @@ import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 
-from panko.config import ROOT, settings
+from panko import lang
+from panko.config import ROOT
 from panko.prompts.schemas import CONFIDENCE, ITEM_FIELDS, VERDICT
 
 WORK = ROOT / "data" / "work"
@@ -343,7 +344,6 @@ ITEM = {"type": "object", "additionalProperties": False, "required": ["kind", "a
                        "picture": PICTURE}}
 UNIT_SCHEMA = {"type": "object", "properties": {"items": {"type": "array", "items": ITEM}}, "required": ["items"],
                "additionalProperties": False}
-ARABIC = re.compile(r"[؀-ۿ]")
 
 
 def validate(data: dict) -> list[str]:
@@ -355,11 +355,11 @@ def validate(data: dict) -> list[str]:
         return errs[:25]
     for i, it in enumerate(data["items"]):
         where = f"items.{i} ({it['ar']})"
-        if not ARABIC.search(it["ar"]):
-            errs.append(f"{where}: `ar` must be in Arabic script")
+        if not lang.in_target(it["ar"], it.get("variety")):
+            errs.append(f"{where}: `ar` must be in {lang.label(it.get('variety'))}")
         if it.get("known") or it.get("known_id"):
             continue
-        if not it.get("tl"):
+        if not it.get("tl") and lang.romanised():
             errs.append(f"{where}: a new item needs `tl`")
         if "verdict" not in it:
             errs.append(f"{where}: a new item needs a `verdict` (the check step); known items set `known: true`")
@@ -433,7 +433,7 @@ def ingest_source(sid: str, store=None, units: list[str] | None = None) -> dict:
 
     store = store or Store()
     s = source(sid)
-    variety0 = (settings().get("learner", {}).get("varieties") or ["darija"])[0]
+    variety0 = lang.default_variety()
     todo = [u for u, st in state(sid).items() if st in ("submitted", "held") and (not units or u in units)]
     index = Index(store.entries(None))
     rep = {"source": sid, "units": todo, "new": 0, "known": 0, "dropped": 0, "merged": 0, "homographs": [],
@@ -510,7 +510,7 @@ def ingest_source(sid: str, store=None, units: list[str] | None = None) -> dict:
            "path": s["path"], "trust": s.get("trust", 70)}
     if new:
         from panko import checks
-        rep["morph_doubtful"] = checks.flag(new)    # Standard Arabic items against the analyser ([morph])
+        rep["morph_doubtful"] = checks.flag(new)    # items of a variety with an analyser ([morph])
     if known or new:
         r = ingest({"source": src, "items": [*known.values(), *new]}, store)
         rep["new"], rep["known"] = len(r["new"]), len(r["known"])

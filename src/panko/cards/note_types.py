@@ -1,7 +1,11 @@
 """Panko note types: fields, card templates and CSS (spec v0.2).
 
 Field lists are frozen for the prototype models: adding/removing/reordering fields
-forces a full sync. Templates and CSS can change freely (normal sync)."""
+forces a full sync. Templates and CSS can change freely (normal sync).
+
+Text in the language being learned has the class `tgt`; its font and direction come from the script in config
+(`css()`, `panko.lang`). Card backs are wrapped in `<div class="v" data-v="{{Register}}">` and fronts mark their `tgt`
+text with the same attribute, so varieties written in different scripts can each get their own."""
 
 WORD_MODEL = "Panko • Word (proto)"
 PHRASE_MODEL = "Panko • Phrase (proto)"
@@ -25,14 +29,14 @@ PHRASE_FIELDS = [
     "PankoID", "PankoData", "Spare1", "Spare2", "Spare3", "Spare4",
 ]
 
-CSS = r"""
+BASE_CSS = r"""
 /* Anki picks the page direction from the first letter on the card, so a back that
-   starts with Arabic turned the English RTL. Pin LTR; only .ar is RTL. */
+   starts with right-to-left text turned the English RTL. Pin LTR; only .tgt follows its script. */
 html, body, #qa, .card { direction: ltr; }
 .card { font-family: -apple-system, "Helvetica Neue", "Segoe UI", Roboto, sans-serif;
   font-size: 18px; line-height: 1.45; text-align: center; padding: 20px 16px; }
-.ar { font-family: "Noto Naskh Arabic", "Geeza Pro", "Al Nile", "Traditional Arabic", serif;
-  direction: rtl; unicode-bidi: isolate; line-height: 2; }
+.tgt { unicode-bidi: isolate; }
+/*SCRIPT*/
 .en, .tl, .gloss, .gnote, .gram, .block, .ex-tl, .ex-en, .cite, .prompt, table.rel, details.srcs { direction: ltr; unicode-bidi: isolate; }
 .word { font-size: 48px; }
 .phrase { font-size: 32px; }
@@ -45,12 +49,12 @@ html, body, #qa, .card { direction: ltr; }
 .gloss { font-size: 24px; margin-top: 6px; }
 .gnote { font-size: 15px; opacity: .6; }
 .gram { font-size: 15px; opacity: .75; margin-top: 8px; }
-.gram .ar { font-size: 19px; line-height: 1.6; }
+.gram .tgt { font-size: 19px; line-height: 1.6; }
 .block { text-align: left; max-width: 560px; margin: 22px auto 0; }
 .lbl { font-size: 13px; opacity: .5; margin-bottom: 6px; }
 .ex { padding: 10px 0; border-top: 1px solid rgba(128,128,128,.2); }
 .ex:first-child { border-top: 0; }
-.ex-ar { font-size: 24px; text-align: right; line-height: 1.7; }
+.ex-tgt { font-size: 24px; text-align: start; line-height: 1.7; }
 .ex-tl { font-size: 14px; opacity: .6; }
 .ex-en { font-size: 16px; }
 .cite { font-size: 13px; opacity: .55; margin-top: 2px; }
@@ -61,13 +65,19 @@ html, body, #qa, .card { direction: ltr; }
 .say.on { background: rgba(128,128,128,.25); }
 table.rel { border-collapse: collapse; font-size: 16px; }
 table.rel td { padding: 2px 14px 2px 0; vertical-align: baseline; }
-table.rel td.ar { font-size: 21px; text-align: right; line-height: 1.6; }
+table.rel td.tgt { font-size: 21px; text-align: start; line-height: 1.6; }
 .notes { font-size: 16px; }
 .mine { padding: 8px 10px; border-radius: 6px; background: rgba(255,214,0,.1); }
 details.srcs { font-size: 13px; opacity: .55; }
 details.srcs summary { cursor: pointer; }
 details.srcs ul { margin: 6px 0 0; padding-left: 18px; }
 """
+
+
+def css() -> str:
+    """The card CSS with the target language's fonts and direction (per variety when their scripts differ)."""
+    from panko import lang
+    return BASE_CSS.replace("/*SCRIPT*/", lang.card_css(), 1)
 
 # Example audio: tapping .say plays its <audio> children one after another (one per voice). Anki's own [sound:] tags
 # autoplay, so only the headword uses those. Audio must be mp3: desktop Anki's
@@ -92,7 +102,7 @@ document.querySelectorAll('.say').forEach(function (b) {
 
 WORD_BACK_BLOCK = r"""
 {{#Image}}<div class="pic">{{Image}}</div>{{/Image}}
-<div class="ar word">{{Word}}</div>
+<div class="tgt word" dir="auto">{{Word}}</div>
 {{#Audio}}<div>{{Audio}}</div>{{/Audio}}
 <div class="tl">{{Translit}}{{#TranslitAlt}}<span class="tl2">{{TranslitAlt}}</span>{{/TranslitAlt}}</div>
 <div class="gloss">{{Gloss}}</div>
@@ -112,7 +122,7 @@ def _word_back(top: str = "") -> str:
 
 WORD_TEMPLATES = [
     {"Name": "1 Recognition",
-     "Front": '<div class="ar word">{{WordPrompt}}</div>{{#Audio}}<div>{{Audio}}</div>{{/Audio}}',
+     "Front": '<div class="tgt word" dir="auto">{{WordPrompt}}</div>{{#Audio}}<div>{{Audio}}</div>{{/Audio}}',
      "Back": _word_back()},
     {"Name": "2 Production",
      "Front": '{{#EnableProduction}}{{#Image}}<div class="pic">{{Image}}</div>{{/Image}}<div class="prompt">{{Gloss}}</div>{{/EnableProduction}}',
@@ -124,14 +134,14 @@ WORD_TEMPLATES = [
      "Front": '{{#EnablePicture}}{{#Image}}<div class="pic">{{Image}}</div>{{/Image}}{{/EnablePicture}}',
      "Back": _word_back()},
     {"Name": "5 Plural",
-     "Front": '{{#EnablePlural}}{{#Plural}}<div class="ar word">{{Word}}</div><div class="cue">plural</div>{{/Plural}}{{/EnablePlural}}',
-     "Back": _word_back('<div class="ar word ans">{{Plural}}</div>')},
+     "Front": '{{#EnablePlural}}{{#Plural}}<div class="tgt word" dir="auto">{{Word}}</div><div class="cue">plural</div>{{/Plural}}{{/EnablePlural}}',
+     "Back": _word_back('<div class="tgt word ans" dir="auto">{{Plural}}</div>')},
     {"Name": "6 Verb forms",
-     "Front": '{{#EnableVerbForms}}{{#Masdar}}<div class="ar word">{{Word}}</div><div class="cue">present · masdar</div>{{/Masdar}}{{/EnableVerbForms}}',
-     "Back": _word_back('<div class="ar word ans">{{Present}} · {{Masdar}}</div>')},
+     "Front": '{{#EnableVerbForms}}{{#Masdar}}<div class="tgt word" dir="auto">{{Word}}</div><div class="cue">present · masdar</div>{{/Masdar}}{{/EnableVerbForms}}',
+     "Back": _word_back('<div class="tgt word ans" dir="auto">{{Present}} · {{Masdar}}</div>')},
     {"Name": "7 Root",
-     "Front": '{{#EnableRoot}}{{#Root}}<div class="ar word">{{Word}}</div><div class="cue">root</div>{{/Root}}{{/EnableRoot}}',
-     "Back": _word_back('<div class="ar word ans">{{Root}}</div>')},
+     "Front": '{{#EnableRoot}}{{#Root}}<div class="tgt word" dir="auto">{{Word}}</div><div class="cue">root</div>{{/Root}}{{/EnableRoot}}',
+     "Back": _word_back('<div class="tgt word ans" dir="auto">{{Root}}</div>')},
     {"Name": "8 Typed",
      "Front": '{{#EnableTyped}}<div class="prompt">{{Gloss}}</div>{{type:WordBare}}{{/EnableTyped}}',
      "Back": '{{#EnableTyped}}{{type:WordBare}}{{/EnableTyped}}' + WORD_BACK_BLOCK},
@@ -143,11 +153,21 @@ WORD_TEMPLATES = [
      "Back": _word_back()},
 ]
 
+def _wrap(tmpls: list[dict]) -> list[dict]:
+    """Backs are wrapped in the variety; fronts only mark their target-language text, inside the conditions that
+    decide whether Anki makes the card (a wrapper round a front would make every optional card)."""
+    w = '<div class="v" data-v="{{Register}}">%s</div>'
+    return [{**t, "Front": t["Front"].replace('dir="auto">', 'dir="auto" data-v="{{Register}}">'),
+             "Back": w % t["Back"]} for t in tmpls]
+
+
+WORD_TEMPLATES = _wrap(WORD_TEMPLATES)
+
 # ---------- Phrase ----------
 
 PHRASE_BACK_BLOCK = r"""
 {{#Image}}<div class="pic">{{Image}}</div>{{/Image}}
-<div class="ar phrase">{{#PhraseFull}}{{PhraseFull}}{{/PhraseFull}}{{^PhraseFull}}{{Phrase}}{{/PhraseFull}}</div>
+<div class="tgt phrase" dir="auto">{{#PhraseFull}}{{PhraseFull}}{{/PhraseFull}}{{^PhraseFull}}{{Phrase}}{{/PhraseFull}}</div>
 {{#Audio}}<div>{{Audio}}</div>{{/Audio}}
 <div class="tl">{{Translit}}{{#TranslitAlt}}<span class="tl2">{{TranslitAlt}}</span>{{/TranslitAlt}}</div>
 <div class="gloss">{{Translation}}</div>
@@ -167,7 +187,7 @@ def _phrase_back(top: str = "") -> str:
 
 PHRASE_TEMPLATES = [
     {"Name": "1 Recognition",
-     "Front": '<div class="ar phrase">{{PhrasePrompt}}</div>{{#Audio}}<div>{{Audio}}</div>{{/Audio}}',
+     "Front": '<div class="tgt phrase" dir="auto">{{PhrasePrompt}}</div>{{#Audio}}<div>{{Audio}}</div>{{/Audio}}',
      "Back": _phrase_back()},
     {"Name": "2 Production",
      "Front": '{{#EnableProduction}}{{#Image}}<div class="pic">{{Image}}</div>{{/Image}}<div class="prompt">{{Translation}}</div>{{/EnableProduction}}',
@@ -185,3 +205,4 @@ PHRASE_TEMPLATES = [
      "Front": '{{#EnableSpare2}}{{EnableSpare2}}{{/EnableSpare2}}',
      "Back": _phrase_back()},
 ]
+PHRASE_TEMPLATES = _wrap(PHRASE_TEMPLATES)

@@ -1,28 +1,24 @@
 """Deterministic checks of entries (`panko verify`, and at ingest): facts come from tools, not from the model.
 
-Standard Arabic (any variety with a database in [morph], Fusha here):
-- the headword, its plural, present, imperative and masdar must each be one of the analyser's readings: same
-  letters (hamza seats included), and every haraka written must be in that reading (harakat left out are fine);
+Any variety with a morphology database in [morph] (Fusha with CAMeL Tools, here):
+- the headword, its plural, present, imperative and masdar must each be one of the analyser's readings: the same
+  letters, and every mark written must be in that reading (for Arabic: harakat left out are fine, see
+  `panko.lang.arabic.consistent`);
 - the root written on the card must be the root of one of those readings, and the part of speech must fit;
-- every word of a written example sentence must have such a reading too (Quran quotes are verbatim, never checked).
-Spelling, harakat and root problems are hard: a candidate with one is tagged `panko::doubtful` (kept out of Anki
-until cleared). Part of speech, unknown words and example problems are listed for you, without a tag.
+- every word of a written example sentence must have such a reading too (scripture quotes are verbatim, never
+  checked).
+Spelling, marks (wrong vowel marks) and root problems are hard: a candidate with one is tagged `panko::doubtful` (kept out of Anki until
+cleared). Part of speech, unknown words and example problems are listed for you, without a tag.
 
-Dialects (no open database, and an MSA analyser would "correct" good dialect): grounded when a reference in
-[evidence] lists the word; the ones none lists are listed for your teacher, never tagged.
+Varieties without a database (most dialects; an analyser for the standard language would "correct" good dialect):
+grounded when a reference in [evidence] lists the word; the ones none lists are listed for your teacher, never
+tagged.
 """
 from __future__ import annotations
 
-import re
+from panko import lang, providers
 
-from panko import providers
-
-MARKS = set("ًٌٍَُِّْٰ")
-FATHA, SUKUN, SHADDA, DAGGER, TANWEEN_FATH = "َ", "ْ", "ّ", "ٰ", "ً"
-CASE = {"ً": "َ", "ٌ": "ُ", "ٍ": "ِ"}
-HARD = {"spelling", "harakat", "root"}
-TOKEN = re.compile(r"[ء-يٱً-ْٰ]+")
-HAMZA = str.maketrans("أإآؤئٱ", "ءءءءءا")
+HARD = {"spelling", "marks", "root"}
 FIELDS = ("plural", "present", "imperative", "masdar")
 TAG = "panko::doubtful"
 
@@ -32,65 +28,11 @@ def morph_for(variety: str):
     return next((p for p in providers.chain("morph") if variety in p.dbs()), None)
 
 
-# harakat ------------------------------------------------------------------------------------------------------------
-
-def letters(text: str) -> list[tuple[str, frozenset]]:
-    """(letter, its marks) for each letter, with spelling conventions evened out so they don't count as differences
-    (CAMeL writes the second form of each): sukun is ignored; a dagger alif counts as a fatha (هَٰذَا, هٰذا); a fatha
-    before alif is dropped; a tanween on alif or alif maqsura belongs to the letter before it (كتابًا, كتاباً); the
-    shadda of a sun letter after the article is dropped (الرَّحْمٰن, الرَحْمٰن)."""
-    groups: list[list] = []
-    for ch in text.replace("ٱ", "ا").replace("ـ", ""):
-        if ch in MARKS:
-            if groups and ch != SUKUN:
-                groups[-1][1].add(FATHA if ch == DAGGER else ch)
-        elif "ء" <= ch <= "ي":
-            groups.append([ch, set()])
-    for i, g in enumerate(groups):
-        if g[0] in "اى" and TANWEEN_FATH in g[1] and i:
-            g[1].discard(TANWEEN_FATH)
-            groups[i - 1][1].add(TANWEEN_FATH)
-        if i + 1 < len(groups) and groups[i + 1][0] == "ا":
-            g[1].discard(FATHA)
-        if i >= 2 and groups[i - 1][0] == "ل" and not groups[i - 1][1] and groups[i - 2][0] == "ا" and \
-                (i == 2 or groups[i - 3][0] in "وفبك"):
-            g[1].discard(SHADDA)
-    return [(c, frozenset(m)) for c, m in groups]
-
-
-def _ending(ls: list) -> int:
-    """Where the case or mood ending sits: the last letter, or the one before a final alif or alif maqsura."""
-    return len(ls) - 2 if len(ls) > 1 and ls[-1][0] in "اى" else len(ls) - 1
-
-
-def consistent(mine: str, reading: str) -> bool:
-    """Every haraka written is in the reading. The ending is looser, since a headword's case is arbitrary and CAMeL
-    often leaves it off: anything goes when the reading has none, and tanween counts as its short vowel."""
-    a, b = letters(mine), letters(reading)
-    if len(a) != len(b) or any(x[0] != y[0] for x, y in zip(a, b, strict=True)):
-        return False
-    end = _ending(a)
-    for i, (x, y) in enumerate(zip(a, b, strict=True)):
-        mx, my = set(x[1]), set(y[1])
-        if i == end:
-            mx, my = {CASE.get(m, m) for m in mx}, {CASE.get(m, m) for m in my}
-            if not my - {SHADDA}:
-                mx &= {SHADDA}
-        if not mx <= my:
-            return False
-    return True
-
-
-def same_letters(mine: str, reading: str) -> bool:
-    return [c for c, _ in letters(mine)] == [c for c, _ in letters(reading)]
-
-
-def _root(r: str) -> list[str]:
-    return [c for c in r.translate(HAMZA) if c == "#" or "ء" <= c <= "ي"]
+consistent, same_letters = lang.consistent, lang.same_letters
 
 
 def same_root(mine: str, theirs: str) -> bool:
-    a, b = _root(mine), _root(theirs)
+    a, b = lang.root_letters(mine), lang.root_letters(theirs)
     return len(a) == len(b) and all(x == y or "#" in (x, y) for x, y in zip(a, b, strict=True))
 
 
@@ -114,15 +56,15 @@ def check_word(text: str, readings: list[dict], root: str = "", pos: str = "", f
         if not readings:
             return [{"field": field, "text": text, "problem": "unknown",
                      "detail": "the analyser has no imperative of this verb"}]
-    spelled = [r for r in readings if same_letters(text, r["diac"])]
+    spelled = [r for r in readings if lang.same_letters(text, r["diac"])]
     if not spelled:
         return [{"field": field, "text": text, "problem": "spelling", "suggest": readings[0]["diac"],
-                 "detail": "written with other letters (hamza seat, alif, ta marbuta?) in every reading"}]
-    fits = [r for r in spelled if consistent(text, r["diac"])]
+                 "detail": "written with other letters in every reading"}]
+    fits = [r for r in spelled if lang.consistent(text, r["diac"])]
     if not fits:
-        return [{"field": field, "text": text, "problem": "harakat",
+        return [{"field": field, "text": text, "problem": "marks",
                  "suggest": " / ".join(dict.fromkeys(r["diac"] for r in spelled[:4])),
-                 "detail": "no reading has these harakat"}]
+                 "detail": "no reading has these marks"}]
     out = []
     if root and any(r.get("root") for r in fits) and not any(same_root(root, r.get("root", "")) for r in fits):
         out.append({"field": "root", "text": root, "problem": "root",
@@ -140,14 +82,14 @@ def _forms(e: dict) -> list[tuple[str, str]]:
     """(field, word) for the headword's other forms: plurals may list several."""
     out = []
     for f in FIELDS:
-        for w in re.split(r"[،,/;]| or | أو ", e.get(f) or ""):
-            if TOKEN.fullmatch(w.strip()):
+        for w in lang.split_list(e.get(f) or ""):
+            if len(lang.tokens(w)) == 1 and lang.tokens(w)[0] == w.strip():
                 out.append((f, w.strip()))
     return out
 
 
 def _sentence_words(e: dict) -> list[str]:
-    return [t for x in e.get("examples", []) if not x.get("cite") for t in TOKEN.findall(x.get("ar", ""))]
+    return [t for x in e.get("examples", []) if not x.get("cite") for t in lang.tokens(x.get("ar", ""))]
 
 
 def check_entries(entries: list[dict], morph=None) -> dict[str, list[dict]]:
@@ -162,11 +104,11 @@ def check_entries(entries: list[dict], morph=None) -> dict[str, list[dict]]:
             continue
         words = set()
         for e in es:
-            words |= set(TOKEN.findall(e["ar"])) | {w for _, w in _forms(e)} | set(_sentence_words(e))
+            words |= set(lang.tokens(e["ar"])) | {w for _, w in _forms(e)} | set(_sentence_words(e))
         an = m.analyse(sorted(words), variety)
         for e in es:
             probs = []
-            heads = TOKEN.findall(e["ar"])
+            heads = lang.tokens(e["ar"])
             if e["kind"] == "word" and len(heads) == 1:
                 probs += check_word(heads[0], an.get(heads[0], []), e.get("root", ""), e.get("pos", ""))
             else:
@@ -181,7 +123,7 @@ def check_entries(entries: list[dict], morph=None) -> dict[str, list[dict]]:
                     continue
                 seen.add(w)
                 probs += [{**p, "field": "example", "problem": f"example {p['problem']}"}
-                          for p in check_word(w, an.get(w, [])) if p["problem"] in ("spelling", "harakat")]
+                          for p in check_word(w, an.get(w, [])) if p["problem"] in ("spelling", "marks")]
             out[e["id"]] = probs
     return out
 

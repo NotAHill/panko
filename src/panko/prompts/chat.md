@@ -52,9 +52,9 @@ check as for pages. At ingest, each item the recording says gets a clip of the r
   word), then `panko_ingest` again.
 - Report to the learner: units done, items new/known, verdict counts, anything doubtful, senses that existing cards
   are missing.
-- `panko_verify()` checks the new candidates with tools (free): Standard Arabic against the morphological
-  analyser, dialect words against the references. Tell the learner what it found; with their OK, `apply=true` holds
-  the ones with a spelling, harakat or root problem. Fix one with `panko_edit` (the suggested reading), then
+- `panko_verify()` checks the new candidates with tools (free): varieties with a morphological
+  analyser ([morph]) against its readings, the others against the references. Tell the learner what it found; with their OK, `apply=true` holds
+  the ones with a spelling, marks or root problem. Fix one with `panko_edit` (the suggested reading), then
   `panko_activate` it by id.
 - `panko_inbox` and `panko_entry` show what's waiting; `panko_inbox(html=true)` writes a review page.
 

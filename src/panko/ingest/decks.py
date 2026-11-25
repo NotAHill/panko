@@ -9,11 +9,12 @@ import html
 import re
 from pathlib import Path
 
+from panko import lang
+
 SOUND = re.compile(r"\[sound:[^\]]*\]")
 TAG = re.compile(r"<[^>]+>")
 IMG_ALT = re.compile(r'<img[^>]*alt="([^"]*)"', re.I)
 IMG_SRC = re.compile(r'<img[^>]*src="([^"]*)"', re.I)
-ARABIC = re.compile(r"[؀-ۿ]")
 
 
 def text(s: str) -> str:
@@ -69,13 +70,14 @@ def parse(deck: str, n: dict) -> dict | None:
 
 
 def generic(deck: str, n: dict) -> dict | None:
-    """Any other note type: the first field with Arabic script is the word, the first field without it the meaning;
-    no Arabic at all: the front is taken as romanisation (the model writes the Arabic). `fields` keeps the whole note."""
+    """Any other note type: the first field in the target language's script is the word, the first field without it
+    the meaning; none in that script: the front is taken as romanisation (the model writes the word). `fields` keeps
+    the whole note, since a guess can pick the wrong fields (and can't when the gloss language shares the script)."""
     vals = [(k, text(re.sub(r"\{\{c\d+::(.*?)(::.*?)?\}\}", r"\1", v))) for k, v in n["fields"].items() if text(v)]
     if not vals:
         return None
-    ar = next((v for _, v in vals if ARABIC.search(v)), "")
-    rest = [v for _, v in vals if not ARABIC.search(v)]     # the meaning: a field in the gloss language
+    ar = next((v for _, v in vals if lang.in_target(v)), "")
+    rest = [v for _, v in vals if not lang.in_target(v)]     # the meaning: a field in the gloss language
     raw_back = next((v for v in n["fields"].values() if text(v) and text(v) != ar), "")
     whole = dict(vals)          # the reader sees the whole note too, since a guess can pick the wrong fields
     if ar:

@@ -8,7 +8,7 @@
 - Decks: `Panko Sandbox::Darija` and `Panko Sandbox::Fusha` for now; words vs phrases is a tag (`kind::word` / `kind::phrase`).
 - Synonyms: only the everyday word gets a production card; the rest are recognition only (`"cards": ["recognition"]`).
 - Scripture examples show their reference under the example ("Quran 16:75 (An-Nahl)").
-- Card direction is pinned LTR; only Arabic text is RTL.
+- Card direction is pinned LTR; only target-language text (`.tgt`) follows its script's direction (RTL for Arabic).
 
 ## Changes in v0.2 (2026-11-22, from your v0.1 phone test)
 These override anything below that disagrees.

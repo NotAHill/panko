@@ -5,7 +5,7 @@ closed: the MCP add-on can't change note types, and Change Note Type forces one 
 
 For each studied store entry (origin.notes[].nid), the old note:
 - changes note type to Panko Word/Phrase; each old card keeps its id, reviews and schedule, mapped by direction:
-  Arabic on the front → Recognition, English on the front → Production;
+  the target language on the front → Recognition, the gloss language on the front → Production;
 - keeps its old Front/Back verbatim in Spare3/Spare4 (hidden; nothing of yours is lost);
 - gets the rendered Panko fields (never MyNotes), Panko tags on top of its own, and moves to Panko Sandbox;
 - is linked in the store, so `panko sync` updates it in place from then on.
@@ -18,12 +18,12 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from panko import lang
 from panko.anki.sync import MEDIA_DIRS, PREFIX
 from panko.cards import build as B
 from panko.cards import note_types as T
 
 KEEP = ("Spare3", "Spare4")   # old Front, old Back
-ARABIC = re.compile(r"[\u0600-\u06ff]")
 TEMPLATE_INDEX = {"recognition": 0, "production": 1}
 
 
@@ -33,7 +33,8 @@ def anki_running() -> bool:
 
 def card_map(note) -> dict[int, str]:
     """Old card ord → Panko card for this note's type: `[anki.card_map]` in config if it names the type, else by
-    which side each template shows first (Arabic on the front → recognition, anything else → production)."""
+    which side each template shows first (the target language's script on the front → recognition, anything else →
+    production; when the gloss language shares the script, name the type in `[anki.card_map]`)."""
     from panko.config import anki
     model = note.note_type()
     given = anki()["card_map"].get(model["name"])
@@ -44,7 +45,7 @@ def card_map(note) -> dict[int, str]:
         names = [re.sub(r"^(type|text|furigana|kana|kanji):", "", f).strip()
                  for f in re.findall(r"\{\{([^#/^!}][^}]*)\}\}", t["qfmt"])]
         shown = " ".join(note[f] for f in names if f in note.keys())
-        out[t["ord"]] = "recognition" if ARABIC.search(shown) else "production"
+        out[t["ord"]] = "recognition" if lang.in_target(shown) else "production"
     return out
 
 

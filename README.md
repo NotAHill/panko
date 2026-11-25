@@ -38,8 +38,20 @@ mkdir ~/panko && cd ~/panko
 ```
 
 ```bash
-panko init          # a few questions: language, varieties, gloss language, deck names, Anki profile
+panko init          # a few questions: language, script, varieties, gloss language, deck names, Anki profile
 ```
+
+Panko works for any language. Two languages come as presets, which fill in the script, how the prompts describe
+the language (spelling, verb forms, where loanwords come from), the reference dictionaries, the speech-to-text
+language and the voices to audition:
+
+```bash
+panko init --language spanish            # or moroccan-darija; any other name starts neutral
+```
+
+For another language, give its script when asked (a Unicode script name: Latin, Cyrillic, Arabic, Devanagari…, or
+`Han, Hiragana, Katakana` for Japanese), then fill in `[learner]` and `[learner.examples]` in the config. A language
+written in Latin letters needs no romanisation: answer `-` and cards show the word alone.
 
 `init` writes `config/panko.toml` and a `.env` for your keys, then checks what's ready (`panko init --check` runs
 the check again). Panko finds this folder from wherever you are inside it, or from `PANKO_HOME`.

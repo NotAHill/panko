@@ -62,7 +62,7 @@ def test_imperatives_only_against_imperative_readings():
     help_ = [{"diac": "ساعَدَ", "root": "س.ع.د", "pos": "verb", "asp": "p"},
              {"diac": "ساعِدْ", "root": "س.ع.د", "pos": "verb", "asp": "c"}]
     assert checks.check_word("سَاعِدْ", help_, field="imperative") == []
-    assert checks.check_word("سَاعُدْ", help_, field="imperative")[0]["problem"] == "harakat"
+    assert checks.check_word("سَاعُدْ", help_, field="imperative")[0]["problem"] == "marks"
 
 
 def test_check_entries_finds_hard_and_soft_problems():
@@ -78,7 +78,7 @@ def test_check_entries_finds_hard_and_soft_problems():
         {"id": "dw-1", "kind": "word", "variety": "darija", "ar": "بزاف", "gloss": "a lot"},
     ], m)
     assert res["ok"] == []
-    assert [(p["field"], p["problem"], p["suggest"]) for p in res["vowel"]] == [("plural", "harakat", "كُتُبٌ")]
+    assert [(p["field"], p["problem"], p["suggest"]) for p in res["vowel"]] == [("plural", "marks", "كُتُبٌ")]
     assert {p["problem"] for p in res["root"]} == {"root", "pos"}
     assert res["hamza"][0]["problem"] == "spelling" and res["hamza"][0]["suggest"] == "أَكَلَ"
     assert res["unknown"][0]["problem"] == "unknown" and not checks.hard(res["unknown"])
