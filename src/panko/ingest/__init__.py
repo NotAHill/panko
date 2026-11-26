@@ -42,7 +42,8 @@ def ingest(path: Path | str | dict, store: Store | None = None, verdicts: dict |
         if it.get("entry_id"):
             existing = store.get(it["entry_id"])
         else:
-            existing = None if it.get("homograph") else store.find(it["ar"], it["variety"], it.get("pos"))
+            # a pack's card that ingest found new stays its own card (a pack can hold يبس and يبّس apart)
+            existing = None if it.get("homograph") or it.get("pack") else store.find(it["ar"], it["variety"], it.get("pos"))
         if existing:
             eid = existing["id"]
             have = {bare(e["ar"]) for e in existing.get("examples", [])}   # same sentence, harakat aside

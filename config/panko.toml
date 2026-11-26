@@ -101,6 +101,13 @@ model = ""                # set a model (and its price below) to use OpenAI inst
 [export]
 # dir = "~/Panko exports"         # where the hub saves .apkg packages to share (default: cache/exports here)
 
+[library]
+public_sources = ["Peace Corps textbook"]     # sentences from these sources may go in a published deck (the start of
+                                              # the source's name); everything else that isn't written by Panko stays out
+# private_names = []      # names that must never be in a published card: put this in config/hub.toml, which isn't tracked
+# licence = "CC BY-SA 4.0"                # for the card text of a published deck; photos keep their own
+# repo = "you/panko-decks"                # the library repo, for the upload steps `panko publish` prints
+
 [anki]
 backend = "mcp"          # mcp (Anki MCP Server add-on) | pylib (Anki closed; used for migrations)
 url = "http://127.0.0.1:3141/"

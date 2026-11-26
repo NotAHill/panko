@@ -2,6 +2,22 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-26 · What a published deck leaves out.** `panko publish` is for strangers, so it is stricter than a pack
+built for a friend. A photo keeps its place only under a licence Panko can read: CC (NC, ND and SA included, since the
+library is free), public domain, Pexels, Pixabay, or drawn for Panko. Any other photo is dropped and the card goes
+without it. Only sentences written by Panko or from a source listed in `[library] public_sources` go in. Lessons,
+teacher sheets and shared decks of unknown licence stay out, and a public source keeps its name as attribution.
+People named in private source titles ("Lesson with X", "X's notes") and `[library] private_names` are looked for in
+the card text. An example or note naming one is dropped. A card whose word or gloss names one is left out. Picture
+credits aren't searched: they must stay, and a photographer can share a name. Panko writes the files, the index entry
+and a report for you. It never uploads.
+
+**2026-11-26 · A pack is imported through the unit queue, and its cards stay apart.** `panko library import`
+writes a pack's cards as already-submitted units, so the same ingest that handles a book decides each one, and its
+held cards are settled the same way. A pack's verdicts are kept (no paid re-check). Two cards the pack keeps apart
+stay apart, even when they differ only by a shadda. Cards of a variety the learner doesn't have are skipped, not
+added to their config.
+
 **2026-11-26 · The hub shows whether chat mode or API mode is in use.** The model's work is done either by the
 learner's own Claude through Panko's tools (free here) or by Panko with an API key (paid). The status bar says which:
 chat mode while a Panko tool was called in the last 15 minutes, otherwise API mode when a key is set, otherwise no

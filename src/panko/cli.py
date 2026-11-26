@@ -28,6 +28,35 @@ def _main(argv=None):
     ex.add_argument("--variety", action="append", help="only this variety (repeat for more)")
     ex.add_argument("--personal", action="store_true",
                     help="include where each word came from and clips from your lessons (left out by default)")
+    pk = sub.add_parser("pack", help="a Panko pack: your active cards as one file another Panko can import")
+    pksub = pk.add_subparsers(dest="kcmd")
+    pb = pksub.add_parser("build", help="write <id>-v<N>.panko.zip (into [export] dir unless --out)")
+    pb.add_argument("id", help="a short slug, e.g. darija-peace-corps")
+    pb.add_argument("--title", required=True)
+    pb.add_argument("--description", default="")
+    pb.add_argument("--variety", action="append", help="only this variety (repeat for more)")
+    pb.add_argument("--tag", default="", help="only cards with this tag, e.g. src::textbook::peace-corps")
+    pb.add_argument("--version", type=int, default=1)
+    pb.add_argument("--no-audio", action="store_true", help="leave the audio out (smaller; sync makes it again)")
+    pb.add_argument("--out", help="folder to write it to")
+    pu = sub.add_parser("publish", help="build a deck for the public library: checks, pack, .apkg, index entry, report "
+                        "(uploading stays manual)")
+    pu.add_argument("id", help="a short slug, e.g. darija-peace-corps")
+    pu.add_argument("--title", required=True)
+    pu.add_argument("--description", default="")
+    pu.add_argument("--variety", action="append", help="only this variety (repeat for more)")
+    pu.add_argument("--tag", default="", help="only cards with this tag, e.g. src::textbook::peace-corps")
+    pu.add_argument("--version", type=int, help="default: one more than the last in the index or the folder")
+    pu.add_argument("--no-audio", action="store_true", help="leave the audio out of both files")
+    pu.add_argument("--no-apkg", action="store_true", help="only the pack")
+    pu.add_argument("--index", help="your clone's index.json: its entry for this deck is replaced")
+    pu.add_argument("--out", help="folder to write to (default [export] dir)")
+    pu.add_argument("--dry-run", action="store_true", help="say what would go in and what would be left out; write nothing")
+    lb = sub.add_parser("library", help="decks from the library: import a Panko pack")
+    lbsub = lb.add_subparsers(dest="lcmd")
+    li = lbsub.add_parser("import", help="bring a .panko.zip into your Panko (new cards go to the inbox)")
+    li.add_argument("file")
+    li.add_argument("--activate", action="store_true", help="make its new cards active straight away")
     wk = sub.add_parser("work", help="work through a source in units: add, status, run (API mode), ingest, decide")
     wsub = wk.add_subparsers(dest="wcmd")
     wa = wsub.add_parser("add", help="register a PDF, a folder of page photos, a text transcript, an exported deck "
@@ -196,6 +225,48 @@ def _main(argv=None):
         print(f"wrote {r['path']}: {r['notes']} cards, {r['media']} media files, {r['bytes'] / 1e6:.0f} MB"
               + (f"; {r['audio_not_made']} audio clips not made yet were left out (sync makes them)"
                  if r["audio_not_made"] else ""))
+    elif args.cmd == "pack" and args.kcmd == "build":
+        from pathlib import Path
+
+        from panko import library
+        r = library.build(Path(args.out).expanduser() if args.out else library.out_dir(), args.id, args.title,
+                          varieties=args.variety, tag=args.tag, version=args.version, description=args.description,
+                          audio_files=not args.no_audio)
+        print(f"wrote {r['path']}: {r['cards']} cards, {r['pictures']} pictures, {r['audio']} audio clips, "
+              f"{r['bytes'] / 1e6:.0f} MB" + (f"; {r['doubtful_left_out']} doubtful cards left out" if r["doubtful_left_out"] else "")
+              + (f"; {r['audio_not_made']} clips not made yet (sync makes them)" if r["audio_not_made"] else ""))
+    elif args.cmd == "publish":
+        from pathlib import Path
+
+        from panko import library
+        r = library.publish(args.id, args.title, out=Path(args.out).expanduser() if args.out else None,
+                            varieties=args.variety, tag=args.tag, version=args.version, description=args.description,
+                            audio_files=not args.no_audio, index=Path(args.index).expanduser() if args.index else None,
+                            apkg=not args.no_apkg, dry_run=args.dry_run)
+        lo = r["left_out"]
+        print(f"{args.id} v{r['version']}: {r['cards']} cards, {r['pictures']} pictures, {r['audio']} audio clips"
+              + (f" ({r['audio_not_made']} not made yet)" if r["audio_not_made"] else ""))
+        print(f"left out: {lo['doubtful']} doubtful cards, {lo['pictures']} pictures with an unreadable licence, "
+              f"{lo['examples_from_private_sources']} sentences from private sources, {lo['cards_naming_someone']} cards "
+              f"naming someone; {r['scrubbed']} cards trimmed; {r['words_without_example']} words left without an example")
+        print("picture licences: " + ", ".join(f"{k} {v}" for k, v in r["picture_licences"].items()))
+        if r["dry_run"]:
+            print(f"(dry run, about {r['bytes_estimate'] / 1e6:.0f} MB of media; nothing written)\n")
+            print(r["report"])
+        else:
+            print("wrote " + ", ".join(r["files"]) + f"\nindex entry: {r['entry']}\nreport (keep it to yourself): {r['report']}")
+            if r.get("apkg_skipped"):
+                print(f"no .apkg: {r['apkg_skipped']}")
+            print("\nTo publish, by hand:\n" + "\n".join(f"  {i}. {step}" for i, step in enumerate(r["upload"], 1)))
+    elif args.cmd == "library" and args.lcmd == "import":
+        from panko import library
+        r = library.import_pack(args.file, activate=args.activate)
+        print(f"{r['pack']} v{r['version']}: {r['new']} new cards" + (f" ({r['activated']} activated)" if "activated" in r
+              else " in your inbox") + f", {r['known']} you already had, {len(r['held'])} held for you to decide"
+              + (f", {len(r['rejected_again'])} you'd rejected kept out" if r["rejected_again"] else "")
+              + (f", {r['other_varieties']} of other varieties skipped" if r["other_varieties"] else "")
+              + (f". Settle the held ones with `panko work decide pack-{r['pack']} …` or on the source's page in the hub"
+                 if r["held"] else ""))
     elif args.cmd == "init":
         _init(args)
     elif args.cmd == "refs":

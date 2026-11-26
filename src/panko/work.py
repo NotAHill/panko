@@ -253,6 +253,11 @@ def page(sid: str, unit: str, dpi: int = 110) -> dict:
                               capture_output=True, text=True).stdout
     elif s["type"] == "images":
         image = p / s["files"][int(unit[1:]) - 1]
+    elif s["type"] == "pack":          # cards from a Panko pack (panko.library): already submitted, shown as they are
+        r = result(sid, unit) or {"items": []}
+        text = "\n".join(json.dumps({k: it.get(k, "") for k in ("ar", "tl", "gloss")}, ensure_ascii=False)
+                         for it in r["items"])
+        return {"source": sid, "unit": unit, "page": None, "image": None, "text": text}
     elif s["type"] == "deck":
         i = (int(unit[1:]) - 1) * DECK_ROWS
         rs = json.loads((WORK / sid / "rows.json").read_text())[i:i + DECK_ROWS]
@@ -483,8 +488,9 @@ def ingest_source(sid: str, store=None, units: list[str] | None = None) -> dict:
                 if (it.get("verdict") or {}).get("verdict") == "drop":
                     rep["dropped"] += 1
                     continue
-                from panko.ingest.verify import item_key
-                it = apply([it], {item_key(it): _verdict_record(it)})[0]
+                if not it.get("pack"):            # a pack's card was checked where it was made: keep its check
+                    from panko.ingest.verify import item_key
+                    it = apply([it], {item_key(it): _verdict_record(it)})[0]
                 same = [e for e in store.find_all(it["ar"], it["variety"]) if e["status"] != "retired"
                         and pos_compatible(it.get("pos"), e.get("pos"))]
                 hit = next((e for e in same if same_word(it, e)), None)
@@ -499,12 +505,16 @@ def ingest_source(sid: str, store=None, units: list[str] | None = None) -> dict:
                 k = hit["id"]
                 item = {"kind": hit["kind"], "variety": hit["variety"], "ar": hit["ar"], "entry_id": k,
                         "role": "taught", "examples": it.get("examples", [])}
+                if it.get("pack"):                # your card stays yours: a pack only fills an empty picture
+                    item |= {"role": "pack", "origin": it["origin"]}
+                    if it.get("image") and not hit.get("image") and hit.get("picture_pref") != "none":
+                        store.put({**store.get(k), "image": it["image"]})
                 if k in known:
                     _add_examples(known[k], item)
                 else:
                     known[k] = item
                 continue
-            g = _group(it)
+            g = ("pack", it["origin"]["id"]) if it.get("pack") else _group(it)   # a pack's cards are distinct already
             if g in groups:
                 _add_examples(groups[g], it)
                 rep["merged"] += 1
@@ -518,7 +528,7 @@ def ingest_source(sid: str, store=None, units: list[str] | None = None) -> dict:
                                             "if it isn't"})
                     continue
             groups[g] = it
-            it["role"] = "taught"
+            it["role"] = "pack" if it.get("pack") else "taught"
             new.append(it)
             pic = it.get("picture")
             if pic and pic.get("choice") != "skip":

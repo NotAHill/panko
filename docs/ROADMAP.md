@@ -96,8 +96,20 @@ Update the **Now** section at the end of every work session: it's what a fresh s
   releases. Only you publish for now. Learners use a library page in the hub or `panko library`. Importing a pack
   is ingest, so duplicates, holds and rejected words work as for any source. The first deck is the Peace Corps words
   (public domain).
-- **Next:** L1 of the library (the pack format, `panko pack build`, `panko library import`, round-trip tests), then
-  L2–L4 as the spec lays out, then step 3 (a private hosted service).
+- **Library L1 built (2026-11-26): Panko packs.** `panko pack build ID --title T [--variety] [--tag]` writes one
+  `.panko.zip` (cards without sources or personal tags, pictures, the audio already made with its notes, credits);
+  `panko library import FILE [--activate]` registers it as a source whose units are already submitted and runs the
+  normal ingest, so your cards stay yours (they gain real sentences, and a picture if they had none), near ones are
+  held, rejected words stay rejected, and new cards come in whole with their origin. Tried on 210 real food cards.
+- **Library L2 built (2026-11-26): `panko publish`.** `panko publish ID --title T [--tag] [--dry-run] [--index FILE]`
+  builds a deck for the public library: the pack, the `.apkg` built from the pack's own cards (guids from pack id +
+  card id), an index entry (counts, picture licences, sizes, sha256, samples) and a report of what was left out.
+  Photos with a licence it can't read lose their picture. Sentences from sources that aren't public stay out, and so
+  does anything naming someone from a private source. The version goes up by itself. Uploading is printed as steps.
+  Tried on the 728 Peace Corps cards: 694 pictures and 2,408 clips, 112 MB each for the pack and the .apkg. One
+  picture and 8 sentences were left out. The .apkg imports into a fresh Anki as 728 notes.
+- **Next:** library L3 (the library repo, `panko library list|get`, the hub page), then L4 (updates), then step 3.
+  Before the first upload: check the voice provider's terms for sharing audio, and settle the repo name.
 - The learner's own state (deck sizes, what's waiting on whom, plans) is in `data/STATUS.md` (git-ignored).
 
 ## Phases

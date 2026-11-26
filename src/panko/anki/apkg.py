@@ -74,21 +74,30 @@ def _model_id(name: str) -> int:
 
 
 def export(out: Path, varieties: list[str] | None = None, personal: bool = False, store: Store | None = None) -> dict:
-    try:
-        from anki.collection import Collection, DeckIdLimit, ExportAnkiPackageOptions
-    except ImportError as e:
-        raise RuntimeError("making an .apkg needs Anki's library: run `uv sync --extra apkg`") from e
+    """Your active cards (of these varieties) as a package for a friend."""
     store = store or Store()
     entries = [e for e in store.entries("active") if not varieties or e["variety"] in varieties]
     if not entries:
         raise ValueError("no active cards to put in it" + (f" for {', '.join(varieties)}" if varieties else ""))
+    from panko.media import clips
     narrator = _Made(personal)
     notes = []
     for e in entries:
         n = B.to_note(_shared(e, personal), narrator)
         n["deck"] = f"Panko::{e['variety'].title()}"          # not your own deck names
         n["tags"] = [t for t in n["tags"] if personal or not t.startswith("panko::")]
-        notes.append((e["id"], n))
+        notes.append((_guid(e["id"]), n))
+    rep = package(out, notes, [*MEDIA_DIRS, audio.MEDIA, clips._media()])
+    return {**rep, "audio_not_made": narrator.missing, "personal": personal}
+
+
+def package(out: Path, notes: list[tuple[str, dict]], media_dirs: list[Path]) -> dict:
+    """Write rendered notes ((guid, note) pairs, decks under `Panko::`) with the media they use, found in these
+    folders, as an .apkg built in a scratch collection beside it."""
+    try:
+        from anki.collection import Collection, DeckIdLimit, ExportAnkiPackageOptions
+    except ImportError as e:
+        raise RuntimeError("making an .apkg needs Anki's library: run `uv sync --extra apkg`") from e
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
     tmp = Path(tempfile.mkdtemp(prefix=".panko-apkg-", dir=out.parent))   # beside the package, not on the system disk
@@ -113,13 +122,13 @@ def export(out: Path, varieties: list[str] | None = None, personal: bool = False
         col.models._clear_cache()
         used: set[str] = set()
         added, empty = 0, 0
-        for eid, note in notes:
+        for guid, note in notes:
             n = col.new_note(mm.get(models[note["model"]]))
             for k, v in note["fields"].items():
                 if k in n:
                     n[k] = v
             n.tags = note["tags"]
-            n.guid = _guid(eid)
+            n.guid = guid
             try:
                 col.add_note(n, col.decks.id(note["deck"]))
             except Exception:       # a note whose card switches make no card at all
@@ -127,9 +136,7 @@ def export(out: Path, varieties: list[str] | None = None, personal: bool = False
                 continue
             added += 1
             used |= {a or b for a, b in MEDIA_REF.findall(" ".join(note["fields"].values()))}
-        from panko.media import clips
-        dirs = [*MEDIA_DIRS, audio.MEDIA, clips._media()]
-        files = {f.name: f for d in dirs if d.exists() for f in d.iterdir() if f.name in used}
+        files = {f.name: f for d in media_dirs if d.exists() for f in d.iterdir() if f.name in used}
         _room(out.parent, files.values(), tmp)
         for f in files.values():
             try:
@@ -142,4 +149,4 @@ def export(out: Path, varieties: list[str] | None = None, personal: bool = False
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     return {"path": str(out), "notes": added, "skipped": empty, "media": len(files), "media_missing": len(used - set(files)),
-            "audio_not_made": narrator.missing, "bytes": out.stat().st_size, "personal": personal}
+            "bytes": out.stat().st_size}

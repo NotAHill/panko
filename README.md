@@ -153,6 +153,10 @@ panko sync --dry-run      # what would change in Anki, and the audio it would pa
 ```bash
 panko sync                # Anki open: renders and pushes, updating notes in place
 panko export darija.apkg  # a package to share (uv sync --extra apkg); no review history, nothing personal
+panko pack build darija-food --title "Darija: food" --tag topic::food   # a Panko pack another Panko can import
+panko library import darija-food-v1.panko.zip                        # its new cards land in your inbox
+panko publish darija-peace-corps --title "Moroccan Arabic" --tag src::textbook::peace-corps --dry-run
+                          # a deck for the public library: what goes in, what's left out (drop --dry-run to build)
 ```
 
 Cards go to the decks named in `[anki.decks]`. Panko never writes the card's own notes field: that's yours.

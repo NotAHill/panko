@@ -32,16 +32,27 @@ voices.
 
 ## Publishing (`panko publish`)
 
-`panko publish ID --title T [--variety V] [--tag T] [--status active] [--no-audio] [--estimate]` builds the pack and
-the `.apkg` into `[export] dir`, plus an `index.json` entry: id, version, title, language, varieties, counts, sizes,
-sha256 and a few sample entries. It also writes a report of what it left out. Before building it checks:
+`panko publish ID --title T [--description D] [--variety V] [--tag T] [--version N] [--no-audio] [--no-apkg]
+[--index FILE] [--out DIR] [--dry-run]` builds the pack and the `.apkg` into `[export] dir`. It also writes
+`<id>-v<N>.index.json`: id, version, title, description, language, varieties, counts, the card-text licence, picture
+licences, sizes, sha256 and three sample entries. With `--index`, that entry replaces the deck's entry in your
+clone's `index.json`. A report of what it left out goes in `<id>-v<N>.report.md`, which names your sources, so it is
+never uploaded. `--dry-run` prints the report and writes nothing. Before building it checks:
 
-- **Pictures:** a photo whose licence is unknown is left out. NC, ND and SA licences are allowed (the library is
-  free) and are listed in `credits.json`. Generated drawings are fine.
-- **Private content:** examples whose source is a private lesson or a teacher sheet are left out; sources only
-  ever go in when marked public (e.g. `public = true` on the Peace Corps source). A word itself is fine.
+- **Pictures:** the licence is read from the end of the credit. CC licences (NC, ND and SA too, since the library is
+  free), public domain, the Pexels and Pixabay licences, and drawings made for Panko are fine. Any other photo is
+  left out and the card goes without it. Credits go in `credits.json`, and the index counts each licence.
+- **Private content:** a sentence goes in only if Panko wrote it or its source's name starts with one of
+  `[library] public_sources` (e.g. `"Peace Corps textbook"`); a public source keeps its name as attribution. Words
+  and glosses are fine.
+- **Names:** people named in the titles of private sources ("Lesson with X", "X's notes") and `[library]
+  private_names` are looked for in the card text. Put `private_names` in `config/hub.toml`: it isn't tracked. An
+  example, note or picture prompt naming one is dropped. A card whose word or gloss names one is left out. Picture
+  credits aren't searched: they must stay.
 - **Doubtful:** entries tagged `panko::doubtful`, or still in the inbox, are left out.
-- **Version:** the version goes up from the last one in the index. Entries keep their origin id across versions.
+- **Version:** one more than the last in the index or in the output folder. Entries keep their id across versions.
+
+The card text is published under `[library] licence` (default CC BY-SA 4.0).
 
 Uploading stays a manual step (`gh release create …` and a pull request to the index), printed at the end.
 Panko never publishes on its own.
@@ -83,7 +94,9 @@ pack holds whole cards. They meet in the unit queue, not in a new path:
 - **Origin lives on the sighting** (`sightings.origin`, which already exists) and, for a new card, on the entry. L4
   finds a pack's cards by those, and the `hash` is how it tells your edits from the pack's.
 - **Language and varieties must match.** A pack in another language is refused. Cards of a variety you don't
-  learn are skipped and counted, unless `--variety` adds it to your config.
+  learn are skipped and counted; add the variety to `[learner] varieties` to take them.
+- **A pack's cards stay apart.** Two cards the pack keeps separate (يبس ybes and يبّس yebbes) stay two cards:
+  once ingest has found a pack card new, the write step doesn't look it up again by its letters.
 - `role` on the sighting is `pack` (not `taught`), so a pack counts as weaker evidence than a lesson.
 - Audio isn't a field: sync names each file by its text and voice, so with the same voices the pack's audio is
   found and nothing is paid. With other voices, the next sync makes new audio as usual.
@@ -96,8 +109,8 @@ entry the pack dropped is not removed; it is listed for you.
 
 | Step | What "done" means |
 |---|---|
-| L1 | Pack format, `panko pack build` and `panko library import FILE`. Round trip tested: a pack from one store into an empty store, then into a store with overlaps (sightings, holds, rejected stays rejected). |
-| L2 | `panko publish`: the checks above, the `.apkg` from the pack, the index entry and the report. |
+| L1 ✅ | Pack format, `panko pack build` and `panko library import FILE`. Round trip tested: a pack from one store into an empty store, then into a store with overlaps (sightings, holds, rejected stays rejected). Built 2026-11-26 (`panko.library`); tried on 210 real food cards (39 MB): all imported, and a dry-run sync in the new Panko found every clip but the 4 never made. |
+| L2 ✅ | `panko publish`: the checks above, the `.apkg` from the pack, the index entry and the report. Built 2026-11-26; tried on the 728 Peace Corps cards (112 MB each for the pack and the .apkg; the .apkg imports into a fresh Anki as 728 notes). |
 | L3 | Library repo with `index.json`; `panko library list|get`; the hub's library page. |
 | L4 | Updates: v2 over v1, your edits kept, dropped entries listed. |
 
@@ -107,7 +120,9 @@ a teacher), once its pictures are done.
 ## Open
 - **Audio terms:** whether the voice provider's terms allow sharing the audio it made in a free public deck, on the
   plan that made it. Check before the first deck with audio; if not, publish the no-audio variant.
-- **Licence for the card text:** CC BY-SA 4.0 is suggested. Photos keep their own licences.
+- **Licence for the card text:** CC BY-SA 4.0 is the default (`[library] licence`). Photos keep their own licences.
+- **DODa sentences:** DODa allows personal, research and educational use. Whether its corpus sentences can go in a
+  free public deck is your call; until then they are left out (add `"DODa"` to `public_sources` to include them).
 - **Repo name:** e.g. `panko-decks`.
 - **Reference data in packs:** none. Packs carry cards, not DODa or Wiktionary data (their licences are summed up in
   the archived research, `docs/archive/research-2026-11.md` §7).

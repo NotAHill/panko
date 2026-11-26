@@ -18,6 +18,7 @@ flowchart TB
         PC[Peace Corps<br/>book done; recordings ready<br/>to give native clips]:::part
         M[Film / TV clips]:::plan
         D[Old Darija decks<br/>stages 1–2 in Anki]:::built
+        P[Panko packs<br/>panko library import]:::built
     end
     Sources --> CM[Chat mode: panko mcp<br/>your Claude reads and judges,<br/>no API key]:::built
     Sources --> API[API mode: panko work run<br/>panko.llm, batches]:::built
@@ -26,6 +27,7 @@ flowchart TB
     HUB <-- triage, edit --> IN
     CM --> X[Unit results<br/>data/work, schema-checked]:::built
     API --> X
+    P -- units already submitted --> X
     EV[Evidence<br/>your cards, DODa, Wiktionary,<br/>Routledge]:::built --> X
     X --> C{Checked<br/>verdict per new item}:::built
     C -- ok / fixed --> DD{Duplicate check<br/>known → sighting<br/>homograph → own entry<br/>near → held for you}:::built
@@ -36,6 +38,9 @@ flowchart TB
     B --> W[Anki writer]:::built
     B -. doubtful .-> F[tag panko::doubtful]:::built
     W --> A[(Anki desktop)]:::built
+    S -- panko pack build --> P2[Panko pack .panko.zip<br/>for another Panko]:::built
+    S -- panko publish --> PUB[Library deck: pack + .apkg<br/>+ index entry, checked]:::built
+    S -- panko export --> AP[.apkg for a friend<br/>with only Anki]:::built
     A <--> AW[(AnkiWeb)] <--> AM[(AnkiMobile)]
 
     classDef built fill:#d3f9d8,stroke:#2b8a3e,color:#000
@@ -157,6 +162,7 @@ reaches every card without touching review history. Panko never writes `MyNotes`
 | `src/panko/lang/` | everything about the language being learned, from `[learner]`: its script (Unicode script names; checked at submit; card font and direction, `card_css`), matching keys for any script (case, NFC, configured articles, optional mark folding), list splitting, and the comparison with analyser readings; `arabic.py` holds the Arabic rules (harakat, alef, ال, clitics, hamza seats, shadda), which touch Arabic letters only |
 | `src/panko/providers/` | one file per provider, registered by name |
 | `src/panko/providers/images/` | picture search: `wikidata.py` (query → Wikidata item → its P18 Commons file), `commons.py`, `openverse.py`, `pexels.py`, `pixabay.py` (free keys), `inaturalist.py`, `arasaac.py` (off by default), `source.py` (crops, not built); `web.py` = polite spacing per site, one retry on 429 then pause the site, answers cached in `cache/images/` |
+| `src/panko/library.py` | Panko packs (`panko pack build`, `panko library import`): a deck as one zip another Panko imports; import registers it as a work source of type `pack` with units already submitted, so `work.ingest_source` decides each card; `publish` adds the checks for the public library (picture licences, private sentences and names), the .apkg built from the pack, the index entry and a report (docs/SPEC-library.md) |
 | `src/panko/modes.py` | chat mode or API mode: each MCP tool call is noted in `data/work/chat.json` (recent = connected), API mode is ready when the `llm` chain has a provider; the hub's status bar and setup page show both |
 | `src/panko/mcp_server.py` | chat mode (`panko mcp`, `--config` prints the Claude Desktop/Code snippet): thin MCP tools over the modules below; the workflow Claude follows is `prompts/chat.md` (`panko_guide`) |
 | `src/panko/hub/` | the local dashboard (`panko hub`, 127.0.0.1 only): `__init__.py` (app, guard: Host check, key from the printed link as an HttpOnly cookie, `X-Panko` header on changes; uploads), `api.py` (JSON routes over the modules below; long or paid steps as jobs, paid ones estimate first and need `confirm` and a budget), `jobs.py` (one at a time, output captured per job), `preview.py` (a card as Anki shows it: templates filled, media inline, sandboxed with a load-nothing policy; it reports its height, flips on a click and passes keys up), `static/` (terminal-styled single page, plain JS, no build step: pages, card design, voice picker, walkthrough) |
@@ -187,7 +193,7 @@ reaches every card without touching review history. Panko never writes `MyNotes`
 | `src/panko/clashes.py` | `panko clashes` / `panko_clashes`: production cards whose glosses share a sense → keep, sharpen, recognition-only or drop (never removes a card already in Anki) |
 | `src/panko/anki/export.py` | `panko work add --deck NAME`: read-only export of an Anki deck (studied notes marked) as a source |
 | `src/panko/skill.py` | `panko mcp --skill DIR`: the chat workflow as a Claude skill (`SKILL.md`) |
-| `src/panko/anki/apkg.py` | `panko export` and the hub's "share as a file": active cards as an .apkg built in a scratch collection with Anki's library (no scheduling, MyNotes empty, sources and lesson clips only with `personal`; note guids and note type ids fixed so a newer package updates the old one) |
+| `src/panko/anki/apkg.py` | `panko export` and the hub's "share as a file": active cards as an .apkg built in a scratch collection with Anki's library (no scheduling, MyNotes empty, sources and lesson clips only with `personal`; note guids and note type ids fixed so a newer package updates the old one); `package()` writes any rendered notes, and `library.publish` uses it for a deck's .apkg |
 | `src/panko/anki/sync.py` | pushes models, media and notes; updates changed notes in place; `plan()` is the dry run (`panko sync --dry-run`: notes to add/update, audio still to pay for) |
 | `src/panko/anki/migrate.py` | Phase 6 (`panko migrate [ids] [--apply]`): studied old-deck notes → Panko notes in place via the `anki` library, Anki closed; dry run by default |
 | `src/panko/sandbox/seed.py` | the 9 hand-written sandbox entries (`panko seed`) |
