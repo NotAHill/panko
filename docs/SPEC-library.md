@@ -117,18 +117,19 @@ entry the pack dropped is not removed; it is listed for you.
 |---|---|
 | L1 ✅ | Pack format, `panko pack build` and `panko library import FILE`. Round trip tested: a pack from one store into an empty store, then into a store with overlaps (sightings, holds, rejected stays rejected). Built 2026-11-26 (`panko.library`); tried on 210 real food cards (39 MB): all imported, and a dry-run sync in the new Panko found every clip but the 4 never made. |
 | L2 ✅ | `panko publish`: the checks above, the `.apkg` from the pack, the index entry and the report. Built 2026-11-26; tried on the 728 Peace Corps cards (112 MB each for the pack and the .apkg; the .apkg imports into a fresh Anki as 728 notes). |
-| L3 | Library repo with `index.json`; `panko library list|get`; the hub's library page. The code is built (2026-11-26) and tried against a local index in an empty Panko; the repo itself waits for your name and the first upload. |
+| L3 ✅ | Library repo with `index.json`; `panko library list|get`; the hub's library page. Built 2026-11-26; the repo is [NotAHill/panko-decks](https://github.com/NotAHill/panko-decks), with the Peace Corps deck as its first release. |
 | L4 | Updates: v2 over v1, your edits kept, dropped entries listed. |
 
-**First deck:** the Peace Corps *Moroccan Arabic* words (the source is public domain, and nothing in it comes from
-a teacher), once its pictures are done.
+**First deck (published 2026-11-26):** the Peace Corps *Moroccan Arabic* words, `darija-peace-corps` v1 (the source
+is public domain, and nothing in it comes from a teacher).
 
 ## Open
-- **Audio terms:** whether the voice provider's terms allow sharing the audio it made in a free public deck, on the
-  plan that made it. Check before the first deck with audio; if not, publish the no-audio variant.
+- **Audio terms (settled 2026-11-26):** ElevenLabs' paid plans include a commercial licence, so audio made on one
+  can go in a free public deck. Audio made on its free plan would need ElevenLabs credited; publish without audio
+  (`--no-audio`) if a deck's clips weren't made on a paid plan.
 - **Licence for the card text:** CC BY-SA 4.0 is the default (`[library] licence`). Photos keep their own licences.
 - **DODa sentences:** DODa allows personal, research and educational use. Whether its corpus sentences can go in a
   free public deck is your call; until then they are left out (add `"DODa"` to `public_sources` to include them).
-- **Repo name:** e.g. `panko-decks`.
+- **Repo name (settled 2026-11-26):** `panko-decks`.
 - **Reference data in packs:** none. Packs carry cards, not DODa or Wiktionary data (their licences are summed up in
   the archived research, `docs/archive/research-2026-11.md` §7).

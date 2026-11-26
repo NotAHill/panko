@@ -2,6 +2,12 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-26 · The library repo is `panko-decks`, and its decks can carry their audio.** The library is
+github.com/NotAHill/panko-decks: a README for both kinds of learner, `index.json`, and one release per deck version.
+Card text is CC BY-SA 4.0, and photos keep their own licences, listed in each pack's `credits.json`. A deck's audio
+goes in when it was made on a plan with a commercial licence (ElevenLabs' paid plans); otherwise the deck goes out
+without audio. You publish; Panko only prints the steps.
+
 **2026-11-26 · Getting a deck: checked downloads, and the library can be a file.** `panko library get` and the
 hub's library page download a deck only over https and only into `[library] dir`. Each file is checked against
 the index's sha256 before anything is imported, and a file that doesn't match is deleted. The index can be a local
