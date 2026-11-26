@@ -583,3 +583,11 @@ table.clashes td.sense button:hover { color: var(--fg); }
 /* "no picture" on one waiting card: a real button, quieter than the page's main ones */
 button.nopic { padding: 2px 10px; font-size: 12px; color: var(--dim); }
 button.nopic:hover:not(:disabled) { color: var(--fg); border-color: var(--accent); }
+
+/* chat or API mode, in the status bar */
+.status .mode { display: inline-flex; align-items: center; gap: 6px; color: var(--dim); }
+.status .mode .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+.status .mode.chat .dot { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 22%, transparent); }
+.status .mode.api .dot { background: var(--warn); }
+.status .mode:hover { color: var(--fg); }
+#tip { white-space: pre-line; }

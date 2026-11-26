@@ -2,6 +2,13 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-26 · The hub shows whether chat mode or API mode is in use.** The model's work is done either by the
+learner's own Claude through Panko's tools (free here) or by Panko with an API key (paid). The status bar says which:
+chat mode while a Panko tool was called in the last 15 minutes, otherwise API mode when a key is set, otherwise no
+model. Hovering it, or the setup page, gives both states. Panko can't see a Claude connection directly (Claude starts
+the server when it needs it), so the MCP server notes the time of each call. Claude sessions in this folder get the
+tools from `.mcp.json` and use chat mode unless the learner asks for API mode.
+
 **2026-11-26 · The deck library: Panko packs and an .apkg, on GitHub, published by you.** A shared deck is a Panko
 pack (entries, pictures, audio, credits) with an .apkg built from it. Anki-only learners take the .apkg; Panko
 learners import the pack and keep building their own deck on top. Importing a pack is ingest, so a deck someone

@@ -16,6 +16,7 @@ from starlette.requests import Request
 from starlette.responses import FileResponse, JSONResponse, Response
 from starlette.routing import Route
 
+from panko import modes
 from panko.anki.sync import PREFIX
 from panko.examples import needs_example
 from panko.hub.jobs import Job, Jobs
@@ -175,7 +176,7 @@ def overview(req: Req):
     return {"counts": counts, "sources": srcs, "spend": {"all": llm.usage()["usd"], "month": llm.usage(month)["usd"]},
             "added": [{"day": d, "n": added.get(d, 0)} for d in days], "steps": steps, "jobs": [j.view(tail=3) for j in _jobs().busy()],
             "batches": len(json.loads(llm._batches_file().read_text())) if llm._batches_file().exists() else 0,
-            "work_dir": str(work.WORK)}
+            "work_dir": str(work.WORK), "modes": modes.state()}
 
 
 @api("GET", "/readiness")
@@ -1028,6 +1029,7 @@ def setup_state(req: Req):
     out = {"config": _config_ready(), "presets": _presets(), "profiles": setup.anki_profiles(),
            "defaults": setup.DEFAULTS, "path": str(setup.CONFIG)}
     if out["config"]:
+        out["modes"] = modes.state()
         out["references"] = evidence.references_status()
         out["text"] = setup.CONFIG.read_text()
         try:

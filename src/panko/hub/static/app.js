@@ -115,6 +115,7 @@ const HINTS = {
   "what's ready": 'What this Panko folder can do right now: keys, Anki, reference data and chat mode.',
   'reference data': 'Dictionaries and word lists checks look words up in. The open ones download for free.',
   'chat mode': 'Use Panko from your own Claude, so reading sources costs nothing here.',
+  'how panko reads': 'Two ways to do the model’s work: chat mode (your own Claude uses Panko’s tools, on your subscription) or API mode (Panko calls the model with your key, paid and priced first). You can have both; the bar at the bottom shows which is in use.',
   'your language': 'What this Panko folder teaches. Everything about the language comes from here.',
   'this month': 'Spend on the language model this month. Each paid step is priced before it runs.',
 };
@@ -141,9 +142,9 @@ const tipShow = q => {
   t.style.left = Math.max(12, Math.min(innerWidth - w - 12, r.left - 8)) + 'px';
 };
 const tipHide = () => { const t = $('#tip'); if (t) t.hidden = true; };
-document.addEventListener('mouseover', e => { const q = e.target.closest?.('.q[data-tip]'); if (q) tipShow(q); });
-document.addEventListener('mouseout', e => { if (e.target.closest?.('.q[data-tip]')) tipHide(); });
-document.addEventListener('focusin', e => { if (e.target.matches?.('.q[data-tip]')) tipShow(e.target); });
+document.addEventListener('mouseover', e => { const q = e.target.closest?.('[data-tip]'); if (q) tipShow(q); });
+document.addEventListener('mouseout', e => { if (e.target.closest?.('[data-tip]')) tipHide(); });
+document.addEventListener('focusin', e => { if (e.target.matches?.('[data-tip]')) tipShow(e.target); });
 document.addEventListener('focusout', tipHide);
 addEventListener('hashchange', tipHide);
 
@@ -353,13 +354,29 @@ const learning = m => {
   return t.length ? 'learning ' + (t.length > 1 ? t.slice(0, -1).join(', ') + ' and ' + t.at(-1) : t[0]) : (m.language || '');
 };
 
+/* Which way the model's work is done: chat mode (your Claude, through Panko's tools; free here) or API mode (Panko
+   calls the model with your key; paid, always priced first). Chat counts as connected for a while after its last call. */
+const since = s => s < 90 ? 'just now' : s < 5400 ? `${Math.round(s / 60)} min ago` : s < 172800 ? `${Math.round(s / 3600)} h ago` : `${Math.round(s / 86400)} days ago`;
+function modeInfo(md) {
+  if (!md) return null;
+  const c = md.chat, a = md.api;
+  const chat = c.active ? `Chat mode: your Claude used Panko’s tools ${since(c.ago)}. Reading and deciding there costs nothing here.`
+    : c.last ? `Chat mode: last used ${since(c.ago)}.` : 'Chat mode: not used yet. Connect your Claude with the snippet under setup → chat mode.';
+  const api = a.ready ? `API mode: ready (${a.model || a.provider}). Paid steps here use your key, and always show the price first.`
+    : 'API mode: no key, so paid steps are off.';
+  const [cls, label] = c.active ? ['chat', a.ready ? 'chat mode · API key set' : 'chat mode']
+    : a.ready ? ['api', 'API mode · paid'] : ['none', 'no model connected'];
+  return { cls, label, chat, api, tip: chat + '\n' + api };
+}
+const modeBadge = () => { const i = modeInfo(S.ov?.modes); return i ? html`<a href="#/setup" class="mode ${i.cls}" data-tip="${i.tip}" aria-label="${i.tip}"><span class="dot"></span>${i.label}</a>` : ''; };
+
 function paintStatus() {
   const m = S.meta || {};
   const run = S.jobs.find(j => j.status === 'running');
   const q = S.jobs.filter(j => j.status === 'queued').length;
   put($('#status'), html`<span>${m.config ? m.language || 'set up' : 'not set up yet'}</span><span class="path">${tilde(m.root)}</span>
     ${run ? html`<a class="job" href="#/jobs/${run.id}"><span class="spin">✻</span> ${run.title}… ${dur(run.started)}${q ? `, ${q} queued` : ''}</a>` : ''}
-    <span class="grow"></span>${S.spend != null ? html`<a href="#/usage" class="dim">${usd(S.spend)} this month</a>` : ''}<span class="kbd-hint"><kbd>?</kbd> keys</span>`);
+    <span class="grow"></span>${modeBadge()}${S.spend != null ? html`<a href="#/usage" class="dim">${usd(S.spend)} this month</a>` : ''}<span class="kbd-hint"><kbd>?</kbd> keys</span>`);
   put($('#top-meta'), m.config ? learning(m) : html`<a href="#/setup">set up</a>`);
 }
 
@@ -1494,6 +1511,9 @@ VIEWS.setup = async (el, r) => {
     <section class="box"><div class="t">config</div><p class="muted-p">Your language, varieties, decks, providers and budget live in <code>${tilde(d.path)}</code>. Edit it, then reload this page.</p>
       <div class="acts mt"><button data-a="open-config">open it</button><button data-a="open-folder">open the Panko folder</button></div>
       <details class="mt"><summary>show it</summary><div class="snippet mt-s"><pre>${d.text}</pre></div></details></section>
+    ${(i => i ? html`<section class="box"><div class="t">how Panko reads</div>
+      <div class="check-row"><span class="${d.modes.chat.active ? 'ok' : 'faint'}">${d.modes.chat.active ? '●' : '○'}</span><span>${i.chat}</span></div>
+      <div class="check-row"><span class="${d.modes.api.ready ? 'acc' : 'faint'}">${d.modes.api.ready ? '●' : '○'}</span><span>${i.api}</span></div></section>` : '')(modeInfo(d.modes))}
     <section class="box"><div class="t">chat mode</div><p class="muted-p">Let your own Claude (Desktop or Code) read sources and decide with Panko's tools, with no API spend.
       Add this to Claude's MCP config, then restart it.</p>${d.chat ? html`<div class="snippet mt"><button data-a="copy">copy</button><pre id="snip">${d.chat}</pre></div>`
         : html`<p class="warn">Needs the extra: <code>uv sync --extra mcp</code></p>`}</section>

@@ -431,3 +431,17 @@ def test_clash_choices_are_yours_and_fine_groups_stay_out(env, monkeypatch):
     assert clashes.load(path) == {"dw-2": {"keep": True, "by": "you"}}
     c.post("/api/clashes/fine", json={"key": out["key"], "undo": True}, headers=H)
     assert glass["key"] == "dw-2|dw-5" and c.get("/api/clashes").json()["total"] == 1
+
+
+def test_mode_shows_chat_after_a_tool_call_and_api_by_key(env, monkeypatch):
+    """The status bar's mode: chat counts as connected after a recent Panko tool call; API mode needs a model."""
+    from panko import modes, providers
+    c, _, _ = env
+    monkeypatch.setattr(providers, "chain", lambda kind: [])
+    m = c.get("/api/overview").json()["modes"]
+    assert m == {"chat": {"last": "", "ago": None, "active": False}, "api": {"ready": False, "provider": "", "model": ""}}
+    monkeypatch.setattr(modes, "_last_write", 0.0)
+    modes.mark_chat("panko_sources")
+    m = c.get("/api/overview").json()["modes"]
+    assert m["chat"]["active"] and m["chat"]["ago"] < 5
+    assert c.get("/api/setup").json().get("modes", m)["chat"]["active"]

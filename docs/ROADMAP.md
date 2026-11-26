@@ -90,7 +90,7 @@ Update the **Now** section at the end of every work session: it's what a fresh s
   before setup, a slow page painting over the next one, setup defaults, and same-title sources replacing each other.
   Retired is now two tabs, duplicates and rejected; rejected words no longer come back to the inbox. Cards can be
   shared as an .apkg (`panko export`, or "share as a file" on the sync page). Gloss clashes are settled card by
-  card in the hub, with the model as an optional suggester.
+  card in the hub, with the model as an optional suggester. The status bar shows chat mode or API mode.
 - **S10 step 2 planned (2026-11-26): the deck library.** Spec: `docs/SPEC-library.md`. Each deck is a Panko pack
   plus an .apkg built from it. The library is a separate public GitHub repo, with an index and the files on
   releases. Only you publish for now. Learners use a library page in the hub or `panko library`. Importing a pack

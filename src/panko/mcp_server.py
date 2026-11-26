@@ -26,9 +26,12 @@ server = MCPServer("panko", instructions=INSTRUCTIONS)
 
 
 def quiet(fn):
-    """stdout is the MCP channel: anything a tool prints goes to stderr instead."""
+    """stdout is the MCP channel: anything a tool prints goes to stderr instead. Each call is noted, so the hub can
+    show that chat mode is in use."""
     @functools.wraps(fn)
     def wrap(*a, **kw):
+        from panko import modes
+        modes.mark_chat(fn.__name__)
         with contextlib.redirect_stdout(sys.stderr):
             return fn(*a, **kw)
     return wrap
