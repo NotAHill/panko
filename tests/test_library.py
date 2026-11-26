@@ -205,3 +205,50 @@ def test_publish_builds_the_apkg_from_the_pack(lib):
     names = zipfile.ZipFile(apkg).namelist()
     assert "collection.anki21b" in names or "collection.anki21" in names
     assert not list((tmp / "lib").glob(".*-media"))                    # the scratch folder is gone
+
+
+# ---- the library: list and get --------------------------------------------------------------------------------------
+
+def test_library_lists_decks_and_gets_one_checked_against_the_index(lib, monkeypatch):
+    tmp, pub = lib
+    idx = tmp / "panko-decks" / "index.json"
+    r = library.publish("darija-test", "Darija test deck", out=tmp / "panko-decks", store=pub, apkg=False, index=idx)
+    monkeypatch.setattr(library, "library_dir", lambda: tmp / "downloads")
+    monkeypatch.setattr(work, "WORK", tmp / "work-learner")              # the learner's own Panko folder
+    entry = json.loads(idx.read_text())["decks"][0]
+    other = {**entry, "id": "spanish-basics", "language": "Spanish"}
+    idx.write_text(json.dumps({"format": 1, "decks": [entry, other, {"id": "../evil"}]}))
+    ds = {d["id"]: d for d in library.decks(str(idx))}
+    assert set(ds) == {"darija-test", "spanish-basics"}                 # an entry that isn't a deck is ignored
+    assert ds["darija-test"]["fits"] and ds["darija-test"]["have"] is None
+    assert not ds["spanish-basics"]["fits"] and "Spanish" in ds["spanish-basics"]["why_not"]
+    with pytest.raises(ValueError, match="for Spanish"):
+        library.get("spanish-basics", src=str(idx), store=Store(tmp / "me.db"))
+
+    me = Store(tmp / "me.db")
+    rep = library.get("darija-test", src=str(idx), store=me)
+    assert rep["new"] == 4 and Path(rep["file"]).parent == tmp / "downloads"
+    assert library.decks(str(idx))[0]["have"] == 1                      # now you have it
+    # a newer version in the index: updating isn't built yet, and says so
+    idx.write_text(json.dumps({"format": 1, "decks": [{**entry, "version": 2}]}))
+    assert library.decks(str(idx))[0]["update"]
+    with pytest.raises(ValueError, match="isn't built yet"):
+        library.get("darija-test", src=str(idx), store=me)
+    assert Path(r["files"][0]).exists()
+
+
+def test_a_download_that_doesnt_match_the_index_is_refused(lib, monkeypatch):
+    tmp, pub = lib
+    idx = tmp / "lib" / "index.json"
+    library.publish("darija-test", "Darija test deck", out=tmp / "lib", store=pub, apkg=False, index=idx)
+    entry = json.loads(idx.read_text())["decks"][0]
+    bad = {**entry, "files": [{**entry["files"][0], "sha256": "0" * 64}]}
+    with pytest.raises(ValueError, match="sha256"):
+        library.fetch(bad, src=str(idx), dest=tmp / "dl")
+    assert not list((tmp / "dl").iterdir())                            # nothing half-written is left
+    plain = {**entry, "files": [{**entry["files"][0], "url": "http://example.org/x.zip"}]}
+    with pytest.raises(ValueError, match="https"):
+        library.fetch(plain, src="https://example.org/index.json", dest=tmp / "dl")
+    monkeypatch.setattr(library, "_lib", lambda: {})                    # no index and no repo in the config
+    with pytest.raises(ValueError, match="no library set"):
+        library.load_index()

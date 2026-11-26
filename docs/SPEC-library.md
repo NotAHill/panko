@@ -59,9 +59,15 @@ Panko never publishes on its own.
 
 ## Getting a deck
 
-- `panko library list` reads the index from `[library] index` (default: the library repo's raw `index.json`).
-- `panko library get ID [--activate]` downloads the pack into `[library] dir` (checking sha256 and free space first;
-  default `cache/library`), then imports it.
+- `panko library list` reads the index from `[library] index`, a URL or a file (default: the raw `index.json` of
+  the repo in `[library] repo`). Each deck says whether it fits this Panko (its language, a variety you learn) and
+  which version you have. An entry that isn't a deck (a bad id, no files) is ignored.
+- `panko library get ID [--activate] [--apkg]` downloads the pack into `[library] dir` (default: a `library`
+  folder in `[export] dir`, else `cache/library`), checking free space first and the sha256 after. A file that
+  doesn't match is deleted and nothing is imported. Downloads must be https. With a local index, files beside it
+  are used, which is how a deck is tried before it's uploaded. `--apkg` only downloads the .apkg.
+- A deck you already have at an older version isn't taken over yours yet (L4); `get` says so.
+- `panko publish` adds each file's release URL to the index entry when `[library] repo` is set.
 - `panko library import FILE` imports a pack from a file.
 - **Hub:** a library page lists the decks (title, language, varieties, counts, size, licences, sample entries),
   with a download for the `.apkg` and an import button for the pack. The import runs as a job.
@@ -111,7 +117,7 @@ entry the pack dropped is not removed; it is listed for you.
 |---|---|
 | L1 ✅ | Pack format, `panko pack build` and `panko library import FILE`. Round trip tested: a pack from one store into an empty store, then into a store with overlaps (sightings, holds, rejected stays rejected). Built 2026-11-26 (`panko.library`); tried on 210 real food cards (39 MB): all imported, and a dry-run sync in the new Panko found every clip but the 4 never made. |
 | L2 ✅ | `panko publish`: the checks above, the `.apkg` from the pack, the index entry and the report. Built 2026-11-26; tried on the 728 Peace Corps cards (112 MB each for the pack and the .apkg; the .apkg imports into a fresh Anki as 728 notes). |
-| L3 | Library repo with `index.json`; `panko library list|get`; the hub's library page. |
+| L3 | Library repo with `index.json`; `panko library list|get`; the hub's library page. The code is built (2026-11-26) and tried against a local index in an empty Panko; the repo itself waits for your name and the first upload. |
 | L4 | Updates: v2 over v1, your edits kept, dropped entries listed. |
 
 **First deck:** the Peace Corps *Moroccan Arabic* words (the source is public domain, and nothing in it comes from

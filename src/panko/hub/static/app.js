@@ -33,6 +33,7 @@ const ICON = {
   overview: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
   inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
   cards: '<rect x="2" y="7" width="15" height="14" rx="2"/><path d="M7 3h13a2 2 0 0 1 2 2v12"/>',
+  library: '<path d="M4 4h3v16H4z"/><path d="M9 4h3v16H9z"/><path d="m14.5 5.2 2.9-.8 3.9 14.6-2.9.8z"/>',
   sources: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/>',
   checks: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>',
   pictures: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>',
@@ -103,6 +104,7 @@ const HINTS = {
   'gloss clashes': 'A production card shows the meaning and asks for the word, so two cards with the same meaning can’t both be answered. For each card: keep it, give it a sharper gloss, make it recognition only, or mark it as the same word as another (an inbox card then moves to duplicates). Nothing changes until you apply.',
   'to do': 'Cards without a picture or a decision about one.',
   'waiting for a picture': 'Active cards with no picture yet. Prayers, grammar words and the like are often better without one: mark those “no picture”.',
+  'library': 'Ready-made decks, checked and with pictures. Adding one goes through the same checks as any source: words you have keep your card, near ones wait for you, new ones land in your inbox.',
   'decisions': 'What the model chose for each card: a photo, a drawing to make, or no picture. Apply puts them on the cards.',
   'cards': 'How many words each variety has, and how many of them are already in Anki.',
   "what's next": 'Things waiting for you, oldest first.',
@@ -255,6 +257,7 @@ const COMMANDS = [
   ['/tags', 'cards by tag', () => go('#/cards?status=all&tag=')],
   ['/sources', 'what you learn from', () => go('#/sources')],
   ['/add', 'add a source', () => go('#/sources?add=1')],
+  ['/library', 'ready-made decks to add to yours', () => go('#/library')],
   ['/checks', 'tool checks and gloss clashes', () => go('#/checks')],
   ['/verify', 'run the free tool checks on the inbox', () => startJob('/verify', { status: 'candidate' })],
   ['/pictures', 'pictures for cards without one', () => go('#/pictures')],
@@ -331,7 +334,7 @@ function toggleTheme() {
 const theme = () => document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
 
 // ---- frame: nav, status line, jobs polling -----------------------------------------------------------------------
-const NAV = ['learn', ['overview', 'o'], ['inbox', 'i'], ['cards', 'c'], ['sources', 's'], 'tools', ['checks', 'k'], ['pictures', 'p'],
+const NAV = ['learn', ['overview', 'o'], ['inbox', 'i'], ['cards', 'c'], ['sources', 's'], ['library', 'l'], 'tools', ['checks', 'k'], ['pictures', 'p'],
   ['sync', 'y'], 'your cards', ['design', 'd'], ['voices', 'v'], 'system', ['usage', 'u'], ['jobs', 'j'], ['setup', ',']];
 
 function navName() {
@@ -1164,13 +1167,18 @@ function addForm() {
 
 async function sourceView(el, sid, r) {
   const d = await api(`/sources/${encodeURIComponent(sid)}`);
-  const s = d.source, P = d.pending, units = d.units;
-  put(el, html`<div class="page-h"><a href="#/sources" class="dim">sources /</a><h1>${s.title}</h1><span class="sub">${[s.kind, s.type, s.date, 'trust ' + s.trust, s.minutes && s.minutes + ' min'].filter(Boolean).join(', ')}</span></div>
+  const s = d.source, P = d.pending, units = d.units, pack = s.type === 'pack';
+  const about = pack ? [html`a deck from the <a href="#/library">library</a>`, 'v' + (s.version || 1), s.date]
+    : [...new Set([s.kind, s.type])].concat([s.date, 'trust ' + s.trust, s.minutes && s.minutes + ' min']);
+  put(el, html`<div class="page-h"><a href="#/sources" class="dim">sources /</a><h1>${s.title}</h1><span class="sub">${about.filter(Boolean).map((x, i) => html`${i ? ', ' : ''}${x}`)}</span></div>
     <section class="box"><div class="t">units <span class="dim">${n(units.length)}</span></div>
       ${P.transcribe_first ? html`<p>This recording needs a transcript before it can be read (speech-to-text, paid).</p>
         <div class="acts mt"><button class="pri" data-a="transcribe"><span class="paid">$</span>transcribe it</button></div>` : html`
       <div class="legend"><span><i></i>to read ${n(P.todo)}</span><span><i class="submitted"></i>ready to ingest ${n(P.submitted)}</span><span><i class="held"></i>held ${n(P.held)}</span><span><i class="ingested"></i>ingested ${n(P.ingested)}</span></div>
       <div class="units">${units.map(u => html`<button class="${u.state} ${r.q.unit === u.unit ? 'on' : ''}" data-u="${u.unit}" title="${[u.unit, u.page && 'page ' + u.page, u.state, u.items && u.items + ' items'].filter(Boolean).join(', ')}">${u.unit}</button>`)}</div>
+      ${pack ? html`<p class="muted-p">A deck's cards are already written and checked, so there's nothing to read: they went through the same duplicate checks as any source.
+        <a href="#/cards?status=all&tag=${encodeURIComponent('src::pack::' + sid)}">See its cards</a>.</p>
+        ${P.submitted ? html`<div class="acts mt"><button data-a="ingest">ingest ${plural(P.submitted, 'ready unit')}</button></div>` : ''}` : html`
       <div class="acts">
         <label class="dim">next <input id="run-n" type="number" min="1" max="200" value="${Math.max(1, Math.min(5, P.todo))}"> units</label>
         <button class="${d.llm_ready ? 'pri' : ''}" data-a="run" ${P.todo && d.llm_ready ? '' : 'disabled'}><span class="paid">$</span>read them with the model</button>
@@ -1180,7 +1188,7 @@ async function sourceView(el, sid, r) {
       ${P.todo ? html`<details class="mt-s" ${d.llm_ready ? '' : 'open'}><summary>or read it in chat, free</summary>
         <p class="muted-p mt-s">With Panko connected to your own Claude (<a href="#/setup">setup → chat mode</a>), ask it:</p>
         <div class="snippet mt-s"><pre>Work through the Panko source "${s.title}" (${sid}) and submit each unit.</pre></div>
-        <p class="faint mt-s">What it submits shows up here as ready to ingest.</p></details>` : ''}`}
+        <p class="faint mt-s">What it submits shows up here as ready to ingest.</p></details>` : ''}`}`}
     </section>
     ${P.held.length ? heldBox(P.held, sid) : ''}
     <div id="unitbox"></div>`);
@@ -1345,6 +1353,51 @@ async function clFine(key, undo = false) {
   } catch (e) { toast(html`<span class="bad">✘</span> ${e.message}`, 'bad', 0); }
 }
 document.addEventListener('click', e => { const b = e.target.closest('[data-unfine]'); if (b) { b.closest('.toast')?.remove(); clFine(b.dataset.unfine, true); } });
+
+// ---- library ------------------------------------------------------------------------------------------------------
+VIEWS.library = async el => {
+  const d = await api('/library');
+  const mb = b => `${Math.max(1, Math.round((b || 0) / 1e6))} MB`;
+  const file = (x, k) => (x.files || []).find(f => f.kind === k);
+  const deck = x => {
+    const c = x.counts || {}, pack = file(x, 'pack'), apkg = file(x, 'apkg');
+    return html`<section class="box deck ${x.fits ? '' : 'off'}"><div class="t">${x.title} <span class="dim">v${x.version || 1}</span></div>
+      ${x.description ? html`<p>${x.description}</p>` : ''}
+      <p class="dim">${x.language}${(x.varieties || []).length ? ' · ' + x.varieties.join(', ') : ''} · ${n(c.words)} words, ${n(c.phrases)} phrases ·
+        ${n(c.pictures)} pictures · ${n(c.audio)} audio clips${pack ? ` · ${mb(pack.bytes)}` : ''}</p>
+      ${(x.samples || []).length ? html`<ul class="samples">${x.samples.map(e => html`<li>${tgt(e.ar, (x.varieties || [])[0] || '')} <span class="dim">${e.tl}</span> ${e.gloss}</li>`)}</ul>` : ''}
+      <p class="faint">Card text ${x.licence || ''}. Pictures: ${Object.entries(x.picture_licences || {}).map(([k, v]) => `${k} ${n(v)}`).join(', ') || 'none'}.${x.audio ? ' Audio made with speech synthesis.' : ''}</p>
+      <div class="acts mt">
+        ${!x.fits ? html`<span class="warn">${x.why_not}</span>`
+          : x.update ? html`<span class="dim">you have v${x.have}; taking the new version over yours isn't built yet</span>`
+          : x.have ? html`<span class="ok">✔ in your Panko</span> <a href="#/sources/${encodeURIComponent('pack-' + x.id)}">see its cards</a>`
+          : html`<button class="pri" data-a="get" data-id="${x.id}">add to my Panko</button>
+            <label class="chk-l"><input type="checkbox" data-act="${x.id}"> make its new cards active</label>`}
+        ${apkg?.url ? html`<a class="faint" href="${apkg.url}" target="_blank" rel="noopener">.apkg for Anki without Panko (${mb(apkg.bytes)})</a>` : ''}
+      </div></section>`;
+  };
+  const fits = d.decks.filter(x => x.fits), others = d.decks.filter(x => !x.fits);
+  put(el, html`<div class="page-h"><h1>library</h1><span class="sub">ready-made decks, checked, to build on</span></div>
+    ${d.error === 'no library set' ? html`<section class="box"><div class="t">no library set</div>
+        <p class="muted-p">Panko reads the library's list of decks from <code>[library] index</code> in your config (a web address or a file),
+        or from the library repo named in <code>[library] repo</code>. Set one, then reload.</p></section>`
+      : d.error ? html`<section class="box warn"><div class="t">the library can't be reached</div><p class="muted-p">${d.error}</p>
+        <p class="faint">From <code>${tilde(d.source)}</code>. You can still add a pack you have as a file: <code>panko library import FILE</code>.</p></section>`
+      : !d.decks.length ? html`<section class="box"><p class="empty">The library has no decks yet.</p></section>`
+      : html`<p class="muted-p">Adding a deck works like adding any source: a word you already have keeps your card (and gains the deck's sentences),
+          a near one waits for you on the source's page, a word you rejected stays rejected, and the rest land in your inbox. Downloads go to <code>${tilde(d.dir)}</code>.</p>
+        ${fits.map(deck)}
+        ${others.length ? html`<details class="mt"><summary>${plural(others.length, 'deck')} for other languages or varieties</summary>${others.map(deck)}</details>` : ''}`}`);
+  actions(el, {
+    get: async b => {
+      const x = d.decks.find(k => k.id === b.dataset.id), pack = file(x, 'pack');
+      const act = $(`[data-act="${x.id}"]`, el)?.checked;
+      if (!await confirmIt(`add ${x.title}?`, html`<p>Downloads ${mb(pack?.bytes)} (checked against the library's list), then adds its
+        ${n((x.counts?.words || 0) + (x.counts?.phrases || 0))} cards through the usual checks. ${act ? 'New cards become active straight away.' : 'New cards land in your inbox.'} Free.</p>`)) return;
+      startJob('/library/get', { id: x.id, activate: !!act }, () => VIEWS.library(el));
+    },
+  });
+};
 
 // ---- pictures -----------------------------------------------------------------------------------------------------
 const PIC = { page: { decisions: 0, waiting: 0 }, key: '' };
@@ -2021,6 +2074,7 @@ const TOUR = [
     () => { if (!C.open) $('#c-table tbody tr')?.click(); }],
   ['#/design', '#dz-order', 'card design', 'Choose what the back of a card shows and in what order. The preview beside it changes as you go.'],
   ['#/design', '#pictures', 'pictures', 'Where pictures come from, and whether Panko may draw one when no photo fits.'],
+  ['#/library', '.page-h', 'ready-made decks', 'Decks from the library, checked and with pictures. Adding one runs the usual duplicate checks, and the new cards land in your inbox.'],
   ['#/voices', '.page-h', 'voices', 'Listen to voices and choose the ones that read your cards.'],
   ['#/sync', '[data-a=plan]', 'sync', 'Check what a sync would change, for free, then send your active cards to Anki.'],
   ['#/sync', '#share', 'share as a file', 'Make an .apkg of your active cards for a friend: pictures and audio, no review history and nothing personal.'],

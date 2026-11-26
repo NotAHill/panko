@@ -718,6 +718,57 @@ def clashes_apply(req: Req):
     return rep
 
 
+# ---- library -------------------------------------------------------------------------------------------------------
+
+@api("GET", "/library")
+def library_state(req: Req):
+    """The library's decks, with what fits this Panko and what you have. A library that can't be reached says why."""
+    from panko import library
+    src = library.index_source()
+    out = {"source": src, "dir": str(library_dir_safe()), "decks": [], "error": ""}
+    if not src:
+        out["error"] = "no library set"
+        return out
+    try:
+        out["decks"] = library.decks()
+    except Exception as e:  # noqa: BLE001  offline, a bad index: shown, never fatal
+        out["error"] = str(e) or type(e).__name__
+    return out
+
+
+def library_dir_safe():
+    from panko import library
+    try:
+        return library.library_dir()
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+@api("POST", "/library/get")
+def library_get(req: Req):
+    """Download a deck (sha256 checked) and import it through the normal ingest, as a job."""
+    from panko import library
+    did, activate = str(req.body.get("id", "")), bool(req.body.get("activate"))
+    d = next((x for x in library.decks() if x["id"] == did), None)
+    if not d:
+        return JSONResponse({"error": "no such deck in the library"}, 404)
+
+    def run(job: Job):
+        step = {"at": -1}
+
+        def progress(done, total):
+            pct = int(done * 100 / total) if total else 0
+            if pct // 10 != step["at"]:
+                step["at"] = pct // 10
+                job.say(f"downloaded {done / 1e6:.0f} of {total / 1e6:.0f} MB" if total else f"downloaded {done / 1e6:.0f} MB")
+        job.say(f"getting {d.get('title', did)} v{d.get('version', 1)}")
+        r = library.get(did, activate=activate, store=_store(), progress=progress)
+        job.say(f"{r['new']} new cards, {r['known']} you already had, {len(r['held'])} held for you to decide")
+        return {k: r[k] for k in ("pack", "version", "new", "known", "activated", "other_varieties") if k in r} | \
+            {"held": len(r["held"]), "rejected_again": len(r["rejected_again"])}
+    return _start("library", f"Get {d.get('title', did)}", run)
+
+
 # ---- pictures ------------------------------------------------------------------------------------------------------
 
 def _picture_cards(status: str, tag: str = "") -> list[dict]:

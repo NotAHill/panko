@@ -2,6 +2,13 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-26 · Getting a deck: checked downloads, and the library can be a file.** `panko library get` and the
+hub's library page download a deck only over https and only into `[library] dir`. Each file is checked against
+the index's sha256 before anything is imported, and a file that doesn't match is deleted. The index can be a local
+file with the decks beside it, so a deck can be tried in an empty Panko before it's uploaded. Index entries are
+data: one with a bad id or no files is skipped. Taking a newer version over an older one waits for L4, so until
+then Panko refuses rather than half-updating.
+
 **2026-11-26 · What a published deck leaves out.** `panko publish` is for strangers, so it is stricter than a pack
 built for a friend. A photo keeps its place only under a licence Panko can read: CC (NC, ND and SA included, since the
 library is free), public domain, Pexels, Pixabay, or drawn for Panko. Any other photo is dropped and the card goes

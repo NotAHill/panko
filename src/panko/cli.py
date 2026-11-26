@@ -52,8 +52,15 @@ def _main(argv=None):
     pu.add_argument("--index", help="your clone's index.json: its entry for this deck is replaced")
     pu.add_argument("--out", help="folder to write to (default [export] dir)")
     pu.add_argument("--dry-run", action="store_true", help="say what would go in and what would be left out; write nothing")
-    lb = sub.add_parser("library", help="decks from the library: import a Panko pack")
+    lb = sub.add_parser("library", help="decks from the library: list, get, or import a Panko pack")
     lbsub = lb.add_subparsers(dest="lcmd")
+    ll = lbsub.add_parser("list", help="the decks in the library ([library] index)")
+    ll.add_argument("--index", help="another index: a URL or a file")
+    lg = lbsub.add_parser("get", help="download a deck from the library (sha256 checked) and import it")
+    lg.add_argument("id")
+    lg.add_argument("--activate", action="store_true", help="make its new cards active straight away")
+    lg.add_argument("--apkg", action="store_true", help="only download its .apkg (for Anki without Panko)")
+    lg.add_argument("--index", help="another index: a URL or a file")
     li = lbsub.add_parser("import", help="bring a .panko.zip into your Panko (new cards go to the inbox)")
     li.add_argument("file")
     li.add_argument("--activate", action="store_true", help="make its new cards active straight away")
@@ -258,6 +265,34 @@ def _main(argv=None):
             if r.get("apkg_skipped"):
                 print(f"no .apkg: {r['apkg_skipped']}")
             print("\nTo publish, by hand:\n" + "\n".join(f"  {i}. {step}" for i, step in enumerate(r["upload"], 1)))
+    elif args.cmd == "library" and args.lcmd == "list":
+        from panko import library
+        ds = library.decks(args.index)
+        if not ds:
+            print("the library has no decks yet")
+        for d in ds:
+            size = sum(f.get("bytes", 0) for f in d.get("files", []) if f.get("kind") == "pack") / 1e6
+            c = d.get("counts", {})
+            state = (f"you have v{d['have']}" + (", a newer one is out" if d["update"] else "")) if d["have"] else ""
+            print(f"{d['id']} v{d.get('version', 1)}  {d.get('title', '')}\n  {c.get('words', 0)} words, "
+                  f"{c.get('phrases', 0)} phrases, {c.get('pictures', 0)} pictures, {c.get('audio', 0)} clips; "
+                  f"{size:.0f} MB" + (f"; {state}" if state else "") + ("" if d["fits"] else f"; {d['why_not']}"))
+    elif args.cmd == "library" and args.lcmd == "get":
+        from panko import library
+
+        def bar(done, total):
+            print(f"\r  {done / 1e6:.0f} of {total / 1e6:.0f} MB" if total else f"\r  {done / 1e6:.0f} MB", end="", flush=True)
+        if args.apkg:
+            d = next((x for x in library.decks(args.index) if x["id"] == args.id), None)
+            if not d:
+                raise SystemExit(f"no deck {args.id!r} in the library")
+            path = library.fetch(d, "apkg", src=args.index, progress=bar)
+            print(f"\n{path}: open it with Anki to add the deck")
+        else:
+            r = library.get(args.id, activate=args.activate, src=args.index, progress=bar)
+            print(f"\n{r['pack']} v{r['version']}: {r['new']} new cards" + (f" ({r['activated']} activated)"
+                  if "activated" in r else " in your inbox") + f", {r['known']} you already had, {len(r['held'])} "
+                  "held for you to decide")
     elif args.cmd == "library" and args.lcmd == "import":
         from panko import library
         r = library.import_pack(args.file, activate=args.activate)

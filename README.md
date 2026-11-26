@@ -155,6 +155,8 @@ panko sync                # Anki open: renders and pushes, updating notes in pla
 panko export darija.apkg  # a package to share (uv sync --extra apkg); no review history, nothing personal
 panko pack build darija-food --title "Darija: food" --tag topic::food   # a Panko pack another Panko can import
 panko library import darija-food-v1.panko.zip                        # its new cards land in your inbox
+panko library list                                                   # decks in the library ([library] index)
+panko library get darija-peace-corps                                 # download one (sha256 checked) and add it
 panko publish darija-peace-corps --title "Moroccan Arabic" --tag src::textbook::peace-corps --dry-run
                           # a deck for the public library: what goes in, what's left out (drop --dry-run to build)
 ```

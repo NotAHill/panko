@@ -15,6 +15,9 @@ teacher sheets, decks of unknown licence) are left out, and names from those sou
 text. It also writes the `.apkg` built from the pack, the library's index entry and a report of what was left out.
 Uploading stays a manual step.
 
+`decks` reads the library's `index.json` (`[library] index`: a URL or a file) and says which decks fit this Panko and
+which you have; `get` downloads a deck's pack, checks its sha256, and imports it.
+
 `import_pack` registers the pack as a work source of type `pack` whose units (25 cards each) are already
 submitted, then runs the normal ingest. So a word you have keeps your card (and gains the pack's real sentences, and
 its picture if yours has none), a near-duplicate is held for you, a word you set aside stays aside, and new cards
@@ -334,7 +337,8 @@ def publish(pack_id: str, title: str, *, out: Path | None = None, varieties: lis
                                       "licence", "created", "panko")},
              "picture_licences": rep["picture_licences"], "audio": bool(sounds),
              "files": [{"name": f.name, "kind": "pack" if f.suffix == ".zip" else "apkg", "bytes": f.stat().st_size,
-                        "sha256": _sha256(f)} for f in files],
+                        "sha256": _sha256(f), **({"url": _release_url(f"{pack_id}-v{version}", f.name)}
+                                                  if _lib().get("repo") else {})} for f in files],
              "samples": [{k: c.get(k, "") for k in ("ar", "tl", "gloss")} for c in _samples(cards)]}
     (dest / f"{stem}.index.json").write_text(json.dumps(entry, ensure_ascii=False, indent=1))
     report = dest / f"{stem}.report.md"
@@ -389,6 +393,10 @@ def _apkg(out: Path, pack_id: str, title: str, cards: list[dict], pics: dict, so
     return out
 
 
+def _release_url(tag: str, name: str) -> str:
+    return f"https://github.com/{_lib()['repo']}/releases/download/{tag}/{name}"
+
+
 def upload_steps(entry: dict, files: list[Path], index: Path | None) -> list[str]:
     """What you do by hand to publish (Panko never uploads on its own)."""
     repo = _lib().get("repo") or "OWNER/panko-decks"
@@ -436,6 +444,135 @@ def _report(meta: dict, rep: dict, left: dict, names: list[str], public: list[st
           "- Audio: check that your voice provider's plan allows sharing its audio in a free public deck "
           "(otherwise publish with `--no-audio`).", ""]
     return "\n".join(L)
+
+
+# ---- the library: list and get ----------------------------------------------------------------------------------------
+
+def index_source() -> str:
+    """Where the library's index is: `[library] index` (a URL or a file), else the library repo's index.json."""
+    lib = _lib()
+    if lib.get("index"):
+        return str(lib["index"])
+    return f"https://raw.githubusercontent.com/{lib['repo']}/main/index.json" if lib.get("repo") else ""
+
+
+def library_dir() -> Path:
+    """Where downloaded decks go: `[library] dir`, else beside your exports (packs are big), else cache/library."""
+    from panko.config import CACHE, settings
+    s = settings()
+    if s.get("library", {}).get("dir"):
+        return Path(s["library"]["dir"]).expanduser()
+    if s.get("export", {}).get("dir"):
+        return Path(s["export"]["dir"]).expanduser() / "library"
+    return CACHE / "library"
+
+
+def _is_url(src: str) -> bool:
+    return src.startswith(("https://", "http://"))
+
+
+def load_index(src: str | None = None) -> dict:
+    """The library's index, checked: {"format": 1, "decks": [...]}."""
+    src = src or index_source()
+    if not src:
+        raise ValueError("no library set: put its index in [library] index (a URL or a file), or [library] repo")
+    if _is_url(src):
+        import httpx
+        r = httpx.get(src, timeout=20, follow_redirects=True)
+        r.raise_for_status()
+        idx = r.json()
+    else:
+        idx = json.loads(Path(src).expanduser().read_text())
+    if not isinstance(idx, dict) or idx.get("format") != 1 or not isinstance(idx.get("decks"), list):
+        raise ValueError(f"{src} isn't a Panko library index (format 1)")
+    return idx
+
+
+def have() -> dict[str, int]:
+    """{pack id: version} of the packs imported into this Panko."""
+    return {s["pack"]: s.get("version", 1) for s in work.sources().values() if s.get("type") == "pack" and s.get("pack")}
+
+
+def decks(src: str | None = None) -> list[dict]:
+    """The library's decks, each with whether it fits this Panko (its language, a variety you learn), the version you
+    have and whether a newer one is out."""
+    from panko.config import settings
+    L = settings().get("learner", {})
+    mine, vs, got = (L.get("language") or "").strip().lower(), set(L.get("varieties", [])), have()
+    out = []
+    for d in load_index(src)["decks"]:
+        if not isinstance(d, dict) or not re.fullmatch(r"[a-z0-9][a-z0-9-]{1,47}", str(d.get("id", ""))):
+            continue                                  # an entry that isn't a deck is ignored, never trusted
+        lang_ok = not mine or (d.get("language") or "").strip().lower() == mine
+        why = ("" if lang_ok and (not vs or vs & set(d.get("varieties", []))) else
+               f"for {d.get('language')}" if not lang_ok else
+               f"for {', '.join(d.get('varieties', []))}: add it to [learner] varieties to take it")
+        mine_v = got.get(d["id"])
+        out.append({**d, "fits": not why, "why_not": why, "have": mine_v,
+                    "update": bool(mine_v) and int(d.get("version", 1)) > int(mine_v)})
+    return out
+
+
+def _file(entry: dict, kind: str) -> dict:
+    f = next((f for f in entry.get("files", []) if f.get("kind") == kind), None)
+    if not f or not re.fullmatch(r"[\w.-]+", str(f.get("name", ""))) or not re.fullmatch(r"[0-9a-f]{64}", str(f.get("sha256", ""))):
+        raise ValueError(f"{entry.get('id')} has no {kind} file in the index")
+    return f
+
+
+def fetch(entry: dict, kind: str = "pack", *, src: str | None = None, dest: Path | None = None, progress=None) -> Path:
+    """Download one of a deck's files into the library folder and check it against the index's sha256. A file already
+    there with the right sha256 is used as it is. `progress(done_bytes, total_bytes)` is called while downloading."""
+    f = _file(entry, kind)
+    dest = Path(dest or library_dir())
+    dest.mkdir(parents=True, exist_ok=True)
+    out = dest / f["name"]
+    if out.exists() and _sha256(out) == f["sha256"]:
+        return out
+    need = int(f.get("bytes", 0)) + 50_000_000
+    if shutil.disk_usage(dest).free < need:
+        raise RuntimeError(f"{f['name']} needs about {need // 1_000_000:,} MB free in {dest}: set [library] dir to a "
+                           "folder on a bigger disk")
+    src = src or index_source()
+    url = f.get("url", "")
+    part = out.with_suffix(out.suffix + ".part")
+    beside = Path(src).expanduser().parent / f["name"] if src and not _is_url(src) else None
+    if beside and beside.is_file():                # a local library: the files sit beside its index
+        shutil.copyfile(beside, part)
+    elif url:
+        if not url.startswith("https://"):
+            raise ValueError(f"{entry['id']}: only https downloads are allowed")
+        import httpx
+        with httpx.stream("GET", url, timeout=60, follow_redirects=True) as r, open(part, "wb") as w:
+            r.raise_for_status()
+            total, done = int(r.headers.get("content-length") or f.get("bytes") or 0), 0
+            for block in r.iter_bytes(1 << 20):
+                w.write(block)
+                done += len(block)
+                if progress:
+                    progress(done, total)
+    else:
+        raise ValueError(f"{entry['id']}: the index gives no address for {f['name']}")
+    if _sha256(part) != f["sha256"]:
+        part.unlink()
+        raise ValueError(f"{f['name']} doesn't match the index (sha256): not imported. Try again later")
+    part.replace(out)
+    return out
+
+
+def get(deck_id: str, *, activate: bool = False, src: str | None = None, store: Store | None = None,
+        progress=None) -> dict:
+    """Download a deck from the library and import it (the normal ingest). Returns the import report."""
+    d = next((x for x in decks(src) if x["id"] == deck_id), None)
+    if not d:
+        raise ValueError(f"no deck {deck_id!r} in the library")
+    if not d["fits"]:
+        raise ValueError(f"{d['title']} is {d['why_not']}")
+    if d["update"]:
+        raise ValueError(f"you have v{d['have']} of {d['title']}; taking v{d['version']} over it (keeping your edits) "
+                         "isn't built yet")
+    path = fetch(d, "pack", src=src, progress=progress)
+    return {**import_pack(path, store=store, activate=activate), "file": str(path)}
 
 
 # ---- import ---------------------------------------------------------------------------------------------------------

@@ -108,8 +108,16 @@ Update the **Now** section at the end of every work session: it's what a fresh s
   does anything naming someone from a private source. The version goes up by itself. Uploading is printed as steps.
   Tried on the 728 Peace Corps cards: 694 pictures and 2,408 clips, 112 MB each for the pack and the .apkg. One
   picture and 8 sentences were left out. The .apkg imports into a fresh Anki as 728 notes.
-- **Next:** library L3 (the library repo, `panko library list|get`, the hub page), then L4 (updates), then step 3.
-  Before the first upload: check the voice provider's terms for sharing audio, and settle the repo name.
+- **Library L3 built, except the repo (2026-11-26).** `panko library list` reads the index (`[library] index`: a
+  URL or a file; default the repo's raw `index.json`) and says which decks fit this Panko and which you have.
+  `panko library get ID [--activate] [--apkg]` downloads a deck into `[library] dir`, checks its sha256 against the
+  index and imports it. The hub has a **library page** (sidebar, `g l`): each deck with its counts, size, licences
+  and samples, an "add to my Panko" job, and the .apkg link for Anki-only learners. A pack's source page says it
+  came from the library instead of offering to read it. Tried in an empty Panko against a local index: the 728
+  Peace Corps cards came in with their pictures.
+- **Next:** make the library repo and publish the first deck. That's your step: name the repo (e.g. `panko-decks`),
+  set `[library] repo`, check the voice provider's terms for sharing audio, then `panko publish` and the printed
+  `gh release create`. Then L4 (taking v2 over v1, your edits kept), then step 3.
 - The learner's own state (deck sizes, what's waiting on whom, plans) is in `data/STATUS.md` (git-ignored).
 
 ## Phases
