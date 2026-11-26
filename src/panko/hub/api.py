@@ -736,16 +736,99 @@ def pictures_state(req: Req):
     decisions = choose.load_decisions()
     draws = ROOT / "data" / "pictures" / "drawings.json"
     st = _store()
-    pending = [{"id": k, **v, "ar": (st.get(k) or {}).get("ar", ""), "gloss": (st.get(k) or {}).get("gloss", ""),
-                "applied": bool((st.get(k) or {}).get("image"))} for k, v in list(decisions.items())[-300:]]
+    sheets: dict[str, dict] = {}
+
+    def thumb(eid: str, d: dict) -> str:
+        """The candidate the model chose, for a photo not downloaded yet (its thumbnail on the site)."""
+        ph = d.get("photo")
+        if not ph:
+            return ""
+        if ph["dir"] not in sheets:
+            try:
+                sheets[ph["dir"]] = json.loads((Path(ph["dir"]) / "cands.json").read_text())
+            except (OSError, ValueError):
+                sheets[ph["dir"]] = {}
+        try:
+            return sheets[ph["dir"]][eid][ph["index"]].get("thumb", "")
+        except (KeyError, IndexError, TypeError):
+            return ""
+
+    rows = []
+    for k, v in decisions.items():
+        e = st.get(k) or {}
+        im = e.get("image") if isinstance(e.get("image"), dict) else {}
+        rows.append({"id": k, **v, "ar": e.get("ar", ""), "gloss": e.get("gloss", ""), "applied": bool(im),
+                     "file": im.get("file", ""), "thumb": "" if im else thumb(k, v)})
     tags: dict[str, int] = {}
     for c in _picture_cards(status):
         for t in (st.get(c["id"]) or {}).get("tags", []):
             tags[t] = tags.get(t, 0) + 1
     none = sum(1 for e in st.entries(status) if e.get("picture_pref") == "none" and not e.get("image"))
-    return {"todo": len(cards), "cards": cards[:60], "ids": [c["id"] for c in cards], "decisions": pending[::-1],
+    return {"todo": len(cards), "cards": cards, "ids": [c["id"] for c in cards], "decisions": rows[::-1],
             "tags": sorted(tags.items(), key=lambda x: (-x[1], x[0]))[:80], "none": none,
             "drawings_waiting": len(json.loads(draws.read_text())) if draws.exists() else 0}
+
+
+def _chosen_dir() -> Path:
+    from panko.config import ROOT
+    return ROOT / "data" / "pictures" / "chosen"
+
+
+@api("GET", "/pictures/candidates")
+def pictures_candidates(req: Req):
+    """Photos for one card, to choose from yourself: the model's sheet for it if it has one (unless you search), else
+    a search of your picture sources (free: no model). Searches are kept in data/pictures/chosen/cands.json."""
+    from panko.media import choose, pictures
+    eid = req.query.get("id", "")
+    e = _store().get(eid)
+    if not e:
+        return JSONResponse({"error": "no such card"}, 404)
+    q = req.query.get("q", "").strip()
+    d = choose.load_decisions().get(eid, {})
+    if not q and d.get("photo"):
+        try:
+            got = json.loads((Path(d["photo"]["dir"]) / "cands.json").read_text())[eid]
+            return {"id": eid, "query": pictures.query_for(e), "dir": d["photo"]["dir"], "chosen": d["photo"]["index"],
+                    "from": "the model's search", "candidates": _cands_out(got)}
+        except (OSError, ValueError, KeyError):
+            pass
+    q = q or pictures.query_for(e)
+    got = pictures.candidates(q, per_provider=6)
+    out = _chosen_dir()
+    out.mkdir(parents=True, exist_ok=True)
+    f = out / "cands.json"
+    saved = json.loads(f.read_text()) if f.exists() else {}
+    saved[eid] = got
+    f.write_text(json.dumps(saved, ensure_ascii=False, indent=1))
+    return {"id": eid, "query": q, "dir": str(out), "chosen": None, "from": "your search", "candidates": _cands_out(got)}
+
+
+def _cands_out(cands: list[dict]) -> list[dict]:
+    return [{"i": i, "thumb": c.get("thumb", ""), "title": c.get("title", ""), "author": c.get("author", ""),
+             "license": c.get("license", ""), "provider": c.get("provider", ""), "page": c.get("page", "")}
+            for i, c in enumerate(cands)]
+
+
+@api("POST", "/pictures/choose")
+def pictures_choose(req: Req):
+    """Put the photo you chose on the card now, and keep it as the card's decision (by you)."""
+    from panko.media import choose, pictures
+    eid, idx = str(req.body.get("id", "")), int(req.body.get("index", -1))
+    d = choose.load_decisions().get(eid, {})
+    allowed = {str(_chosen_dir())} | ({d["photo"]["dir"]} if d.get("photo") else set())
+    where = str(req.body.get("dir", ""))
+    if where not in allowed:
+        return JSONResponse({"error": "pick from the candidates shown"}, 400)
+    try:
+        c = json.loads((Path(where) / "cands.json").read_text())[eid][idx]
+    except (OSError, ValueError, KeyError, IndexError):
+        return JSONResponse({"error": "that candidate is gone: search again"}, 400)
+    try:
+        image = pictures.use(eid, c, store=_store())
+    except Exception as ex:  # noqa: BLE001  a site that refuses the download
+        return JSONResponse({"error": f"couldn't download it ({ex}): try another"}, 502)
+    choose.save_decisions({eid: {"photo": {"dir": where, "index": idx}, "by": "you"}})
+    return {"id": eid, "image": image}
 
 
 @api("POST", "/pictures/none")
@@ -979,9 +1062,8 @@ def sync_now(req: Req):
 
 def exports_dir() -> Path:
     """`[export] dir` in your config, else cache/exports in the Panko folder (packages can be hundreds of MB)."""
-    from panko.config import CACHE, settings
-    d = settings().get("export", {}).get("dir")
-    return Path(d).expanduser() if d else CACHE / "exports"
+    from panko import library
+    return library.out_dir()
 
 
 @api("POST", "/export/apkg")

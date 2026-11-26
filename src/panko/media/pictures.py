@@ -222,6 +222,40 @@ def apply(decisions: dict[str, dict], store=None, out: Path | None = None, downl
     return res
 
 
+def use(eid: str, c: dict, store=None, out: Path | None = None, download=None) -> dict:
+    """Put this candidate on the card now (your own choice), replacing any picture it has. The file gets a new name
+    when it replaces one, because Anki keeps a file it already has under the same name."""
+    import hashlib
+
+    from panko.store import Store
+    st = store or Store()
+    out = out or _media()
+    e = st.get(eid)
+    if not e:
+        raise KeyError(eid)
+    name = f"{PHOTO_PREFIX}{eid}.jpg"
+    if e.get("image") or (out / name).exists():
+        name = f"{PHOTO_PREFIX}{eid}-{hashlib.sha1(c['thumb'].encode()).hexdigest()[:8]}.jpg"
+    (download or _download)(c, out / name)
+    cp = out / "credits.json"
+    credits = json.loads(cp.read_text()) if cp.exists() else {}
+    credits[name] = {k: c.get(k, "") for k in ("provider", "title", "author", "license", "page")}
+    cp.write_text(json.dumps(credits, indent=1, ensure_ascii=False))
+    e["image"] = {"file": name, "credit": _credit(c)}
+    if e.get("picture_pref") == "none":       # you chose one after all
+        e.pop("picture_pref")
+    st.put(e)
+    return e["image"]
+
+
+def query_for(entry: dict) -> str:
+    """A first search for a card: its gloss without notes in brackets, up to the first ; or ,."""
+    import re
+    g = re.sub(r"\([^)]*\)", "", entry.get("gloss") or "").strip()
+    g = re.split(r"[;,/]", g)[0].strip()
+    return re.sub(r"^to ", "", g) or entry.get("tl", "")
+
+
 # drawings -------------------------------------------------------------------------------------------------------
 
 def _model() -> str:

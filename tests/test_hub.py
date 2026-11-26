@@ -445,3 +445,32 @@ def test_mode_shows_chat_after_a_tool_call_and_api_by_key(env, monkeypatch):
     m = c.get("/api/overview").json()["modes"]
     assert m["chat"]["active"] and m["chat"]["ago"] < 5
     assert c.get("/api/setup").json().get("modes", m)["chat"]["active"]
+
+
+def test_choose_a_photo_yourself(env, monkeypatch):
+    """A free search for one card, then the photo you click goes on the card and is kept as your decision."""
+    c, s, tmp = env
+    from panko.media import choose, pictures
+    monkeypatch.setattr(choose, "decisions_path", lambda: tmp / "decisions.json")
+    monkeypatch.setattr(api, "_chosen_dir", lambda: tmp / "chosen")
+    monkeypatch.setattr(pictures, "_media", lambda: tmp / "media")
+    asked = []
+    monkeypatch.setattr(pictures, "candidates", lambda q, per_provider=6: asked.append(q) or [
+        {"thumb": f"https://pics.example/{i}.jpg", "title": f"pic {i}", "author": "A", "license": "CC BY 4.0",
+         "provider": "commons", "page": f"https://pics.example/{i}"} for i in range(3)])
+    monkeypatch.setattr(pictures, "_download", lambda cand, path: path.write_bytes(b"\xff\xd8" + cand["thumb"].encode()))
+    r = c.get("/api/pictures/candidates?id=dw-1").json()
+    assert asked == ["outside"] and len(r["candidates"]) == 3 and r["chosen"] is None
+    assert c.post("/api/pictures/choose", json={"id": "dw-1", "dir": "/etc", "index": 0}, headers=H).status_code == 400
+    got = c.post("/api/pictures/choose", json={"id": "dw-1", "dir": r["dir"], "index": 2}, headers=H).json()
+    e = s.get("dw-1")
+    assert e["image"]["file"] == got["image"]["file"] and (tmp / "media" / e["image"]["file"]).exists()
+    assert "CC BY 4.0" in e["image"]["credit"]
+    assert choose.load_decisions(tmp / "decisions.json")["dw-1"] == {"photo": {"dir": r["dir"], "index": 2}, "by": "you"}
+    # changing it later gives the file a new name, so Anki takes the new picture
+    again = c.post("/api/pictures/choose", json={"id": "dw-1", "dir": r["dir"], "index": 1}, headers=H).json()
+    assert again["image"]["file"] != got["image"]["file"]
+    rows = c.get("/api/pictures?status=active").json()["decisions"]
+    assert rows[0]["id"] == "dw-1" and rows[0]["file"] == again["image"]["file"] and rows[0]["by"] == "you"
+    # the model's sheet comes first next time: the chooser opens on it
+    assert c.get("/api/pictures/candidates?id=dw-1").json()["chosen"] == 1

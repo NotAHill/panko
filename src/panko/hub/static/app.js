@@ -10,7 +10,10 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ESC[c]);
 class Raw { constructor(s) { this.s = s; } toString() { return this.s; } }
 const show = v => v == null || v === false ? '' : v instanceof Raw ? v.s : Array.isArray(v) ? v.map(show).join('') : esc(v);
 const html = (strs, ...vals) => new Raw(strs.reduce((o, s, i) => o + s + (i < vals.length ? show(vals[i]) : ''), ''));
-const put = (el, v) => { el.innerHTML = show(v); addHints(el); return el; };
+const put = (el, v) => { el.innerHTML = show(v); addHints(el); folds(el); return el; };
+/* a box that folds (<details class="box" data-fold="key">) starts closed and stays as you left it while the page redraws */
+const FOLD = {};
+const folds = el => { for (const d of el.querySelectorAll?.('details[data-fold]') || []) { d.open = !!FOLD[d.dataset.fold]; d.ontoggle = () => { FOLD[d.dataset.fold] = d.open; }; } };
 const n = x => (x ?? 0).toLocaleString('en');
 const usd = x => { const v = +x || 0; return v && Math.abs(v) < 0.005 ? '<$0.01' : '$' + v.toFixed(2); };
 const plural = (k, one, many) => `${n(k)} ${k === 1 ? one : (many || one + 's')}`;
@@ -126,7 +129,8 @@ function addHints(root) {
     const tip = HINTS[key];
     if (!tip) continue;
     const q = document.createElement('span');
-    q.className = 'q'; q.tabIndex = 0; q.textContent = '?'; q.setAttribute('role', 'note'); q.dataset.tip = tip; q.setAttribute('aria-label', tip);
+    q.className = 'q'; q.tabIndex = 0; q.textContent = '?'; q.onclick = e => e.preventDefault();   // in a fold's title it mustn't fold it
+     q.setAttribute('role', 'note'); q.dataset.tip = tip; q.setAttribute('aria-label', tip);
     t.append(q);
   }
 }
@@ -647,7 +651,8 @@ async function loadRows() {
   if (seq !== C.seq || !$('#c-table')) return;      // a newer search, or the page has moved on
   C.rows = d.rows; C.total = d.total; C.tags = d.tags || [];
   paintTags(); paintFlags(d.flags || {}); paintSources();
-  C.cur = Math.min(C.cur, Math.max(0, d.rows.length - 1));
+  const oi = d.rows.findIndex(r => r.id === C.open);      // the cursor stays on the open card, so only one row is marked
+  C.cur = oi >= 0 ? oi : Math.min(C.cur, Math.max(0, d.rows.length - 1));
   paintRows(); syncUrl();
 }
 
@@ -789,6 +794,8 @@ function cardKeys(e) {
 async function openCard(id) {
   const same = C.open === id;
   C.open = id;
+  const oi = C.rows.findIndex(r => r.id === id);
+  if (oi >= 0 && (oi !== C.cur || !same) && $('#c-table')) { C.cur = oi; paintRows(); }   // cursor and open card are one row
   if (!same) { C.edit = false; C.pv = { card: 0, side: 'front' }; }
   const box = $('#detail');
   if (!box) return;
@@ -1340,50 +1347,144 @@ async function clFine(key, undo = false) {
 document.addEventListener('click', e => { const b = e.target.closest('[data-unfine]'); if (b) { b.closest('.toast')?.remove(); clFine(b.dataset.unfine, true); } });
 
 // ---- pictures -----------------------------------------------------------------------------------------------------
+const PIC = { page: { decisions: 0, waiting: 0 }, key: '' };
+const PIC_PAGE = 100;
+/* one page of rows and a pager under it ("101–200 of 770  ‹ ›") */
+const paged = (rows, which, row, head) => {
+  const pages = Math.max(1, Math.ceil(rows.length / PIC_PAGE)), p = Math.min(PIC.page[which], pages - 1);
+  const from = p * PIC_PAGE, shown = rows.slice(from, from + PIC_PAGE);
+  return html`<table class="t mt">${head}<tbody>${shown.map(row)}</tbody></table>
+    ${pages > 1 ? html`<div class="pager"><span class="dim">${n(from + 1)}–${n(from + shown.length)} of ${n(rows.length)}</span>
+      <button data-a="page" data-w="${which}" data-p="${p - 1}" ${p ? '' : 'disabled'} >← prev</button>
+      <button data-a="page" data-w="${which}" data-p="${p + 1}" ${p < pages - 1 ? '' : 'disabled'} >next →</button></div>` : ''}`;
+};
+
 VIEWS.pictures = async (el, r) => {
   const status = r.q.status || 'active', tag = r.q.tag || '';
+  if (PIC.key !== status + '|' + tag) { PIC.key = status + '|' + tag; PIC.page = { decisions: PIC.page.decisions, waiting: 0 }; }
   const d = await api('/pictures?' + new URLSearchParams({ status, tag }));
   const kind = x => x.photo ? html`<span class="ok">photo</span>` : x.prompt ? html`<span class="violet">drawing</span>` : x.skip ? html`<span class="faint">none</span>` : '';
+  const peek = x => x.file ? `/media/${encodeURIComponent(x.file)}` : x.thumb || '';
+  const waiting = d.cards.length;
   put(el, html`<div class="page-h"><h1>pictures</h1><span class="sub">real photos first; a drawing only when no photo fits</span></div>
     <section class="box"><div class="t">to do</div>
       <p><span class="acc big">${n(d.todo)}</span> ${status} card${d.todo === 1 ? '' : 's'}${tag ? ` tagged ${tagName(tag)}` : ''} without a picture or a decision.
         ${d.none ? html`<span class="dim">${plural(d.none, 'card')} set to no picture.</span>` : ''}</p>
       <p class="muted-p">The model plans a search per card, looks through contact sheets from your picture sources and picks a photo.
-        When nothing fits it writes a drawing prompt, if you allow drawings. <a href="#/design">Choose the sources</a> in card design;
-        ask for something particular on a single card from its edit form.</p>
+        When nothing fits it writes a drawing prompt, if you allow drawings. Or choose one yourself, free: <b>choose a photo</b> on any card below.
+        <a href="#/design">Choose the sources</a> in card design.</p>
       <div class="acts mt"><div class="seg"><button data-a="st" data-s="active" class="${status === 'active' ? 'on' : ''}">active</button><button data-a="st" data-s="candidate" class="${status === 'candidate' ? 'on' : ''}">inbox</button></div>
         <label class="dim">at most <input id="p-lim" type="number" min="1" value="${Math.min(50, d.todo || 50)}"> cards</label>
         <button class="pri" data-a="decide" ${d.todo ? '' : 'disabled'}><span class="paid">$</span>choose pictures</button></div>
     </section>
-    <section class="box"><div class="t">decisions <span class="dim">${n(d.decisions.length)}</span></div>
-      ${d.decisions.length ? html`<div class="acts"><button data-a="apply" ${d.decisions.some(x => x.photo && !x.applied) ? '' : 'disabled'}>download the chosen photos</button>
+    <details class="box" data-fold="pictures-decisions"><summary class="t">decisions <span class="dim">${n(d.decisions.length)}</span></summary>
+      ${d.decisions.length ? html`<div class="acts"><button data-a="apply" ${d.decisions.some(x => x.photo && !x.applied) ? '' : 'disabled'} title="download each photo the model chose and put it on its card">download the chosen photos</button>
+        ${d.decisions.some(x => x.photo && !x.applied) ? '' : html`<span class="faint">every chosen photo is on its card</span>`}
         ${d.drawings_waiting ? html`<span class="dim">${plural(d.drawings_waiting, 'drawing')} waiting: <code>uv run panko draw data/pictures/drawings.json --batch</code></span>` : ''}</div>` : ''}
-      ${d.decisions.length ? html`<table class="t mt"><thead><tr><th>card</th><th>word</th><th>gloss</th><th>choice</th><th>why</th></tr></thead><tbody>${d.decisions.slice(0, 200).map(x => html`<tr>
-        <td class="nw"><a href="#/cards?status=all&id=${x.id}">${x.id}</a></td><td>${tgt(x.ar, '')}</td><td class="cut" style="max-width:240px">${x.gloss}</td><td class="nw">${kind(x)}</td>
-        <td class="dim">${x.prompt || x.skip || ''}${x.applied ? html` <span class="ok">✔</span>` : ''}</td></tr>`)}</tbody></table>` : html`<p class="empty">None yet.</p>`}
-    </section>
-    <section class="box"><div class="t">waiting for a picture <span class="dim">${d.todo > d.cards.length ? `first ${d.cards.length} of ${n(d.todo)}` : n(d.todo)}</span></div>
+      ${d.decisions.length ? paged(d.decisions, 'decisions', x => html`<tr>
+        <td class="nw"><a href="#/cards?status=all&id=${x.id}">${x.id}</a></td>
+        <td>${peek(x) ? html`<span class="peekable" data-peek="${peek(x)}">${tgt(x.ar, '')}</span>` : tgt(x.ar, '')}</td><td class="cut" style="max-width:240px">${x.gloss}</td>
+        <td class="nw">${kind(x)}${x.by === 'you' ? html` <span class="faint">by you</span>` : ''}</td>
+        <td class="dim why" title="${x.prompt || x.skip || ''}">${x.applied ? html`<span class="ok">✔</span> ` : ''}${x.prompt || x.skip || ''}</td>
+        <td class="r nw"><button class="nopic" data-a="choose" data-id="${x.id}">${x.applied ? 'change photo' : 'choose a photo'}</button></td></tr>`,
+        html`<thead><tr><th>card</th><th>word</th><th>gloss</th><th>choice</th><th>why</th><th></th></tr></thead>`) : html`<p class="empty">None yet.</p>`}
+    </details>
+    <details class="box" data-fold="pictures-waiting"><summary class="t">waiting for a picture <span class="dim">${n(d.todo)}</span></summary>
       <div class="acts"><select id="p-tag" aria-label="tag"><option value="">any tag</option>${d.tags.map(([t, k]) => html`<option value="${t}" ${t === tag ? 'selected' : ''}>${tagName(t)} (${n(k)})</option>`)}</select>
         ${tag && d.todo ? html`<button data-a="none-all">mark all ${n(d.todo)} as no picture</button>` : html`<span class="faint">some cards are better without one, such as prayers or grammar words: pick a tag to set them all at once</span>`}</div>
-      ${d.cards.length ? html`<table class="t mt"><thead><tr><th>card</th><th>word</th><th>transliteration</th><th>gloss</th><th></th></tr></thead><tbody>${d.cards.map(c => html`<tr class="row" data-href="#/cards?status=all&id=${c.id}"><td class="nw faint">${c.id}</td><td>${tgt(c.ar, '')}</td><td class="dim">${c.tl || ''}</td><td>${c.gloss}</td>
-        <td class="r nw"><button class="nopic" data-a="none" data-id="${c.id}" title="this card is better without a picture">mark as no picture</button></td></tr>`)}</tbody></table>` : html`<p class="empty mt">Nothing waiting.</p>`}</section>`);
+      ${waiting ? paged(d.cards, 'waiting', c => html`<tr class="row" data-href="#/cards?status=all&id=${c.id}"><td class="nw faint">${c.id}</td><td>${tgt(c.ar, '')}</td><td class="dim">${c.tl || ''}</td><td>${c.gloss}</td>
+        <td class="r two"><button class="nopic" data-a="choose" data-id="${c.id}">choose a photo</button><button class="nopic" data-a="none" data-id="${c.id}" title="this card is better without a picture">mark as no picture</button></td></tr>`,
+        html`<thead><tr><th>card</th><th>word</th><th>transliteration</th><th>gloss</th><th></th></tr></thead>`) : html`<p class="empty mt">Nothing waiting.</p>`}</details>`);
   $('#p-tag').onchange = e => go('#/pictures?' + new URLSearchParams({ status, tag: e.target.value }));
+  const redraw = () => VIEWS.pictures(el, r);
   const none = async (ids, undo = false) => {
     try {
       const x = await api('/pictures/none', { body: { ids, undo } });
       toast(html`<span class="ok">✔</span> ${plural(x.changed.length, 'card')} ${undo ? 'back in the picture queue' : 'set to no picture'}${undo ? '' : html` <button class="link" data-undo="${x.changed.join(',')}">undo</button>`}`, 'ok', 9000);
-      VIEWS.pictures(el, r);
+      redraw();
     } catch (e) { toast(html`<span class="bad">✘</span> ${e.message}`, 'bad', 0); }
   };
   S.undoNone = ids => none(ids, true);
+  const row = id => d.decisions.find(x => x.id === id) || d.cards.find(x => x.id === id) || { id };
   actions(el, {
     st: b => go('#/pictures?' + new URLSearchParams({ status: b.dataset.s, tag })),
+    page: b => { PIC.page[b.dataset.w] = +b.dataset.p; redraw(); },
     none: b => none([b.dataset.id]),
+    choose: b => choosePhoto(row(b.dataset.id), redraw),
     'none-all': async () => { if (await confirmIt(`no picture for ${plural(d.todo, 'card')} tagged ${tagName(tag)}?`, html`<p>They leave the picture queue. You can undo it, or ask for a picture on any one of them from its edit form.</p>`)) none(d.ids); },
-    decide: () => paidAction('/pictures/decide', { status, tag, limit: +$('#p-lim').value || 0 }, 'choose pictures with the model?', { batch: false, onDone: () => VIEWS.pictures(el, r) }),
-    apply: () => startJob('/pictures/apply', {}, () => VIEWS.pictures(el, r)),
+    decide: () => paidAction('/pictures/decide', { status, tag, limit: +$('#p-lim').value || 0 }, 'choose pictures with the model?', { batch: false, onDone: redraw }),
+    apply: () => startJob('/pictures/apply', {}, redraw),
   });
 };
+
+/* Choose a photo for one card yourself: the model's candidates if it searched, else a search of your picture
+   sources (free). Clicking one puts it on the card straight away. */
+async function choosePhoto(card, onDone) {
+  const L = $('#layer'), before = document.activeElement;
+  let busy = false;
+  const close = () => { document.removeEventListener('keydown', key, true); L.innerHTML = ''; tipHide(); peekHide(); before?.focus?.(); };
+  const key = e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); } };
+  document.addEventListener('keydown', key, true);
+  const frame = inner => put(L, html`<div class="back"><div class="box modal chooser" role="dialog" aria-modal="true" aria-labelledby="ch-t" tabindex="-1">
+    <div class="t" id="ch-t">choose a photo · ${tgt(card.ar || '', '')} <span class="dim">${card.gloss || ''}</span></div>${inner}</div></div>`);
+  const show = res => {
+    frame(html`<form class="acts" id="ch-f"><input id="ch-q" value="${res.query}" aria-label="search for" placeholder="search for…" style="flex:1">
+        <button>search</button><span class="faint">${res.from} · free</span></form>
+      ${res.candidates.length ? html`<div class="grid-pics mt">${res.candidates.map(c => html`<button class="pic ${res.chosen === c.i ? 'on' : ''}" data-i="${c.i}" title="${c.title}">
+          <img src="${c.thumb}" alt="${c.title}" loading="lazy" referrerpolicy="no-referrer" data-peek="${c.thumb}">
+          <span class="lic">${c.provider} · ${c.license || 'licence unknown'}</span></button>`)}</div>
+        <p class="faint mt-s">Click one to put it on the card. ${res.chosen != null ? 'The outlined one is what the model chose.' : ''}</p>`
+        : html`<p class="empty mt">Nothing found for “${res.query}”. Try other words.</p>`}`);
+    $('.back', L).onclick = ev => { if (ev.target.classList.contains('back')) close(); };
+    $('#ch-f', L).onsubmit = ev => { ev.preventDefault(); load($('#ch-q', L).value.trim()); };
+    for (const b of $$('.pic', L)) b.onclick = async () => {
+      if (busy) return;
+      busy = true; b.classList.add('wait');
+      try {
+        await api('/pictures/choose', { body: { id: card.id, dir: res.dir, index: +b.dataset.i } });
+        close();
+        toast(html`<span class="ok">✔</span> photo on ${card.id} ${tgt(card.ar || '', '')}`, 'ok', 6000);
+        onDone?.();
+      } catch (e) { busy = false; b.classList.remove('wait'); toast(html`<span class="bad">✘</span> ${e.message}`, 'bad', 0); }
+    };
+    $('.modal', L).focus({ preventScroll: true });
+  };
+  const load = async q => {
+    frame(html`<p class="dim">${q ? `searching for “${q}”…` : 'looking for photos…'}</p>`);
+    $('.back', L).onclick = ev => { if (ev.target.classList.contains('back')) close(); };
+    try { show(await api('/pictures/candidates?' + new URLSearchParams({ id: card.id, q: q || '' }))); }
+    catch (e) { close(); toast(html`<span class="bad">✘</span> ${e.message}`, 'bad', 0); }
+  };
+  load('');
+}
+
+/* a bigger look at a picture on hover ([data-peek] = its address), after a short pause like link previews elsewhere */
+const PEEK_DELAY = 350;
+let peekTimer = 0, peekAt = { clientX: 0, clientY: 0 };
+const peekShow = q => {
+  let p = $('#peek');
+  if (!p) { p = document.createElement('div'); p.id = 'peek'; p.hidden = true; p.innerHTML = '<img alt="">'; document.body.append(p); }
+  const img = p.firstChild;
+  if (img.getAttribute('src') !== q.dataset.peek) { img.referrerPolicy = 'no-referrer'; img.src = q.dataset.peek; }
+  p.hidden = false;
+  peekMove(peekAt);
+};
+const peekMove = ev => {
+  peekAt = { clientX: ev.clientX, clientY: ev.clientY };
+  const p = $('#peek'); if (!p || p.hidden) return;
+  const w = p.offsetWidth || 200, h = p.offsetHeight || 160;
+  p.style.left = (ev.clientX + 16 + w > innerWidth ? ev.clientX - 16 - w : ev.clientX + 16) + 'px';
+  p.style.top = Math.max(8, Math.min(innerHeight - h - 8, ev.clientY - h / 2)) + 'px';
+};
+const peekHide = () => { clearTimeout(peekTimer); const p = $('#peek'); if (p) p.hidden = true; };
+document.addEventListener('mouseover', e => {
+  const q = e.target.closest?.('[data-peek]');
+  if (!q || q.contains(e.relatedTarget)) return;            // moving between the word's own parts isn't a new hover
+  clearTimeout(peekTimer); peekAt = e;
+  peekTimer = setTimeout(() => peekShow(q), PEEK_DELAY);
+});
+document.addEventListener('mousemove', e => { if (e.target.closest?.('[data-peek]')) peekMove(e); });
+document.addEventListener('mouseout', e => { const q = e.target.closest?.('[data-peek]'); if (q && !q.contains(e.relatedTarget)) peekHide(); });
 
 // ---- sync ---------------------------------------------------------------------------------------------------------
 VIEWS.sync = async el => {
