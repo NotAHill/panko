@@ -1,0 +1,23 @@
+# HTTPS for the hosted Panko. PANKO_DOMAIN comes from deploy/.env (e.g. yourname.duckdns.org); Caddy gets and
+# renews the certificate from Let's Encrypt by itself (ports 80 and 443 must be open).
+{$PANKO_DOMAIN} {
+	encode zstd gzip
+
+	request_body {
+		max_size 600MB
+	}
+
+	reverse_proxy panko:8800 {
+		flush_interval -1
+		transport http {
+			read_timeout 15m
+			write_timeout 15m
+		}
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		-Server
+	}
+}

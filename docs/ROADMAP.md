@@ -136,7 +136,17 @@ Update the **Now** section at the end of every work session: it's what a fresh s
   other writers (busy timeout, all modes) and uses WAL on the server. Sync to Anki and "open the folder" are refused;
   the .apkg is the way to Anki until the add-on. Tests: `tests/test_hosted.py`, including two hubs on two sockets
   side by side; tried in the browser (`hub-hosted` in `.claude/launch.json`).
-- **Next:** H2, the front door and the server. Before inviting anyone: a domain and a server. DODa stays on (free and invite-only fits its terms; switched off if its authors object).
+- **Server chosen (your call, 2026-11-26):** Oracle Cloud Always Free (Arm) with a DuckDNS name and Caddy for
+  HTTPS, at no cost. Your own domain with a Cloudflare Tunnel comes later in the roadmap.
+- **H2 built, not deployed (2026-11-26): the front door.** `panko host serve|invite|users|purge`
+  (`src/panko/host/`): invite-only accounts (argon2, hashed tokens, sessions), each user's own Panko started on
+  demand behind a streaming proxy and stopped when idle (never mid-job), admin (invites, disable, quotas, export,
+  delete) and an account page (download everything, change password). Tried locally end to end (`host` in
+  `.claude/launch.json`) and tested with real Pankos for two users. `deploy/` has the Dockerfile (arm64), Compose
+  with Caddy, backups with restic, and a step-by-step README for Oracle and DuckDNS.
+- **Next:** your steps: an Oracle account and instance, a DuckDNS name, then `deploy/README.md` on the server
+  (build, first admin invite, backups with a restore tried). Then you use it, then one invited person. After that,
+  H3 (the Anki add-on). DODa stays on (free and invite-only fits its terms; switched off if its authors object).
 - The learner's own state (deck sizes, what's waiting on whom, plans) is in `data/STATUS.md` (git-ignored).
 
 ## Phases

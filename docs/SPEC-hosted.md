@@ -101,13 +101,56 @@ Small, and it never decides anything about a card.
   updates them in place. Tried on a copy of your collection in a scratch profile first, never on the real one
   without your OK.
 
+## The front door (H2, built; not deployed yet)
+
+`src/panko/host/` and `panko host serve`. Tried locally (an invite, an account, that user's own Panko started and
+reached through the proxy, an upload, the admin page, the data download) and in `tests/test_host.py`, which starts
+real Pankos for two users.
+- **Accounts.** One-time invite links (7 days) from the admin page or `panko host invite [--admin]` (the first
+  account). Names are 2–32 letters, digits, - or _; passwords 10+ characters, argon2. Invite and session tokens are
+  stored only as SHA-256 hashes. Sessions last 30 days in an HttpOnly, SameSite=Lax cookie (Secure over HTTPS);
+  changing the password signs out everywhere else; disabling an account signs it out.
+- **Guarding changes.** Every POST must come from this site's own pages (Origin, else Referer). Five wrong
+  passwords for a name or from an address mean 15 minutes' wait. The front door's pages run no script and send a
+  strict CSP; proxied pages may be framed only by the same site (card previews).
+- **Each user's Panko.** `python -m panko hub --socket run/<id>.sock` with `PANKO_HOME=users/<id>`, a fresh
+  front-door secret per start, the quota and upload limit, and only `PATH`, locale, the CAMeL Tools paths and the
+  server's `PANKO_DEFAULT_*` keys from the front door's environment. Started on the first request (about a second),
+  stopped after `PANKO_IDLE_MINUTES` (20) unless one of its jobs is queued or running, and all stopped with the front
+  door. Logs in `logs/<id>.log`.
+- **The proxy** streams requests and answers both ways (uploads, downloads), drops the session cookie and the
+  forwarding headers on the way in and any `Set-Cookie` on the way out, and adds the secret.
+- **Admin:** people with disk use, last seen and whether their Panko runs; invites (make, withdraw); per person:
+  disable, make admin, quota, stop their Panko, download their folder, delete (type the name; the folder is moved to
+  `deleted/` until `panko host purge`). **Account:** disk use, download everything (a zip with the stores copied by
+  SQLite's backup, openable as a `PANKO_HOME`), change password. A short privacy page.
+- **Shared photo keys:** the server's Pexels and Pixabay keys go to every Panko as `PANKO_DEFAULT_<NAME>`;
+  `config.secret()` uses a user's own key first (settled the open item from H1).
+- **Deploying:** `deploy/` has the Dockerfile (arm64 and amd64; ffmpeg, poppler, Anki's library for the .apkg,
+  CAMeL Tools with `--build-arg WITH_CAMEL=1`), `compose.yml` with Caddy, `env.example`, `backup.sh` (restic, stores
+  copied with SQLite's backup) and `README.md`, step by step on Oracle with DuckDNS. Not built or run yet: Docker
+  Compose isn't on this Mac, and the server comes first.
+
 ## Server
 
-- **One small server** (2 vCPU, 4 GB, roughly €5–15 a month with a separate disk for media), Docker Compose with
+**For now (your call, 2026-11-26): Oracle Cloud Always Free plus a DuckDNS name, at no cost.** Later in the
+roadmap: your own domain on Cloudflare with a Cloudflare Tunnel (about $10 a year, no open ports).
+- **Oracle Always Free, Arm (Ampere A1):** 2 cores and 12 GB as of late 2026 (cut from 4 and 24 earlier that
+  year; check Oracle's page when signing up). Enough for a few Pankos and CAMeL Tools. The image is built for
+  arm64 (Python, ffmpeg, poppler and torch all have arm64 Linux builds). Catches: free Arm capacity can be short in
+  a region, so pick one with room; Oracle may reclaim a free machine that sits idle for 7 days, and Panko is mostly
+  idle, so the account goes pay-as-you-go (the free allowance stays) with a budget alert at $1. Confirm both at
+  signup.
+- **DuckDNS** (`<name>.duckdns.org`) points at the server's public IP. Caddy gets the HTTPS certificate from
+  Let's Encrypt, so the server opens ports 80 and 443 (Oracle's network rules and the machine's firewall both).
+  No Cloudflare Tunnel with a DuckDNS name; that comes with the domain later.
+- **Moving to your own domain later** changes the address once: invite links, the Anki add-on's server setting
+  and Claude's connector. Nothing in Panko stores the name except the front door's config.
+- **One small server** (2 vCPU, 4 GB or more, with a disk for media), Docker Compose with
   Caddy (HTTPS from Let's Encrypt) and one image holding Panko, the front door, poppler, ffmpeg and CAMeL Tools.
 - **Data:** `/srv/panko/users/<id>/` per user, on the separate disk. The image holds no user data.
-- **Backups:** nightly and encrypted (restic) to separate storage, 30 days kept, and a restore tried before anyone
-  is invited.
+- **Backups:** nightly and encrypted (restic) to separate storage (Oracle's free object storage, or another
+  provider so one account's trouble can't take both), 30 days kept, and a restore tried before anyone is invited.
 - **Updates:** a new image, then each user's Panko picks it up when it next starts.
 
 **Why not Vercel, Supabase or Cloudflare Workers.** Panko needs long-running Python processes (a source read or a
@@ -130,16 +173,13 @@ everything (their folder as a zip) and how to delete it all. Recording a lesson 
 | Step | What "done" means |
 |---|---|
 | H1 ✅ | **Hosted mode inside Panko.** `PANKO_HOSTED=1`: socket listening, paths kept inside the folder, keys on the setup page, local-only buttons hidden, upload limits and quota, WAL. Tested locally with two folders side by side. |
-| H2 | **Front door and the server.** Accounts and invites, a Panko per user started and stopped on demand, the proxy, admin, export and delete. Deployed with Caddy and backups (restore tried). You use it first, then one invited person. |
+| H2 🔶 | **Front door and the server.** Accounts and invites, a Panko per user started and stopped on demand, the proxy, admin, export and delete. Deployed with Caddy and backups (restore tried). You use it first, then one invited person. |
 | H3 | **The Anki add-on.** The server's add-on routes and the add-on itself, tested against a scratch Anki profile. Then your own Panko moves to the server if you want it there. |
 | H4 | **Chat mode remotely.** Each user's MCP server over HTTP behind the front door, with OAuth so their Claude (claude.ai, the desktop app, Claude Code) connects as a custom connector. |
 | H5 | **Polish.** Jobs that survive a restart, quota warnings, invite emails, simple monitoring. |
 
 ## Open
-- **Domain name** for the server, and which provider.
-- **Server-wide photo keys:** the front door gives every Panko the server's Pexels and Pixabay keys in its
-  environment; a user's own key, saved on the setup page, wins until their Panko restarts, then the server's does
-  (`load_dotenv` doesn't override). Settle in H2: pass the server's keys under other names as a fallback.
+- **Your own domain** (later): which name, on Cloudflare with a Tunnel. Until then DuckDNS.
 - **Your Claude's own URL:** `[llm] base_url` in a user's config sends their own key wherever they point it. Their
   key, their choice, but it is also a request from the server; H2 may limit it to Anthropic's API.
 - **Whether your own Panko moves** to the server (H3) or stays on your Mac.

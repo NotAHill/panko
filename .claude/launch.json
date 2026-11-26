@@ -4,5 +4,6 @@
   {"name": "review", "runtimeExecutable": "python3", "runtimeArgs": ["-m", "http.server", "8767", "-d", "cache/review"], "port": 8767},
   {"name": "hub", "runtimeExecutable": "uv", "runtimeArgs": ["run", "panko", "hub", "--no-open", "--port", "8770"], "port": 8770, "env": {"PANKO_HUB_TOKEN": "dev-preview"}},
   {"name": "hub-fresh", "runtimeExecutable": "uv", "runtimeArgs": ["run", "panko", "hub", "--no-open", "--port", "8780"], "port": 8780, "env": {"PANKO_HUB_TOKEN": "dev-preview", "PANKO_HOME": "/Volumes/external_ssd/scratch/panko-fresh-1"}},
-  {"name": "hub-hosted", "runtimeExecutable": "uv", "runtimeArgs": ["run", "panko", "hub", "--no-open", "--port", "8790"], "port": 8790, "env": {"PANKO_HUB_TOKEN": "dev-preview", "PANKO_HOSTED": "1", "PANKO_QUOTA_GB": "2", "PANKO_HOME": "/Volumes/external_ssd/scratch/panko-hosted-1"}}
+  {"name": "hub-hosted", "runtimeExecutable": "uv", "runtimeArgs": ["run", "panko", "hub", "--no-open", "--port", "8790"], "port": 8790, "env": {"PANKO_HUB_TOKEN": "dev-preview", "PANKO_HOSTED": "1", "PANKO_QUOTA_GB": "2", "PANKO_HOME": "/Volumes/external_ssd/scratch/panko-hosted-1"}},
+  {"name": "host", "runtimeExecutable": "uv", "runtimeArgs": ["run", "panko", "host", "serve", "--port", "8800", "--url", "http://localhost:8800"], "port": 8800, "env": {"PANKO_HOST_DATA": "/Volumes/external_ssd/scratch/panko-host", "PANKO_QUOTA_GB": "2"}}
 ]}

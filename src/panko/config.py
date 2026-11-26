@@ -190,8 +190,10 @@ def dump_toml(data: dict, prefix: str = "") -> str:
 
 
 def secret(name: str) -> str | None:
+    """A key from the environment or .env. On the server, the front door may give every Panko a shared key as
+    PANKO_DEFAULT_<NAME> (the free photo sites): the user's own key wins when they've added one."""
     settings()  # ensures .env is loaded
-    return os.environ.get(name) or None
+    return os.environ.get(name) or os.environ.get(f"PANKO_DEFAULT_{name}") or None
 
 
 ANKI_DEFAULTS = {

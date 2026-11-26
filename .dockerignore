@@ -1,0 +1,18 @@
+# The image holds Panko's code only: never a learner's data, config, keys or caches.
+.git
+.env
+.env.*
+!.env.example
+.venv
+data/
+cache/
+config/
+recordings/
+deploy/.env
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.ruff_cache
+dist
+*.apkg
+*.panko.zip

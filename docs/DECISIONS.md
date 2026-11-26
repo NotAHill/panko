@@ -2,6 +2,20 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-26 · The front door keeps sessions on the server and asks nothing of the browser.** Sessions are
+random tokens stored hashed in `host.db`, not signed cookies, so disabling someone or changing a password ends their
+sessions at once. Changes are guarded by SameSite=Lax plus an Origin check on every POST, so the front door's pages
+need no script and no CSRF tokens; the hub's own `X-Panko` header still guards its changes behind the proxy. A
+deleted account's folder is moved aside, not erased, until `panko host purge`, so a mistaken delete can be undone.
+Each user's Panko gets a small environment of its own, never the front door's.
+
+**2026-11-26 · The hosted Panko starts on Oracle Cloud Always Free with a DuckDNS name.** It costs nothing:
+Oracle's free Arm machine (2 cores, 12 GB) is the only free server big enough for Panko and CAMeL Tools (Google's
+free machine has 1 GB; Fly.io has no free tier for new accounts), and DuckDNS gives a stable name that points at
+it, with HTTPS from Let's Encrypt through Caddy. Platform names like `github.io` or `vercel.app` only point at
+those platforms, and a proxy through Vercel would cap uploads and long jobs and see every password. Your own domain
+on Cloudflare with a Tunnel (about $10 a year, no open ports) comes later; moving changes the address once.
+
 **2026-11-26 · On the server, limits come from the environment, and nothing a user writes reaches outside their
 folder.** A user can edit their own config and keys, so the quota, the upload limit, the front door's secret and the
 CAMeL Tools interpreter come from the environment the front door starts their Panko with, never from their config.

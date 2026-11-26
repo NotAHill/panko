@@ -384,7 +384,7 @@ function paintStatus() {
   put($('#status'), html`<span>${m.config ? m.language || 'set up' : 'not set up yet'}</span><span class="path">${m.hosted ? '' : tilde(m.root)}</span>
     ${run ? html`<a class="job" href="#/jobs/${run.id}"><span class="spin">✻</span> ${run.title}… ${dur(run.started)}${q ? `, ${q} queued` : ''}</a>` : ''}
     <span class="grow"></span>${modeBadge()}${S.spend != null ? html`<a href="#/usage" class="dim">${usd(S.spend)} this month</a>` : ''}<span class="kbd-hint"><kbd>?</kbd> keys</span>`);
-  put($('#top-meta'), m.config ? learning(m) : html`<a href="#/setup">set up</a>`);
+  put($('#top-meta'), html`${m.config ? learning(m) : html`<a href="#/setup">set up</a>`}${m.hosted ? html` · <a href="/host/account" title="your account: password, download your data, sign out">account</a>` : ''}`);
 }
 
 async function refreshCounts() {
@@ -1083,8 +1083,8 @@ VIEWS.sources = async (el, r) => {
       ${earlier.map(k => html`<tr class="row" data-href="#/cards?status=all&source=${encodeURIComponent(k.id)}"><td>${k.title}<div class="faint">${k.id}${k.date ? ', ' + k.date : ''}</div></td>
         <td class="dim">${k.kind}</td><td class="r num dim">${k.trust}</td><td class="r num">${n(k.entries)}</td></tr>`)}</tbody></table>
       <p class="faint mt-s">Trust decides which source wins when two disagree: your teacher high, shared decks low. Open one to see its cards.</p></section>` : ''}
-    <section class="box"><div class="t">reading in chat <span class="dim">no API spend</span></div><p class="muted-p">Your own Claude can read the units instead of the API:
-      connect Panko once (<a href="#/setup">setup → chat mode</a>), then ask Claude to work through a source with Panko. What it submits shows up here, ready to ingest.</p></section>`);
+    ${S.meta.hosted ? '' : html`<section class="box"><div class="t">reading in chat <span class="dim">no API spend</span></div><p class="muted-p">Your own Claude can read the units instead of the API:
+      connect Panko once (<a href="#/setup">setup → chat mode</a>), then ask Claude to work through a source with Panko. What it submits shows up here, ready to ingest.</p></section>`}`);
   actions(el, { add: () => addForm() });
   if (r.q.add) addForm();
 };
@@ -1667,7 +1667,7 @@ VIEWS.setup = async (el, r) => {
       <div class="acts mt"><button data-a="refs" ${d.references.some(x => !x.present && x.url) ? '' : 'disabled'}>download the open ones that are missing</button></div></section>
     <section class="box" id="keys"><div class="t">keys <span class="dim">yours, kept in ${hosted ? 'your Panko' : html`<code>.env</code>`}; never shown again once saved</span></div>
       <table class="t keys"><tbody>${K.keys.map((k, i) => html`${k.note && k.note !== K.keys[i - 1]?.note ? html`<tr class="grp"><td colspan="3">${k.note}</td></tr>` : ''}<tr><td class="nw"><code>${k.name}</code></td>
-        <td class="nw">${k.set ? html`<span class="ok">set</span>` : html`<span class="faint">not set</span>`}</td>
+        <td class="nw">${k.set ? html`<span class="ok">set</span>` : k.server ? html`<span class="dim" title="the server's shared key is used until you add your own">the server's</span>` : html`<span class="faint">not set</span>`}</td>
         <td><form class="key-f" data-key="${k.name}" autocomplete="off"><input type="password" name="v" placeholder="${k.set ? 'replace it' : 'paste it'}" aria-label="${k.name}" autocomplete="off" spellcheck="false">
           <button>save</button>${k.set ? html`<button type="button" data-a="clear-key" data-key="${k.name}">remove</button>` : ''}</form></td></tr>`)}</tbody></table>
       ${K.disk ? html`<p class="muted-p mt">Disk: ${n(Math.round(K.disk.used / 1e6))} MB of ${K.disk.quota_gb} GB used. One upload can be up to ${n(K.disk.upload_mb)} MB.</p>` : ''}</section>

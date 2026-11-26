@@ -162,7 +162,8 @@ def keys() -> list[dict]:
             continue
         m = KEY_NAME.match(line)
         if m and not (hosted() and m[1] in LOCAL_ONLY_KEYS):
-            out.append({"name": m[1], "note": note, "set": bool(os.environ.get(m[1]))})
+            out.append({"name": m[1], "note": note, "set": bool(os.environ.get(m[1])),
+                        "server": bool(os.environ.get(f"PANKO_DEFAULT_{m[1]}"))})
         elif not line.strip():
             note = ""
     return out
