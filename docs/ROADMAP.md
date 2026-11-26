@@ -91,8 +91,13 @@ Update the **Now** section at the end of every work session: it's what a fresh s
   Retired is now two tabs, duplicates and rejected; rejected words no longer come back to the inbox. Cards can be
   shared as an .apkg (`panko export`, or "share as a file" on the sync page). Gloss clashes are settled card by
   card in the hub, with the model as an optional suggester.
-- **Next:** your feedback on the hub, then S10 step 2 (a shareable deck library), then step 3 (a private hosted
-  service).
+- **S10 step 2 planned (2026-11-26): the deck library.** Spec: `docs/SPEC-library.md`. Each deck is a Panko pack
+  plus an .apkg built from it. The library is a separate public GitHub repo, with an index and the files on
+  releases. Only you publish for now. Learners use a library page in the hub or `panko library`. Importing a pack
+  is ingest, so duplicates, holds and rejected words work as for any source. The first deck is the Peace Corps words
+  (public domain).
+- **Next:** L1 of the library (the pack format, `panko pack build`, `panko library import`, round-trip tests), then
+  L2–L4 as the spec lays out, then step 3 (a private hosted service).
 - The learner's own state (deck sizes, what's waiting on whom, plans) is in `data/STATUS.md` (git-ignored).
 
 ## Phases
@@ -124,7 +129,7 @@ sentences, clashes, picture decisions) are briefs in `data/` (git-ignored) run b
 
 | S8 ✅ | **The steps still done by agents** (built 2026-11-23) | Picture choice from the contact sheets as a command (`pictures-pick` prompt, API) and as chat tools; example sentences (`examples` prompt) and gloss clashes as commands; an audio tool and a packaged skill file for chat mode. Then the Peace Corps pictures run on the chat-mode picture step. |
 | S9 ✅ | **Any language** (built 2026-11-25) | Nothing Arabic-specific left in code or prompts: script detection, romanisation rules, references and voices come from config; a worked setup for a second language. Built as `panko.lang` + language presets (Moroccan Darija, Spanish); Arabic rules kept in one module; Spanish tested end to end. Not yet: a real Spanish source run with the model, presets for more languages, a morphological analyser for a second language. |
-| S10 | **Panko hub** (step 1 built 2026-11-26) | A web dashboard or app: search pre-built language decks, or configure your own (language, varieties, sources, card types) and have Panko build it; the same pipeline behind it. Three steps (your call, 2026-11-26): (1) a local dashboard, `panko hub`, built; (2) a shareable deck library; (3) a hosted web service, private at first. |
+| S10 | **Panko hub** (step 1 built 2026-11-26; step 2 planned, `docs/SPEC-library.md`) | A web dashboard or app: search pre-built language decks, or configure your own (language, varieties, sources, card types) and have Panko build it; the same pipeline behind it. Three steps (your call, 2026-11-26): (1) a local dashboard, `panko hub`, built; (2) a shareable deck library; (3) a hosted web service, private at first. |
 
 Order (your call, 2026-11-23; product first from 2026-11-25): Phase 4 (lessons and recordings, built), Phase 5
 (verification, built), S9 (any language, built), S10. Card migration (Peace Corps pictures and sync, the Fusha round of Phase 6) waits until

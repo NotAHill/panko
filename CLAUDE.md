@@ -8,7 +8,7 @@ Arabic. Single user. They review on Anki desktop, AnkiMobile and AnkiWeb.
 1. `docs/ROADMAP.md`: **Now** section = current state and next step. `data/STATUS.md` (git-ignored) = the learner's own state: decks, counts, what's waiting.
 2. `docs/DECISIONS.md`: why things are the way they are.
 3. `docs/ARCHITECTURE.md`: Mermaid diagrams + code map. Keep the diagrams in sync with the code; the user edits the stack by pointing at boxes.
-4. `docs/SPEC-note-types.md`: fields, card types, display rules. `docs/RESEARCH.md`: background research.
+4. `docs/SPEC-note-types.md`: fields, card types, display rules. `docs/SPEC-library.md`: the deck library (S10 step 2). `docs/RESEARCH.md`: background research.
 
 ## Run
 - `uv sync --all-extras`, `uv run pytest -q`, `uv run ruff check .`
@@ -35,6 +35,7 @@ Arabic. Single user. They review on Anki desktop, AnkiMobile and AnkiWeb.
 - **Never cause a full sync casually.** Adding/removing/reordering fields or card templates, deleting a note type, or Change Note Type forces one. Template and CSS edits don't. Field lists in `note_types.py` are frozen (a test guards them).
 - Never touch decks outside `Panko Sandbox` without the user's explicit OK. Their review history matters.
 - Never write the `MyNotes` field. User edits win over Panko's.
+- **In a Claude session, you are the model: use chat mode.** Reading sources, checks, picture picks, examples and gloss clashes go through the Panko MCP tools (`.mcp.json` registers `panko mcp` for this folder; `panko_prompt` gives each step's instructions), with subagents for big batches. The API-mode commands (`work run`, `pictures decide`, `examples`, `clashes`, `work transcribe`, `draw`) spend the user's API credits: run one only when the user asks for API mode, and only after showing its `--estimate` and getting a yes for that run. "Do the pictures" is not a yes to spend.
 - Don't run Anki's Check Media → delete unused.
 
 ## Card style (user feedback, 2026-11-22)

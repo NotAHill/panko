@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "panko": {
+      "command": "uv",
+      "args": ["run", "--extra", "mcp", "panko", "mcp"]
+    }
+  }
+}

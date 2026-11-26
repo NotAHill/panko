@@ -2,6 +2,14 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-26 · The deck library: Panko packs and an .apkg, on GitHub, published by you.** A shared deck is a Panko
+pack (entries, pictures, audio, credits) with an .apkg built from it. Anki-only learners take the .apkg; Panko
+learners import the pack and keep building their own deck on top. Importing a pack is ingest, so a deck someone
+already partly has merges instead of doubling. Files are on GitHub releases (too big for git), listed in an index
+in a separate repo that the hosted service can read later. Only you publish until the format settles. Publishing
+drops photos with no known licence, examples from private lessons, doubtful words and native clips. Uploading
+stays a manual step. Spec: `docs/SPEC-library.md`.
+
 **2026-11-26 · You settle gloss clashes card by card; the model only suggests.** Each card in a clash group has a
 choice in the hub (keep, a sharper gloss, recognition only, or the same word as another card in the group), saved
 as you make it and marked as yours, so the model never overwrites it and groups you chose for aren't sent to it. A

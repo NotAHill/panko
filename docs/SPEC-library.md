@@ -1,0 +1,87 @@
+# The deck library (S10 step 2)
+
+**Goal:** a learner can take a ready-made, checked deck instead of building one from sources. Someone with only
+Anki imports an `.apkg`. Someone with Panko imports the deck into their own store. From there they keep building:
+their own sources, card design and voices, with duplicates against what they already have handled like any other
+source.
+
+Settled (your call, 2026-11-26):
+- A deck ships as a **Panko pack** plus an **.apkg** built from it.
+- The library is a **separate public GitHub repo**: an `index.json` lists the decks, and the files are attached to
+  releases, because they run to hundreds of MB.
+- **Only you publish**, for now.
+- Learners get decks from a **library page in the hub** and from `panko library`.
+
+## The pack
+
+`<deck>-v<N>.panko.zip`, one file:
+
+| Path | What |
+|---|---|
+| `pack.json` | `format` (1), `id` (slug, e.g. `darija-peace-corps`), `version`, `title`, `description`, `language`, `varieties`, `panko` (version that built it), `counts` (words, phrases, pictures, audio), `licence` (for the card text), `credits` summary, `created` |
+| `entries.jsonl` | One shared entry per line: the store entry as `apkg._shared` leaves it, without sources, review flags or personal tags. MyNotes is never included. `origin` = `{pack, id}` |
+| `media/` | The pictures and the audio already made. Never native lesson clips. |
+| `credits.json` | Per media file: provider, author, licence, page (what `pictures.apply` already records) and, for audio, the voice provider |
+
+The `.apkg` is built from the pack, not from the store, so both always hold the same cards. Note guids come from
+`pack id + origin id`, so a newer `.apkg` updates the notes from the old one instead of adding copies (as
+`panko export` already does with the Panko id).
+
+A **no-audio** variant of both files is optional, for size: Panko users can make the audio again with their own
+voices.
+
+## Publishing (`panko publish`)
+
+`panko publish ID --title T [--variety V] [--tag T] [--status active] [--no-audio] [--estimate]` builds the pack and
+the `.apkg` into `[export] dir`, plus an `index.json` entry: id, version, title, language, varieties, counts, sizes,
+sha256 and a few sample entries. It also writes a report of what it left out. Before building it checks:
+
+- **Pictures:** a photo whose licence is unknown is left out. NC, ND and SA licences are allowed (the library is
+  free) and are listed in `credits.json`. Generated drawings are fine.
+- **Private content:** examples whose source is a private lesson or a teacher sheet are left out; sources only
+  ever go in when marked public (e.g. `public = true` on the Peace Corps source). A word itself is fine.
+- **Doubtful:** entries tagged `panko::doubtful`, or still in the inbox, are left out.
+- **Version:** the version goes up from the last one in the index. Entries keep their origin id across versions.
+
+Uploading stays a manual step (`gh release create …` and a pull request to the index), printed at the end.
+Panko never publishes on its own.
+
+## Getting a deck
+
+- `panko library list` reads the index from `[library] index` (default: the library repo's raw `index.json`).
+- `panko library get ID [--activate]` downloads the pack into `[library] dir` (checking sha256 and free space first;
+  default `cache/library`), then imports it.
+- `panko library import FILE` imports a pack from a file.
+- **Hub:** a library page lists the decks (title, language, varieties, counts, size, licences, sample entries),
+  with a download for the `.apkg` and an import button for the pack. The import runs as a job.
+
+**Importing is ingest.** A pack is a source of kind `pack`. Each entry goes through the same duplicate checks as
+any unit:
+- A word you already have gets a sighting and the pack's examples.
+- A near-duplicate is held for you to decide.
+- A word you rejected stays rejected.
+- New entries get your own ids and land in the inbox, or go straight to active with `--activate`.
+
+Media is copied into `data/media` under its own file name.
+
+**Updates.** Importing v2 over v1 matches entries by `origin`. A field the pack changed is updated unless you
+edited it since the last import: Panko keeps a hash of what each pack gave, and your edits win, as with MyNotes. An
+entry the pack dropped is not removed; it is listed for you.
+
+## Build order
+
+| Step | What "done" means |
+|---|---|
+| L1 | Pack format, `panko pack build` and `panko library import FILE`. Round trip tested: a pack from one store into an empty store, then into a store with overlaps (sightings, holds, rejected stays rejected). |
+| L2 | `panko publish`: the checks above, the `.apkg` from the pack, the index entry and the report. |
+| L3 | Library repo with `index.json`; `panko library list|get`; the hub's library page. |
+| L4 | Updates: v2 over v1, your edits kept, dropped entries listed. |
+
+**First deck:** the Peace Corps *Moroccan Arabic* words (the source is public domain, and nothing in it comes from
+a teacher), once its pictures are done.
+
+## Open
+- **Audio terms:** whether the voice provider's terms allow sharing the audio it made in a free public deck, on the
+  plan that made it. Check before the first deck with audio; if not, publish the no-audio variant.
+- **Licence for the card text:** CC BY-SA 4.0 is suggested. Photos keep their own licences.
+- **Repo name:** e.g. `panko-decks`.
