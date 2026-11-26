@@ -55,7 +55,7 @@ def examples(exs: list[Example]) -> str:
 def related(items: list[Related]) -> str:
     rows = "".join(
         f'<tr><td class="tgt" dir="auto">{escape(r.ar)}</td>'
-        f'<td>{escape(r.tl) + " · " if r.tl else ""}{escape(r.meaning)}</td></tr>'
+        f'<td class="rel-tl">{escape(r.tl)}</td><td>{escape(r.meaning)}</td></tr>'
         for r in items
     )
     return f'<table class="rel">{rows}</table>' if rows else ""
@@ -63,16 +63,16 @@ def related(items: list[Related]) -> str:
 
 def grammar(pos: str = "", gender: str = "", plural: str = "", root: str = "", form: str = "",
             present: str = "", imperative: str = "", masdar: str = "") -> str:
-    """One or two short lines, e.g. 'noun, masculine' / 'verb, form II · root م ث ل'."""
+    """One or two short lines, e.g. 'noun, masculine' / 'verb, form II, root م ث ل'."""
     first = ", ".join(x for x in [pos, gender, f"form {form}" if form else ""] if x)
     bits = [escape(first)] if first else []
     if plural:
         bits.append(f'plural <span class="tgt" dir="auto">{escape(plural)}</span>')
     if root:
         bits.append(f'root <span class="tgt" dir="auto">{escape(root)}</span>')
-    line1 = " · ".join(bits)
+    line1 = ", ".join(bits)
     conj = [(lbl, v) for lbl, v in [("present", present), ("imperative", imperative), ("masdar", masdar)] if v]
-    line2 = " · ".join(f'{lbl} <span class="tgt" dir="auto">{escape(v)}</span>' for lbl, v in conj)
+    line2 = ", ".join(f'{lbl} <span class="tgt" dir="auto">{escape(v)}</span>' for lbl, v in conj)
     return "".join(f"<div>{x}</div>" for x in [line1, line2] if x)
 
 

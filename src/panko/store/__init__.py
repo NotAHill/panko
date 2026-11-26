@@ -21,6 +21,11 @@ from panko.store.normalize import strip_article as key
 
 DB_PATH = ROOT / "data" / "panko.db"
 
+# What a person (or their chat assistant) may change on an entry; ids, status and checks stay Panko's.
+EDITABLE = {"ar", "tl", "tl_alt", "gloss", "gloss_note", "pos", "gender", "plural", "present", "imperative", "literal",
+            "usage", "notes", "related", "examples", "tags", "region", "cards", "extra",
+            "picture_pref", "picture_request"}
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS entries (
   id TEXT PRIMARY KEY,
@@ -120,9 +125,25 @@ class Store:
             args.append(variety)
         return [self._row(r) for r in self.db.execute(q + " ORDER BY id", args)]
 
-    def set_status(self, eid: str, status: str):
+    def set_status(self, eid: str, status: str, why: str = ""):
+        """`why` says why a card was retired ("rejected in the inbox", "dropped: …"); it goes when the card comes back."""
         self.db.execute("UPDATE entries SET status=?, updated=? WHERE id=?", (status, now(), eid))
+        if why or status != "retired":
+            e = self.get(eid)
+            if e and (why or "retired_why" in e):
+                data = {k: v for k, v in e.items() if k not in ("id", "kind", "variety", "ar", "status", "created", "updated")}
+                if why:
+                    data["retired_why"] = why
+                else:
+                    data.pop("retired_why", None)
+                self.db.execute("UPDATE entries SET data=? WHERE id=?", (json.dumps(data, ensure_ascii=False), eid))
         self.db.commit()
+
+    def duplicates_of(self, eid: str) -> list[dict]:
+        """Retired entries merged into this one (their `merged_into` reads "same as <id> …")."""
+        rows = self.db.execute("SELECT id FROM entries WHERE status = 'retired' AND "
+                               "json_extract(data, '$.merged_into') LIKE ?", (f"same as {eid} %",)).fetchall()
+        return [self.get(r[0]) for r in rows]
 
     def next_id(self, kind: str, variety: str) -> str:
         prefix = f"{variety[0]}{kind[0]}-"  # dw- darija word, dp- darija phrase, fw- fusha word
@@ -153,7 +174,7 @@ class Store:
 
     def sightings(self, entry_id: str) -> list[dict]:
         return [dict(r) for r in self.db.execute(
-            "SELECT s.*, src.title, src.trust FROM sightings s JOIN sources src ON src.id = s.source_id "
+            "SELECT s.*, src.title, src.trust, src.kind AS source_kind FROM sightings s JOIN sources src ON src.id = s.source_id "
             "WHERE entry_id=? ORDER BY src.trust DESC", (entry_id,))]
 
     # ---- anki links

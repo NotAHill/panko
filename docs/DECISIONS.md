@@ -2,6 +2,108 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-26 · You settle gloss clashes card by card; the model only suggests.** Each card in a clash group has a
+choice in the hub (keep, a sharper gloss, recognition only, or the same word as another card in the group), saved
+as you make it and marked as yours, so the model never overwrites it and groups you chose for aren't sent to it. A
+group you call fine stays out until a new card joins it. "The same word as" makes an inbox card a duplicate of the
+kept one (not a rejection), and the model's own drops name the card they copy so they do the same.
+
+**2026-11-26 · Cards can be shared as an .apkg, built apart from your Anki.** `panko export` and the sync page's
+"share as a file" build the package in a scratch collection with Anki's own library (the `apkg` extra), so the real
+collection and its history are never opened. It holds active cards, the pictures and the audio already made (nothing
+is paid for), and no scheduling. Where each word came from and clips cut from lessons stay out unless asked for,
+because source names can name a teacher; photo credits stay because the licences need them. Note guids come from the
+Panko id and the note type ids are fixed, so a friend who imports a newer package gets updates, not copies. Packages
+run to hundreds of MB, so the hub writes them to `[export] dir` and checks free space first.
+
+**2026-11-26 · Set-aside cards without a reason were duplicates.** Chat agents set them aside as spelling or
+wording variants in the 22-23 November merges without recording which card each copied; the hub had called them
+rejected. Each now points at its closest card (`merged_into`), with other close cards in `merged_also` for those
+that had more than one.
+
+**2026-11-26 · Set-aside cards are duplicates or rejected, and a rejected word stays rejected.** The store keeps one
+status, `retired` (never sent to Anki, never deleted), but the hub shows two tabs: duplicates (folded into the card you
+keep; their sources show on it) and rejected (words you said no to; back to the inbox undoes it). Reading a source used
+to ignore retired cards, so a rejected word came back to the inbox when a later lesson had it. Now a rejected word seen
+again gets the sighting and stays rejected (the ingest report counts them), and a duplicate's sighting goes to the card
+that was kept.
+
+**2026-11-26 · A retired card keeps why it was retired.** Rejecting from the inbox, in chat or on the command line,
+and dropping a card for a gloss clash, now store a reason with the card (`retired_why`); it goes when the card comes
+back. Duplicates keep `merged_into` ("same as <id> …"), and the hub links both ways: the copy points at the card that
+was kept, and the kept card lists its copies. Retired cards rejected before this have no reason, and the hub says so.
+
+**2026-11-26 · Voices are picked per variety.** `[audio.elevenlabs] library` holds the default filter and one
+sub-table per variety (`fusha = {accent = "modern standard"}`), so the Fusha list shows Fusha voices. "Yours" lists the
+voices in your account that suit the variety, Panko's own first; the library is one click away.
+
+**2026-11-26 · "No picture" is a choice, and the picture queue respects it.** Prayers, grammar words and the like are
+often better without a picture. A card set to no picture leaves the waiting list and the no-picture counts; the hub
+can set it per card or for every card with a tag, and undo it.
+
+**2026-11-26 · The hub works for someone who has never used Panko.** Tested against an empty Panko folder: pages that
+need a language say "set up Panko first" instead of failing, the setup form chooses no language for you and requires
+one, the overview of an empty folder is a "start here" list, a source page says what reading it needs (an API key, or
+chat mode for free), and adding a second source with the same title gets its own id instead of replacing the first.
+One Panko folder holds one language; a second language gets its own folder (`PANKO_HOME`).
+
+**2026-11-26 · Choices made in the hub live in `config/hub.toml`, laid over `config/panko.toml`.** Card design, picture
+sources and voices can be changed from the hub. Writing them into `panko.toml` would lose your comments (Python can
+read TOML but not edit it in place), so the hub writes a small file of its own that `settings()` merges on top.
+Deleting a section of it undoes that choice; `panko.toml` is never written by the hub.
+
+**2026-11-26 · Card design is templates and styles only, so it never forces a full sync.** In the hub you choose
+what the back of a card shows and in what order, what the fronts carry, sizes, a font, your own CSS, and which card
+types new words get. Up to four sections of your own (a mnemonic, a culture note…) use the spare fields every Panko
+note already has, and what each card says in them is the entry's `extra`, edited per card. The field lists and the
+card templates' names never change, so the next sync updates templates and CSS in place. The default design
+reproduces the built-in cards exactly (a test checks), and a test checks that no design can use a field that
+doesn't exist. The answer (the word and its meaning) always shows.
+
+**2026-11-26 · Picture choices: the chain from the hub, and a wish per card.** The `[images]` chain (which photo
+sources, in which order) and whether drawings are allowed are switches in the hub's card design page. A single card
+can ask for a real photo, a drawing or no picture, and say what it should show; the wish travels to the planning
+model with the card, and "no picture" keeps it out of the search. Drawings stay off unless `generate` is in the
+chain, so turning them off really stops the paid step.
+
+**2026-11-26 · Voices are chosen by listening.** The hub's voice page browses the ElevenLabs shared library,
+filtered by your language and accent from config (or any accent), by man or woman, with each voice's sample. Up to
+four voices per variety, in order: every word is read by each. Choosing a library voice adds it to your ElevenLabs
+account (they need a paid plan to speak), then saves the names and ids. The confirm dialog says that the next sync
+makes new audio for every card of that variety, which costs money and which the sync plan prices first.
+
+**2026-11-26 · The logo is a slice of toast, not an Anki card.** The first mark used Anki's card frame and gloss.
+Copying them risked trademark confusion for a public tool that works with Anki, so the logo is Panko's own: a
+green tile, a toast slice with a piece broken off, and crumbs. The hub's header uses the small version (the
+favicon) and its overview the full one.
+
+**2026-11-26 · The hub's colours come from the logo: blue to lead, green and crust to mean something.** You asked
+for less purple, more grain, no pointer glow and "blue-ish, using colour theory". Blue leads (links, focus, the
+primary button): it sits next to the logo's green on the colour wheel, so the two read as one family. Green means
+done or in Anki. Crust orange, the complement of blue, means warning or money, so it stands out exactly where
+attention is needed. Purple is left as a trace in the background light. The grain is stronger and sits behind the
+text, blur is kept for the frame (top bar, sidebar, status line, dialogs) and not every panel, and the light no
+longer follows the pointer. Copy avoids the "·" separator and lists of three where a plainer sentence works.
+
+**2026-11-26 · The hub is local first, a terminal in glass, and a thin layer over the same modules.** You chose all
+three hub steps, in order: a local dashboard made very good, then a shareable deck library, then a private hosted
+service. Step 1 is `panko hub`: Starlette and plain JavaScript with no build step, so it installs with Panko (the
+`hub` extra) and has no toolchain to rot. Its look is your call, in three rounds: Claude Code's terminal, then
+more app-like (cards, sidebar icons, stat tiles, pills, meters), then back to monospace throughout with a purple
+scheme over a slow, pulsing aurora with film grain (the aurora pulses faster while a job runs), then the colours
+from the logo (see the palette entry above). Kept throughout: the block-letter banner, a `/` command
+palette, and paid steps confirmed in a permission-prompt dialog. Motion stops for anyone who asks the system for
+reduced motion. Every route calls the modules the commands and chat tools use, so the three ways in can't
+drift. Long or paid steps are background jobs, run one at a time (one SQLite store, one budget) with their output as
+a log; a paid step always answers with an estimate first and runs only with `confirm` and a budget. Safety, since it
+can spend money and edit cards: it binds 127.0.0.1 only, checks the Host header (no DNS rebinding), needs the key from
+the printed link (it becomes an HttpOnly, SameSite=Strict cookie), and refuses changes without an `X-Panko` header a
+cross-site form can't send. Card previews render the real templates in a sandboxed iframe from `srcdoc`, with
+pictures and audio inline and a policy that loads nothing from anywhere, because shared decks will bring text nobody
+has read; everything else from an entry is escaped. The dev entry in `.claude/launch.json` uses a fixed key
+(`dev-preview`) so the browser pane can open it; that only gets a page on this computer, and changes still need the
+header.
+
 **2026-11-25 · Any language: the language lives in config and one module; Arabic is a set of rules, not an
 assumption.** Everything that depended on Arabic now asks `panko.lang`, which reads `[learner]`: `script` (a Unicode
 script name or a list; letters are classified by Unicode, so no per-script tables are needed to tell them apart)

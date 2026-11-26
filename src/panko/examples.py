@@ -15,9 +15,17 @@ CHUNK = 20
 
 
 def todo(store, status: str = "active", ids: list[str] | None = None, tag: str = "", want: int = 1) -> list[dict]:
-    """Entries with fewer than `want` examples (phrases are their own example and are skipped)."""
-    return [e for e in store.entries(status) if e["kind"] == "word" and len(e.get("examples", [])) < want
+    """Entries with fewer than `want` examples. A short phrase ("somehow", "on the way") gets one too; a phrase that
+    is already a whole sentence is its own example and is skipped."""
+    return [e for e in store.entries(status) if needs_example(e) and len(e.get("examples", [])) < want
             and (not ids or e["id"] in ids) and (not tag or tag in e.get("tags", []))]
+
+
+SHORT_PHRASE = 4          # words: a phrase this short is shown in a sentence of its own
+
+
+def needs_example(e: dict) -> bool:
+    return e["kind"] == "word" or len(e["ar"].split()) <= SHORT_PHRASE
 
 
 def candidates(e: dict, store, n: int = 5) -> list[dict]:
@@ -34,7 +42,7 @@ def candidates(e: dict, store, n: int = 5) -> list[dict]:
 
 
 def _asks(entries, store, want):
-    rows = [json.dumps({"id": e["id"], "ar": e["ar"], "tl": e.get("tl", ""), "pos": e.get("pos", ""),
+    rows = [json.dumps({"id": e["id"], "kind": e["kind"], "ar": e["ar"], "tl": e.get("tl", ""), "pos": e.get("pos", ""),
                         "gloss": e.get("gloss", ""), "examples": e.get("examples", []),
                         "candidates": candidates(e, store), "wanted": want - len(e.get("examples", []))},
                        ensure_ascii=False) for e in entries]

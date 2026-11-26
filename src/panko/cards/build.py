@@ -49,7 +49,7 @@ def _voice(entry, exs: list[R.Example], narrator: Narrator) -> tuple[str, str]:
     return "".join(f"[sound:{v.filename}]" for v in said), " + ".join(v.source for v in said)
 
 
-def to_note(entry: dict, narrator: Narrator | None = None) -> dict:
+def to_note(entry: dict, narrator: Narrator | None = None, design: dict | None = None) -> dict:
     narrator = narrator or Silent()
     exs = _examples(entry)
     audio, audio_src = _voice(entry, exs, narrator)
@@ -66,9 +66,15 @@ def to_note(entry: dict, narrator: Narrator | None = None) -> dict:
         "NotesHTML": entry.get("notes", ""), "SourcesHTML": R.sources(info), "PankoID": entry["id"],
         "PankoData": json.dumps({"schema": "0.3", "status": entry.get("status")}),
     }
-    for card in entry.get("cards", DEFAULT_CARDS):
+    from panko.cards import design as D
+    d = D.load() if design is None else D.normalise(design)
+    for card in entry.get("cards") or d["default_cards"]:
         if card in CARD_SWITCH:
             common[CARD_SWITCH[card]] = "y"
+    extra = entry.get("extra") or {}
+    for x in d["extras"]:                       # your own sections → Spare1–4
+        if str(extra.get(x["slot"], "")).strip():
+            common[D.spare(x["slot"])] = str(extra[x["slot"]])
     if entry["kind"] == "word":
         model, all_fields = T.WORD_MODEL, T.WORD_FIELDS
         f = {**common, "Word": entry["ar"], "WordBare": entry.get("ar_bare") or entry["ar"],

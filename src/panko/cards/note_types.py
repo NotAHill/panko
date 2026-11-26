@@ -66,6 +66,7 @@ html, body, #qa, .card { direction: ltr; }
 table.rel { border-collapse: collapse; font-size: 16px; }
 table.rel td { padding: 2px 14px 2px 0; vertical-align: baseline; }
 table.rel td.tgt { font-size: 21px; text-align: start; line-height: 1.6; }
+table.rel td.rel-tl { opacity: .65; }
 .notes { font-size: 16px; }
 .mine { padding: 8px 10px; border-radius: 6px; background: rgba(255,214,0,.1); }
 details.srcs { font-size: 13px; opacity: .55; }
@@ -74,10 +75,13 @@ details.srcs ul { margin: 6px 0 0; padding-left: 18px; }
 """
 
 
-def css() -> str:
-    """The card CSS with the target language's fonts and direction (per variety when their scripts differ)."""
+def css(design: dict | None = None) -> str:
+    """The card CSS with the target language's fonts and direction (per variety when their scripts differ), then the
+    card design's own rules (panko.cards.design; the configured one unless given)."""
     from panko import lang
-    return BASE_CSS.replace("/*SCRIPT*/", lang.card_css(), 1)
+    from panko.cards import design as D
+    extra = D.css(D.load() if design is None else D.normalise(design))
+    return BASE_CSS.replace("/*SCRIPT*/", lang.card_css(), 1) + (("\n" + extra + "\n") if extra else "")
 
 # Example audio: tapping .say plays its <audio> children one after another (one per voice). Anki's own [sound:] tags
 # autoplay, so only the headword uses those. Audio must be mp3: desktop Anki's
@@ -100,58 +104,49 @@ document.querySelectorAll('.say').forEach(function (b) {
 
 # ---------- Word ----------
 
-WORD_BACK_BLOCK = r"""
-{{#Image}}<div class="pic">{{Image}}</div>{{/Image}}
-<div class="tgt word" dir="auto">{{Word}}</div>
-{{#Audio}}<div>{{Audio}}</div>{{/Audio}}
-<div class="tl">{{Translit}}{{#TranslitAlt}}<span class="tl2">{{TranslitAlt}}</span>{{/TranslitAlt}}</div>
-<div class="gloss">{{Gloss}}</div>
-{{#GlossNote}}<div class="gnote">{{GlossNote}}</div>{{/GlossNote}}
-{{#MorphologyHTML}}<div class="gram">{{MorphologyHTML}}</div>{{/MorphologyHTML}}
-{{#ExamplesHTML}}<div class="block">{{ExamplesHTML}}</div>{{/ExamplesHTML}}
-{{#LinksHTML}}<div class="block"><div class="lbl">Related</div>{{LinksHTML}}</div>{{/LinksHTML}}
-{{#NotesHTML}}<div class="block notes">{{NotesHTML}}</div>{{/NotesHTML}}
-{{#MyNotes}}<div class="block mine">{{MyNotes}}</div>{{/MyNotes}}
-{{#SourcesHTML}}<div class="block"><details class="srcs"><summary>Sources</summary>{{SourcesHTML}}</details></div>{{/SourcesHTML}}
-""" + PLAY_JS
+def word_templates(design: dict | None = None) -> list[dict]:
+    """The word card templates for a design (the configured one unless given). Names and count never change."""
+    from panko.cards import design as D
+    d = D.load() if design is None else D.normalise(design)
+    block = D.back("word", d) + PLAY_JS
 
+    def back(top: str = "") -> str:
+        return top + block
+    audio = "{{#Audio}}<div>{{Audio}}</div>{{/Audio}}" if d["front_audio"] else ""
+    pic = '{{#Image}}<div class="pic">{{Image}}</div>{{/Image}}' if d["production_picture"] else ""
+    return _wrap([
+        {"Name": "1 Recognition",
+         "Front": '<div class="tgt word" dir="auto">{{WordPrompt}}</div>' + audio,
+         "Back": back()},
+        {"Name": "2 Production",
+         "Front": "{{#EnableProduction}}" + pic + '<div class="prompt">{{Gloss}}</div>{{/EnableProduction}}',
+         "Back": back()},
+        {"Name": "3 Listening",
+         "Front": '{{#EnableListening}}{{#Audio}}<div class="prompt">{{Audio}}</div>{{/Audio}}{{/EnableListening}}',
+         "Back": back()},
+        {"Name": "4 Picture",
+         "Front": '{{#EnablePicture}}{{#Image}}<div class="pic">{{Image}}</div>{{/Image}}{{/EnablePicture}}',
+         "Back": back()},
+        {"Name": "5 Plural",
+         "Front": '{{#EnablePlural}}{{#Plural}}<div class="tgt word" dir="auto">{{Word}}</div><div class="cue">plural</div>{{/Plural}}{{/EnablePlural}}',
+         "Back": back('<div class="tgt word ans" dir="auto">{{Plural}}</div>')},
+        {"Name": "6 Verb forms",
+         "Front": '{{#EnableVerbForms}}{{#Masdar}}<div class="tgt word" dir="auto">{{Word}}</div><div class="cue">present / masdar</div>{{/Masdar}}{{/EnableVerbForms}}',
+         "Back": back('<div class="tgt word ans" dir="auto">{{Present}} / {{Masdar}}</div>')},
+        {"Name": "7 Root",
+         "Front": '{{#EnableRoot}}{{#Root}}<div class="tgt word" dir="auto">{{Word}}</div><div class="cue">root</div>{{/Root}}{{/EnableRoot}}',
+         "Back": back('<div class="tgt word ans" dir="auto">{{Root}}</div>')},
+        {"Name": "8 Typed",
+         "Front": '{{#EnableTyped}}<div class="prompt">{{Gloss}}</div>{{type:WordBare}}{{/EnableTyped}}',
+         "Back": "{{#EnableTyped}}{{type:WordBare}}{{/EnableTyped}}" + block},
+        {"Name": "9 Spare 1",
+         "Front": "{{#EnableSpare1}}{{EnableSpare1}}{{/EnableSpare1}}",
+         "Back": back()},
+        {"Name": "10 Spare 2",
+         "Front": "{{#EnableSpare2}}{{EnableSpare2}}{{/EnableSpare2}}",
+         "Back": back()},
+    ])
 
-def _word_back(top: str = "") -> str:
-    return top + WORD_BACK_BLOCK
-
-
-WORD_TEMPLATES = [
-    {"Name": "1 Recognition",
-     "Front": '<div class="tgt word" dir="auto">{{WordPrompt}}</div>{{#Audio}}<div>{{Audio}}</div>{{/Audio}}',
-     "Back": _word_back()},
-    {"Name": "2 Production",
-     "Front": '{{#EnableProduction}}{{#Image}}<div class="pic">{{Image}}</div>{{/Image}}<div class="prompt">{{Gloss}}</div>{{/EnableProduction}}',
-     "Back": _word_back()},
-    {"Name": "3 Listening",
-     "Front": '{{#EnableListening}}{{#Audio}}<div class="prompt">{{Audio}}</div>{{/Audio}}{{/EnableListening}}',
-     "Back": _word_back()},
-    {"Name": "4 Picture",
-     "Front": '{{#EnablePicture}}{{#Image}}<div class="pic">{{Image}}</div>{{/Image}}{{/EnablePicture}}',
-     "Back": _word_back()},
-    {"Name": "5 Plural",
-     "Front": '{{#EnablePlural}}{{#Plural}}<div class="tgt word" dir="auto">{{Word}}</div><div class="cue">plural</div>{{/Plural}}{{/EnablePlural}}',
-     "Back": _word_back('<div class="tgt word ans" dir="auto">{{Plural}}</div>')},
-    {"Name": "6 Verb forms",
-     "Front": '{{#EnableVerbForms}}{{#Masdar}}<div class="tgt word" dir="auto">{{Word}}</div><div class="cue">present · masdar</div>{{/Masdar}}{{/EnableVerbForms}}',
-     "Back": _word_back('<div class="tgt word ans" dir="auto">{{Present}} · {{Masdar}}</div>')},
-    {"Name": "7 Root",
-     "Front": '{{#EnableRoot}}{{#Root}}<div class="tgt word" dir="auto">{{Word}}</div><div class="cue">root</div>{{/Root}}{{/EnableRoot}}',
-     "Back": _word_back('<div class="tgt word ans" dir="auto">{{Root}}</div>')},
-    {"Name": "8 Typed",
-     "Front": '{{#EnableTyped}}<div class="prompt">{{Gloss}}</div>{{type:WordBare}}{{/EnableTyped}}',
-     "Back": '{{#EnableTyped}}{{type:WordBare}}{{/EnableTyped}}' + WORD_BACK_BLOCK},
-    {"Name": "9 Spare 1",
-     "Front": '{{#EnableSpare1}}{{EnableSpare1}}{{/EnableSpare1}}',
-     "Back": _word_back()},
-    {"Name": "10 Spare 2",
-     "Front": '{{#EnableSpare2}}{{EnableSpare2}}{{/EnableSpare2}}',
-     "Back": _word_back()},
-]
 
 def _wrap(tmpls: list[dict]) -> list[dict]:
     """Backs are wrapped in the variety; fronts only mark their target-language text, inside the conditions that
@@ -161,48 +156,37 @@ def _wrap(tmpls: list[dict]) -> list[dict]:
              "Back": w % t["Back"]} for t in tmpls]
 
 
-WORD_TEMPLATES = _wrap(WORD_TEMPLATES)
-
 # ---------- Phrase ----------
 
-PHRASE_BACK_BLOCK = r"""
-{{#Image}}<div class="pic">{{Image}}</div>{{/Image}}
-<div class="tgt phrase" dir="auto">{{#PhraseFull}}{{PhraseFull}}{{/PhraseFull}}{{^PhraseFull}}{{Phrase}}{{/PhraseFull}}</div>
-{{#Audio}}<div>{{Audio}}</div>{{/Audio}}
-<div class="tl">{{Translit}}{{#TranslitAlt}}<span class="tl2">{{TranslitAlt}}</span>{{/TranslitAlt}}</div>
-<div class="gloss">{{Translation}}</div>
-{{#Literal}}<div class="gnote">literally “{{Literal}}”</div>{{/Literal}}
-{{#UsageHTML}}<div class="block notes">{{UsageHTML}}</div>{{/UsageHTML}}
-{{#KeyWordsHTML}}<div class="block"><div class="lbl">Words</div>{{KeyWordsHTML}}</div>{{/KeyWordsHTML}}
-{{#DialogueHTML}}<div class="block">{{DialogueHTML}}</div>{{/DialogueHTML}}
-{{#NotesHTML}}<div class="block notes">{{NotesHTML}}</div>{{/NotesHTML}}
-{{#MyNotes}}<div class="block mine">{{MyNotes}}</div>{{/MyNotes}}
-{{#SourcesHTML}}<div class="block"><details class="srcs"><summary>Sources</summary>{{SourcesHTML}}</details></div>{{/SourcesHTML}}
-""" + PLAY_JS
+def phrase_templates(design: dict | None = None) -> list[dict]:
+    """The phrase card templates for a design (the configured one unless given)."""
+    from panko.cards import design as D
+    d = D.load() if design is None else D.normalise(design)
+    block = D.back("phrase", d) + PLAY_JS
+    audio = "{{#Audio}}<div>{{Audio}}</div>{{/Audio}}" if d["front_audio"] else ""
+    pic = '{{#Image}}<div class="pic">{{Image}}</div>{{/Image}}' if d["production_picture"] else ""
+    return _wrap([
+        {"Name": "1 Recognition",
+         "Front": '<div class="tgt phrase" dir="auto">{{PhrasePrompt}}</div>' + audio,
+         "Back": block},
+        {"Name": "2 Production",
+         "Front": "{{#EnableProduction}}" + pic + '<div class="prompt">{{Translation}}</div>{{/EnableProduction}}',
+         "Back": block},
+        {"Name": "3 Listening",
+         "Front": '{{#EnableListening}}{{#Audio}}<div class="prompt">{{Audio}}</div>{{/Audio}}{{/EnableListening}}',
+         "Back": block},
+        {"Name": "4 Typed",
+         "Front": '{{#EnableTyped}}<div class="prompt">{{Translation}}</div>{{type:Phrase}}{{/EnableTyped}}',
+         "Back": "{{#EnableTyped}}{{type:Phrase}}{{/EnableTyped}}" + block},
+        {"Name": "5 Spare 1",
+         "Front": "{{#EnableSpare1}}{{EnableSpare1}}{{/EnableSpare1}}",
+         "Back": block},
+        {"Name": "6 Spare 2",
+         "Front": "{{#EnableSpare2}}{{EnableSpare2}}{{/EnableSpare2}}",
+         "Back": block},
+    ])
 
 
-def _phrase_back(top: str = "") -> str:
-    return top + PHRASE_BACK_BLOCK
-
-
-PHRASE_TEMPLATES = [
-    {"Name": "1 Recognition",
-     "Front": '<div class="tgt phrase" dir="auto">{{PhrasePrompt}}</div>{{#Audio}}<div>{{Audio}}</div>{{/Audio}}',
-     "Back": _phrase_back()},
-    {"Name": "2 Production",
-     "Front": '{{#EnableProduction}}{{#Image}}<div class="pic">{{Image}}</div>{{/Image}}<div class="prompt">{{Translation}}</div>{{/EnableProduction}}',
-     "Back": _phrase_back()},
-    {"Name": "3 Listening",
-     "Front": '{{#EnableListening}}{{#Audio}}<div class="prompt">{{Audio}}</div>{{/Audio}}{{/EnableListening}}',
-     "Back": _phrase_back()},
-    {"Name": "4 Typed",
-     "Front": '{{#EnableTyped}}<div class="prompt">{{Translation}}</div>{{type:Phrase}}{{/EnableTyped}}',
-     "Back": '{{#EnableTyped}}{{type:Phrase}}{{/EnableTyped}}' + PHRASE_BACK_BLOCK},
-    {"Name": "5 Spare 1",
-     "Front": '{{#EnableSpare1}}{{EnableSpare1}}{{/EnableSpare1}}',
-     "Back": _phrase_back()},
-    {"Name": "6 Spare 2",
-     "Front": '{{#EnableSpare2}}{{EnableSpare2}}{{/EnableSpare2}}',
-     "Back": _phrase_back()},
-]
-PHRASE_TEMPLATES = _wrap(PHRASE_TEMPLATES)
+# The built-in design, for code and tests that want a fixed reference.
+WORD_TEMPLATES = word_templates({})
+PHRASE_TEMPLATES = phrase_templates({})

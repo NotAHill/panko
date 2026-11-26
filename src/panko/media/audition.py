@@ -36,7 +36,7 @@ def tier() -> str:
 
 def library_voices() -> list[dict]:
     r = httpx.get(f"{B}/shared-voices", headers=_h(), timeout=30,
-                  params={"page_size": 100, **_cfg().get("library", {})})
+                  params={"page_size": 100, **{k: v for k, v in _cfg().get("library", {}).items() if not isinstance(v, dict)}})
     r.raise_for_status()
     return r.json()["voices"]
 

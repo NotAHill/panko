@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/logo.svg" width="160" alt="Panko logo: a slice of toast with a piece and crumbs breaking off"></p>
+
 # Panko
 
 Panko turns language-learning material into checked Anki cards. That material can be textbook pages, a teacher's
@@ -30,7 +32,7 @@ already have are recognised, so a second book only adds what's new.
 Install, then make a Panko folder. Your settings, store, pictures and audio live there, never in the code.
 
 ```bash
-uv tool install "panko[mcp] @ git+https://github.com/<you>/panko"   # or: uv sync --all-extras in a checkout
+uv tool install "panko[mcp,hub] @ git+https://github.com/<you>/panko"   # or: uv sync --all-extras in a checkout
 ```
 
 ```bash
@@ -150,9 +152,31 @@ panko sync --dry-run      # what would change in Anki, and the audio it would pa
 
 ```bash
 panko sync                # Anki open: renders and pushes, updating notes in place
+panko export darija.apkg  # a package to share (uv sync --extra apkg); no review history, nothing personal
 ```
 
 Cards go to the decks named in `[anki.decks]`. Panko never writes the card's own notes field: that's yours.
+
+### The hub: all of it in your browser
+```bash
+panko hub                 # installed with the hub extra above
+```
+
+A local dashboard in a terminal style: what needs doing, your sources (upload a PDF, page photos, a transcript, a
+recording, or name an Anki deck) and their units, the inbox with each card previewed as Anki will show it (front and
+back, every card of the note, pictures and audio), editing, the free tool checks, gloss clashes, pictures, what a
+sync would change, spend by day and task, and the log of every background step. Paid steps always show an estimate
+first and ask, with a budget, like a terminal permission prompt. Keyboard first: `/` for commands, `g` then a letter
+to jump, `j`/`k`, `a` activate, `r` reject, `space` (or a click on the card) flips it, `?` lists the rest.
+
+It is also where you make Panko yours. **Card design** sets what the back of a card shows and in what order, adds up
+to four sections of your own (a mnemonic, a culture note), and sets sizes and fonts, with a live preview; it reaches
+Anki on a normal sync. **Pictures** (on the same page) picks the photo sources and whether Panko may draw a picture
+when no photo fits; any card can ask for a photo, a drawing or none. **Voices** lets you listen to ElevenLabs voices
+for your language and accent and choose the ones that read your cards. These choices are saved in
+`config/hub.toml`, on top of `config/panko.toml`. "Show me around" in the sidebar walks through it all.
+
+It only answers on this computer (127.0.0.1), and only through the link it prints: the link carries a one-time key.
 
 ## Settings
 Everything personal is in `config/panko.toml`:

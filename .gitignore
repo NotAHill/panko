@@ -13,3 +13,6 @@ recordings/
 
 # personal data: Panko store and raw sources (lesson transcripts, PDFs, recordings)
 data/
+
+# choices made in the hub (card design, pictures, voices): personal, laid over config/panko.toml
+config/hub.toml

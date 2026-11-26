@@ -803,6 +803,14 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+apkg = [
+    { name = "anki" },
+]
+hub = [
+    { name = "python-multipart" },
+    { name = "starlette" },
+    { name = "uvicorn" },
+]
 mcp = [
     { name = "jsonschema" },
     { name = "mcp" },
@@ -820,6 +828,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "anki", marker = "extra == 'apkg'", specifier = "==26.9.4" },
     { name = "anki", marker = "extra == 'migrate'", specifier = "==26.9.4" },
     { name = "anthropic", specifier = ">=2.12.0" },
     { name = "httpx", specifier = ">=0.27" },
@@ -827,8 +836,11 @@ requires-dist = [
     { name = "mcp", marker = "extra == 'mcp'", specifier = ">=1.20" },
     { name = "pillow", specifier = ">=11" },
     { name = "python-dotenv", specifier = ">=1.0" },
+    { name = "python-multipart", marker = "extra == 'hub'", specifier = ">=0.0.18" },
+    { name = "starlette", marker = "extra == 'hub'", specifier = ">=0.40" },
+    { name = "uvicorn", marker = "extra == 'hub'", specifier = ">=0.30" },
 ]
-provides-extras = ["images", "migrate", "mcp"]
+provides-extras = ["images", "migrate", "apkg", "hub", "mcp"]
 
 [package.metadata.requires-dev]
 dev = [

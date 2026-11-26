@@ -4,7 +4,7 @@ Update the **Now** section at the end of every work session: it's what a fresh s
 (or one after context compaction) reads first. Personal details (names, collection numbers, paid plans) go in
 `data/STATUS.md` (git-ignored), not here: this repo is public.
 
-## Now (2026-11-25)
+## Now (2026-11-26)
 - **Built:** the Panko store (SQLite) with in-place sync to Anki; provider chains for audio (ElevenLabs), pictures
   (real photos from Wikidata, Commons, Openverse, Pexels and Pixabay first; generated drawings otherwise) and the
   language model (Claude by default); migration of studied old-deck notes with their history (`panko migrate`).
@@ -65,7 +65,34 @@ Update the **Now** section at the end of every work session: it's what a fresh s
   wording, references, speech-to-text language and voice audition from a preset; Spanish is tested end to end
   (source → submit without romanisation → ingest → Latin-script card). The card class rename means the next sync
   updates every note's HTML once (normal sync).
-- **Next:** S10, the Panko hub (your call on scope first).
+- **S10 step 1 built (2026-11-26): the local hub.** Your call on scope: all three (local dashboard first, made
+  very good; then a shareable deck library; then a private hosted service). `panko hub` serves a dashboard on
+  127.0.0.1: a terminal in glass (monospace, blue with the logo's green and crust, a slow aurora with grain, a
+  command palette on `/`, permission-prompt dialogs for paid steps): overview, sources (upload or path or Anki deck; units grid; read with the model;
+  ingest; held items to decide), the inbox and every card (search, flags, keyboard triage, bulk activate/reject,
+  editing, a preview of each card as Anki shows it, look-ups), tool checks and gloss clashes, pictures, the sync
+  plan and sync, spend, job logs, and setup (readiness, references, config, chat-mode snippet, a first-run wizard).
+  The same modules as the commands sit behind it; long or paid steps are background jobs with their own log; paid
+  ones always estimate first and run only when confirmed, with a budget. Tested with a scratch store and checked in
+  the browser on the real one (nothing paid, nothing synced).
+- **Hub round 2 built (2026-11-26).** Card design (section order and visibility, your own sections in the spare
+  fields, fronts, default card types, sizes, font, your CSS, with a live preview; templates and CSS only, so a normal
+  sync), picture choices (photo sources and order, drawings on or off, style and rules; per card: photo, drawing or
+  none, and what it should show), a voice picker (ElevenLabs library by language, accent and man or woman, with
+  samples, up to four per variety), a walkthrough of the interface, a tag filter, references looked up as soon as a
+  card opens, each source listed once per card, a click on the preview flips it. Choices go in `config/hub.toml`.
+  `panko examples` now covers short phrases too (most phrase cards have no example yet: run it with `--estimate`).
+  The card HTML lost its "·" separators, so the next sync updates every note in place once (normal sync).
+- **Hub round 3 (2026-11-26).** Voices as a list per variety; the sources page lists the sources from before the
+  queue (and filters cards by source); "no picture" per card or per tag; retired cards say why, with duplicates
+  linked both ways; a ? on each box says what it is for; the check box in plain words; the full logo in the header.
+  Tested as a first-time user against an empty folder (setup, empty overview, first source): fixed pages that failed
+  before setup, a slow page painting over the next one, setup defaults, and same-title sources replacing each other.
+  Retired is now two tabs, duplicates and rejected; rejected words no longer come back to the inbox. Cards can be
+  shared as an .apkg (`panko export`, or "share as a file" on the sync page). Gloss clashes are settled card by
+  card in the hub, with the model as an optional suggester.
+- **Next:** your feedback on the hub, then S10 step 2 (a shareable deck library), then step 3 (a private hosted
+  service).
 - The learner's own state (deck sizes, what's waiting on whom, plans) is in `data/STATUS.md` (git-ignored).
 
 ## Phases
@@ -97,7 +124,7 @@ sentences, clashes, picture decisions) are briefs in `data/` (git-ignored) run b
 
 | S8 ✅ | **The steps still done by agents** (built 2026-11-23) | Picture choice from the contact sheets as a command (`pictures-pick` prompt, API) and as chat tools; example sentences (`examples` prompt) and gloss clashes as commands; an audio tool and a packaged skill file for chat mode. Then the Peace Corps pictures run on the chat-mode picture step. |
 | S9 ✅ | **Any language** (built 2026-11-25) | Nothing Arabic-specific left in code or prompts: script detection, romanisation rules, references and voices come from config; a worked setup for a second language. Built as `panko.lang` + language presets (Moroccan Darija, Spanish); Arabic rules kept in one module; Spanish tested end to end. Not yet: a real Spanish source run with the model, presets for more languages, a morphological analyser for a second language. |
-| S10 | **Panko hub** (idea, 2026-11-23) | A web dashboard or app: search pre-built language decks, or configure your own (language, varieties, sources, card types) and have Panko build it; the same pipeline behind it. |
+| S10 | **Panko hub** (step 1 built 2026-11-26) | A web dashboard or app: search pre-built language decks, or configure your own (language, varieties, sources, card types) and have Panko build it; the same pipeline behind it. Three steps (your call, 2026-11-26): (1) a local dashboard, `panko hub`, built; (2) a shareable deck library; (3) a hosted web service, private at first. |
 
 Order (your call, 2026-11-23; product first from 2026-11-25): Phase 4 (lessons and recordings, built), Phase 5
 (verification, built), S9 (any language, built), S10. Card migration (Peace Corps pictures and sync, the Fusha round of Phase 6) waits until

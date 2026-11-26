@@ -30,6 +30,19 @@ ROOT = find_root()
 CACHE = ROOT / "cache"
 
 
+def choices_path() -> Path:
+    """Choices made in the hub (card design, pictures, voices). They override config/panko.toml, which keeps your
+    comments untouched; delete this file to go back to panko.toml alone."""
+    return ROOT / "config" / "hub.toml"
+
+
+def _merge(base: dict, over: dict) -> dict:
+    out = dict(base)
+    for k, v in over.items():
+        out[k] = _merge(out[k], v) if isinstance(v, dict) and isinstance(out.get(k), dict) else v
+    return out
+
+
 @cache
 def settings() -> dict:
     load_dotenv(ROOT / ".env")
@@ -38,7 +51,71 @@ def settings() -> dict:
         raise FileNotFoundError(f"no Panko config at {path}: run `panko init` in your Panko folder "
                                 "(or set PANKO_HOME to it)")
     with open(path, "rb") as f:
+        base = tomllib.load(f)
+    over = choices_path()
+    if over.exists():
+        with open(over, "rb") as f:
+            base = _merge(base, tomllib.load(f))
+    return base
+
+
+def choices() -> dict:
+    p = choices_path()
+    if not p.exists():
+        return {}
+    with open(p, "rb") as f:
         return tomllib.load(f)
+
+
+def save_choices(section: str, values: dict) -> Path:
+    """Replace one dotted section of config/hub.toml (e.g. "cards", "audio.elevenlabs") with `values`, merged into
+    what that section already holds there. None removes a key. Settings are read again afterwards."""
+    data = choices()
+    node = data
+    for part in section.split("."):
+        node = node.setdefault(part, {})
+    for k, v in values.items():
+        if v is None:
+            node.pop(k, None)
+        else:
+            node[k] = v
+    p = choices_path()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text("# Choices made in the Panko hub. They override config/panko.toml; delete a section to undo it.\n\n"
+                 + dump_toml(data))
+    settings.cache_clear()
+    return p
+
+
+def _toml_value(v) -> str:
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if isinstance(v, (int, float)):
+        return repr(v)
+    if isinstance(v, str):
+        if "\n" in v:
+            return '"""' + v.replace("\\", "\\\\").replace('"""', '\\"\\"\\"') + '"""'
+        return '"' + v.replace("\\", "\\\\").replace('"', '\\"') + '"'
+    if isinstance(v, list):
+        return "[" + ", ".join(_toml_value(x) for x in v) + "]"
+    if isinstance(v, dict):
+        return "{" + ", ".join(f"{_toml_key(k)} = {_toml_value(x)}" for k, x in v.items()) + "}"
+    raise TypeError(f"can't write {type(v).__name__} to TOML")
+
+
+def _toml_key(k: str) -> str:
+    import re
+    return k if re.fullmatch(r"[A-Za-z0-9_-]+", k) else _toml_value(k)
+
+
+def dump_toml(data: dict, prefix: str = "") -> str:
+    """Enough TOML for hub choices: tables of strings, numbers, booleans, lists and inline tables."""
+    tables = {k: v for k, v in data.items() if isinstance(v, dict) and v}
+    out = "".join(f"{_toml_key(k)} = {_toml_value(v)}\n" for k, v in data.items() if k not in tables)
+    for k, v in tables.items():
+        name = f"{prefix}.{_toml_key(k)}" if prefix else _toml_key(k)
+        out += f"\n[{name}]\n" + dump_toml(v, name)
+    return out
 
 
 def secret(name: str) -> str | None:

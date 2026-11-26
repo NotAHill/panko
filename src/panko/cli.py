@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 
 
 def main(argv=None):
@@ -22,6 +23,11 @@ def _main(argv=None):
     sub.add_parser("seed", help="load the hand-written sandbox entries into the store")
     sy = sub.add_parser("sync", help="push active entries to Anki (updates notes in place)")
     sy.add_argument("--dry-run", action="store_true", help="list what would change and the audio still to pay for")
+    ex = sub.add_parser("export", help="active cards as an .apkg file to share (needs `uv sync --extra apkg`)")
+    ex.add_argument("file", help="where to write it, e.g. darija.apkg")
+    ex.add_argument("--variety", action="append", help="only this variety (repeat for more)")
+    ex.add_argument("--personal", action="store_true",
+                    help="include where each word came from and clips from your lessons (left out by default)")
     wk = sub.add_parser("work", help="work through a source in units: add, status, run (API mode), ingest, decide")
     wsub = wk.add_subparsers(dest="wcmd")
     wa = wsub.add_parser("add", help="register a PDF, a folder of page photos, a text transcript, an exported deck "
@@ -75,6 +81,11 @@ def _main(argv=None):
     mc.add_argument("--config", action="store_true", help="print the Claude Desktop / Claude Code config instead")
     mc.add_argument("--skill", metavar="DIR", help="write the chat workflow as a Claude skill: DIR/panko/SKILL.md "
                     "(e.g. ~/.claude/skills for Claude Code)")
+    hb = sub.add_parser("hub", help="the local dashboard in your browser: sources, inbox, card previews, checks, "
+                        "pictures, sync and spend (needs: uv sync --extra hub)")
+    hb.add_argument("--port", type=int, default=8770)
+    hb.add_argument("--no-open", action="store_true", help="print the link without opening a browser")
+    hb.add_argument("--token", default="", help=argparse.SUPPRESS)
     i = sub.add_parser("ingest", help="load an extraction JSON into the store")
     i.add_argument("path")
     i.add_argument("--verdicts", nargs="*", default=[], help="verification JSON files to apply first")
@@ -177,6 +188,14 @@ def _main(argv=None):
                   f"audio to generate: {p['audio_clips']} clips {p['audio_chars']}")
         else:
             sync.sync()
+    elif args.cmd == "export":
+        from pathlib import Path
+
+        from panko.anki import apkg
+        r = apkg.export(Path(args.file).expanduser(), args.variety, args.personal)
+        print(f"wrote {r['path']}: {r['notes']} cards, {r['media']} media files, {r['bytes'] / 1e6:.0f} MB"
+              + (f"; {r['audio_not_made']} audio clips not made yet were left out (sync makes them)"
+                 if r["audio_not_made"] else ""))
     elif args.cmd == "init":
         _init(args)
     elif args.cmd == "refs":
@@ -201,6 +220,12 @@ def _main(argv=None):
             print(mcp_server.config_snippet())
         else:
             mcp_server.main()
+    elif args.cmd == "hub":
+        try:
+            from panko import hub
+        except ImportError:
+            ap.error("the hub needs the extra: uv sync --extra hub")
+        hub.serve(args.port, not args.no_open, args.token or os.environ.get("PANKO_HUB_TOKEN") or None)
     elif args.cmd == "ingest":
         import json
         from pathlib import Path
@@ -232,7 +257,7 @@ def _main(argv=None):
         for eid in args.ids:
             e = s.get(eid)
             if e and e.get("status", "candidate") == "candidate":
-                s.set_status(eid, "retired")
+                s.set_status(eid, "retired", why="rejected")
                 done.append(eid)
         print(f"retired {len(done)} candidates" + (f"; skipped {len(args.ids) - len(done)} (not candidates)" if len(done) < len(args.ids) else ""))
     elif args.cmd == "activate":
@@ -278,12 +303,13 @@ def _main(argv=None):
         if args.apply:
             print(clashes.apply(s, json.loads(path.read_text())))
             return
-        groups = clashes.find(s, None if args.all else [e["id"] for e in s.entries("candidate")])
+        found = clashes.open_groups(clashes.find(s, None if args.all else [e["id"] for e in s.entries("candidate")]), path)
+        groups = clashes.undecided(found, clashes.load(path))        # not the ones you called fine or chose for
         if args.estimate:
             print(json.dumps(clashes.estimate(groups), indent=1))
             return
         d = clashes.decide(groups, batch=args.llm_batch, budget=args.budget)
-        clashes.save(d, path)
+        clashes.save(clashes.merge(clashes.load(path), d), path)
         kinds = {k: sum(1 for v in d.values() if k in v) for k in ("gloss", "cards", "drop")}
         print(f"{len(groups)} groups: {kinds}; saved to {path}. Look it over, then `panko clashes --apply`.")
     elif args.cmd == "verify":
@@ -413,7 +439,8 @@ def _work(args, parser):
     elif args.wcmd == "ingest":
         r = work.ingest_source(args.source)
         print(f"{len(r['units'])} units: {r['new']} new candidates, {r['known']} known (sightings), "
-              f"{r['dropped']} dropped, {r['merged']} merged, {len(r['homographs'])} homographs kept apart")
+              f"{r['dropped']} dropped, {r['merged']} merged, {len(r['homographs'])} homographs kept apart"
+              + (f", {len(r['rejected_again'])} you'd rejected kept out of the inbox" if r.get("rejected_again") else ""))
         if "clips" in r:
             c = r["clips"]
             print(f"  native clips: {c['cut']} cut, {c['kept']} already held"

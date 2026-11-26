@@ -16,7 +16,7 @@ format = "mp3_44100_128"
 voices_darija = ["Badr", "Ghalia"]
 voices_fusha = ["George"]
 # `panko voices`: which library voices to audition, and the sentence they read
-library = {language = "ar", accent = "moroccan"}
+library = {language = "ar", accent = "moroccan", fusha = {accent = "modern standard"}}
 shortlist = ["Badr", "Ghalia", "Loubna", "Houssam", "Mouhcine", "Saad"]
 audition = "سلام، كنقلب على كنابي كبير. واش تقدر تدير ليا تخفيض؟ إلا ما عندكش، ماشي مشكل، نرجع غدا."
 
@@ -97,6 +97,9 @@ model = ""                # set a model (and its price below) to use OpenAI inst
 "claude-opus-5-5" = [4.0, 20.0, 0.20, 5.0]
 "claude-sonnet-5-5" = [2.0, 10.0, 0.10, 2.5]
 "claude-haiku-5-5" = [0.10, 0.50, 0.01, 0.125]
+
+[export]
+# dir = "~/Panko exports"         # where the hub saves .apkg packages to share (default: cache/exports here)
 
 [anki]
 backend = "mcp"          # mcp (Anki MCP Server add-on) | pylib (Anki closed; used for migrations)

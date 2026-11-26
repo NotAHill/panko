@@ -44,11 +44,31 @@ def export(store, status: str = "active", batch: int | None = None, ids: list[st
     for e in store.entries(status):
         if e.get("image") or (batch is not None and e.get("batch") != batch) or (ids and e["id"] not in ids):
             continue
+        if e.get("picture_pref") == "none":
+            continue
         ex = next((x.get("en") for x in e.get("examples", []) if x.get("en")), "")
-        rows.append({"id": e["id"], "ar": e["ar"], "tl": e.get("tl", ""), "pos": e.get("pos", ""), "kind": e["kind"],
-                     "gloss": e.get("gloss", ""), "note": e.get("gloss_note", "") or e.get("usage", ""),
-                     "example_en": ex})
+        row = {"id": e["id"], "ar": e["ar"], "tl": e.get("tl", ""), "pos": e.get("pos", ""), "kind": e["kind"],
+               "gloss": e.get("gloss", ""), "note": e.get("gloss_note", "") or e.get("usage", ""), "example_en": ex}
+        wish = request(e)
+        if wish:
+            row["request"] = wish
+        rows.append(row)
     return rows
+
+
+PREFS = {"photo": "a real photo", "drawing": "a drawing"}
+
+
+def request(entry: dict) -> str:
+    """The learner's wish for this card's picture, in words the planner reads ("" when there is none)."""
+    pref, text = PREFS.get(entry.get("picture_pref", "")), str(entry.get("picture_request") or "").strip()
+    return "; ".join(x for x in (pref and f"wants {pref}", text) if x)
+
+
+def drawings_allowed() -> bool:
+    """Drawings are made only while `generate` is in the [images] chain (the hub's "drawn pictures" switch)."""
+    from panko.config import settings
+    return "generate" in settings().get("images", {}).get("chain", [])
 
 
 # 2. search ------------------------------------------------------------------------------------------------------
@@ -150,7 +170,7 @@ def search(queries: dict[str, str], outdir: Path, per_slug: int = 10, names: lis
 def _credit(c: dict) -> str:
     p = providers.get("images", c.get("provider", ""))
     site = getattr(p, "label", "") or "Openverse"     # older cands.json files: anything not Commons was Openverse
-    return f'<a href="{c.get("page", "")}">{site}</a> · {c.get("author", "")} · {c.get("license", "")}'
+    return f'<a href="{c.get("page", "")}">{site}</a>, {c.get("author", "")}, {c.get("license", "")}'
 
 
 def _download(c: dict, path: Path):
@@ -172,9 +192,13 @@ def apply(decisions: dict[str, dict], store=None, out: Path | None = None, downl
     cp = out / "credits.json"
     credits = json.loads(cp.read_text()) if cp.exists() else {}
     res = {"photo": 0, "skip": 0, "failed": [], "prompts": {}}
+    draw = drawings_allowed()
     for eid, d in decisions.items():
         if "prompt" in d:
-            res["prompts"][eid] = d["prompt"]
+            if draw:
+                res["prompts"][eid] = d["prompt"]
+            else:
+                res["skip"] += 1          # drawn pictures are switched off
             continue
         if "photo" not in d:
             res["skip"] += 1

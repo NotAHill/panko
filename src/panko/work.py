@@ -98,7 +98,8 @@ def add_source(path: str, kind: str, title: str, sid: str = "", date: str = "", 
     elif p.is_dir():
         files = sorted(f.name for f in p.iterdir() if f.suffix.lower() in IMAGE_EXT)
         if not files:
-            raise ValueError(f"{p} has no images")
+            raise ValueError(f"{p} has no images: a folder is read as photos of pages (jpg, png…). For one file, "
+                             "give the file itself")
         s |= {"type": "images", "files": files, "units": [f"i{i:03d}" for i in range(1, len(files) + 1)]}
     elif p.suffix.lower() == ".json":
         from panko.ingest.decks import rows
@@ -424,6 +425,21 @@ def _add_examples(dst: dict, src: dict):
             dst.setdefault("examples", []).append(ex)
 
 
+def _set_aside(store, it: dict, unit: str, rep: dict, pos_compatible, same_word) -> dict | None:
+    """A word you already set aside, seen again: a duplicate's sighting goes to the card that was kept, and a word you
+    rejected stays rejected (it gets the sighting, and doesn't come back to the inbox). None when it's neither."""
+    gone = next((e for e in store.find_all(it["ar"], it["variety"]) if e["status"] == "retired"
+                 and pos_compatible(it.get("pos"), e.get("pos")) and same_word(it, e)), None)
+    if not gone:
+        return None
+    m = re.match(r"same as (\S+)", gone.get("merged_into") or "")
+    if m:
+        kept = store.get(m.group(1))
+        return kept if kept and kept["status"] != "retired" else None
+    rep["rejected_again"].append({"unit": unit, "id": gone["id"], "ar": gone["ar"], "gloss": gone.get("gloss", "")})
+    return gone
+
+
 def ingest_source(sid: str, store=None, units: list[str] | None = None) -> dict:
     """Merge submitted unit results into the store (see the module docstring). Returns what happened."""
     from panko.dedupe import Index, add_shadda, pos_compatible, same_word
@@ -437,7 +453,7 @@ def ingest_source(sid: str, store=None, units: list[str] | None = None) -> dict:
     todo = [u for u, st in state(sid).items() if st in ("submitted", "held") and (not units or u in units)]
     index = Index(store.entries(None))
     rep = {"source": sid, "units": todo, "new": 0, "known": 0, "dropped": 0, "merged": 0, "homographs": [],
-           "held": [], "unresolved_known": []}
+           "held": [], "unresolved_known": [], "rejected_again": []}
     known, new, groups, held_by_unit, plans = {}, [], {}, {u: [] for u in todo}, {}
     for u in todo:
         bp = book_page(s, u)
@@ -472,6 +488,8 @@ def ingest_source(sid: str, store=None, units: list[str] | None = None) -> dict:
                 same = [e for e in store.find_all(it["ar"], it["variety"]) if e["status"] != "retired"
                         and pos_compatible(it.get("pos"), e.get("pos"))]
                 hit = next((e for e in same if same_word(it, e)), None)
+                if not hit:
+                    hit = _set_aside(store, it, u, rep, pos_compatible, same_word)
                 if not hit and same:
                     it["ar"] = add_shadda(it["ar"], it.get("tl", ""))
                     it["homograph"] = True

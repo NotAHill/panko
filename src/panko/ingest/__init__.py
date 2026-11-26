@@ -63,7 +63,7 @@ def ingest(path: Path | str | dict, store: Store | None = None, verdicts: dict |
                 e["examples"] = [{**said, "source": src["title"]}]
             eid = store.put(e, status="candidate")
             new.append(it["ar"])
-        store.add_sighting(eid, src["id"], it.get("role", "taught"), it.get("speaker", "teacher"),
+        store.add_sighting(eid, src["id"], it.get("role", "taught"), it.get("speaker", ""),
                            said.get("ar", ""), said.get("tl", ""), said.get("en", ""),
                            json.dumps(it["origin"]) if it.get("origin") else "")
     return {"source": src["id"], "new": new, "known": known}

@@ -21,6 +21,9 @@ flowchart TB
     end
     Sources --> CM[Chat mode: panko mcp<br/>your Claude reads and judges,<br/>no API key]:::built
     Sources --> API[API mode: panko work run<br/>panko.llm, batches]:::built
+    HUB[Panko hub: panko hub<br/>dashboard in your browser:<br/>sources, inbox, card previews,<br/>checks, pictures, sync, spend]:::built
+    HUB -- add sources, run units --> API
+    HUB <-- triage, edit --> IN
     CM --> X[Unit results<br/>data/work, schema-checked]:::built
     API --> X
     EV[Evidence<br/>your cards, DODa, Wiktionary,<br/>Routledge]:::built --> X
@@ -149,12 +152,13 @@ reaches every card without touching review history. Panko never writes `MyNotes`
 | Path | What |
 |---|---|
 | `config/panko.toml` | provider chains and settings (yours); `src/panko/templates/panko.example.toml` (shipped in the package) is the generic template `panko init` fills |
-| `src/panko/config.py` | finds the Panko folder (`find_root`: `PANKO_HOME`, else the nearest folder up with `config/panko.toml`, else the checkout); loads config and `.env`; `anki()` / `deck()` / `collection_path()` with defaults |
+| `src/panko/config.py` | finds the Panko folder (`find_root`: `PANKO_HOME`, else the nearest folder up with `config/panko.toml`, else the checkout); loads config and `.env`, with the hub's choices in `config/hub.toml` laid over `config/panko.toml` (`save_choices`); `anki()` / `deck()` / `collection_path()` with defaults |
 | `src/panko/setup.py` | `panko init [--language L]`: starter config from answers plus the language's preset (`src/panko/templates/languages/*.toml`: script, prompt wording, references, speech-to-text language, voices), and the readiness check (`--check`) |
 | `src/panko/lang/` | everything about the language being learned, from `[learner]`: its script (Unicode script names; checked at submit; card font and direction, `card_css`), matching keys for any script (case, NFC, configured articles, optional mark folding), list splitting, and the comparison with analyser readings; `arabic.py` holds the Arabic rules (harakat, alef, ال, clitics, hamza seats, shadda), which touch Arabic letters only |
 | `src/panko/providers/` | one file per provider, registered by name |
 | `src/panko/providers/images/` | picture search: `wikidata.py` (query → Wikidata item → its P18 Commons file), `commons.py`, `openverse.py`, `pexels.py`, `pixabay.py` (free keys), `inaturalist.py`, `arasaac.py` (off by default), `source.py` (crops, not built); `web.py` = polite spacing per site, one retry on 429 then pause the site, answers cached in `cache/images/` |
 | `src/panko/mcp_server.py` | chat mode (`panko mcp`, `--config` prints the Claude Desktop/Code snippet): thin MCP tools over the modules below; the workflow Claude follows is `prompts/chat.md` (`panko_guide`) |
+| `src/panko/hub/` | the local dashboard (`panko hub`, 127.0.0.1 only): `__init__.py` (app, guard: Host check, key from the printed link as an HttpOnly cookie, `X-Panko` header on changes; uploads), `api.py` (JSON routes over the modules below; long or paid steps as jobs, paid ones estimate first and need `confirm` and a budget), `jobs.py` (one at a time, output captured per job), `preview.py` (a card as Anki shows it: templates filled, media inline, sandboxed with a load-nothing policy; it reports its height, flips on a click and passes keys up), `static/` (terminal-styled single page, plain JS, no build step: pages, card design, voice picker, walkthrough) |
 | `src/panko/work.py` | sources split into units (PDF pages, photos, transcript chunks, 25-row stretches of an exported deck, 3-minute stretches of a transcribed recording: `transcribe`, `transcript.json`), one validated result per unit in `data/work/<source>/units/`, resumable; `ingest_source` merges results: known → sighting + the source's sentences, homograph → own entry with shadda, near-duplicate → held |
 | `src/panko/pipeline.py` | API mode (`panko work run [--batch] [--budget] [--estimate]`): extract → local evidence → check → picture plan per unit through `panko.llm`, then `work.submit` like a chat result; deck units: local evidence (rows you have become known) → `deck` prompt (extract + check in one) → picture plan |
 | `src/panko/evidence.py` | free local evidence per word: the learner's entry, same-letter words, near-duplicates, hits from `[evidence]` corpora and dictionaries (read by file shape, target column by script or `columns`, token-indexed once), the `[morph]` analyser's readings for varieties that have one; `download()` fetches the open ones (`panko refs --download`) |
@@ -164,9 +168,11 @@ reaches every card without touching review history. Panko never writes `MyNotes`
 | `src/panko/prompts/` | generic prompts (`*.md`, `{{var}}`, `{{#var}}…{{/var}}`, `{{> part}}`) filled from `[learner]` and `[evidence]` in config; `schemas.py` holds the strict JSON schema per prompt; `prompts.ask(name, id, parts)` builds the request for `llm.run` |
 | `src/panko/cards/note_types.py` | Anki fields, card templates, CSS (`css()`: the script's font and direction for `.tgt` text, per variety via `data-v="{{Register}}"`) |
 | `src/panko/cards/render.py` | entry data → card HTML |
+| `src/panko/cards/design.py` | card design: which sections the back shows and in what order, fronts, sizes, fonts, your CSS, your own sections in Spare1–4 (`[cards]`, set in the hub); templates and CSS only, never the field list |
 | `src/panko/anki/mcp_client.py` | talks to the Anki MCP Server add-on |
 | `src/panko/media/pictures.py` | the picture step (`panko pictures export/search [--providers …]/apply`): photo candidates taken in turn from each site + contact sheets (10 per row, site-tagged), applying decisions, drawings now (`draw`) or by OpenAI batch (`draw_batch`, `collect`) |
 | `src/panko/media/audio.py` | walks the audio chain, caches results in `cache/media/` |
+| `src/panko/media/voices.py` | the hub's voice picker: the ElevenLabs library by language, accent and gender, samples, and saving the chosen voices (a library voice is added to the account first) |
 | `src/panko/checks.py` | deterministic checks (`panko verify`, `panko_verify`, and at ingest): headword, forms, root, POS and example words of a variety with a `[morph]` analyser against its readings (for Arabic, harakat a subset), hard problems → `panko::doubtful`; other varieties' words without a reference hit listed (`ungrounded`) |
 | `src/panko/providers/morph/` | morphology chain (`[morph]`): `camel.py` runs CAMeL Tools in any environment that has it (helper over stdin, `PANKO_CAMEL_PYTHON`), readings cached in `cache/morph/` |
 | `src/panko/media/clips.py` | native clips: finds where a recording says an item (word times, article-tolerant, never the learner's voice), cuts it with ffmpeg to `data/media/`, and indexes it by text (`data/media/native.json`) for the `native` audio provider |
@@ -180,6 +186,7 @@ reaches every card without touching review history. Panko never writes `MyNotes`
 | `src/panko/clashes.py` | `panko clashes` / `panko_clashes`: production cards whose glosses share a sense → keep, sharpen, recognition-only or drop (never removes a card already in Anki) |
 | `src/panko/anki/export.py` | `panko work add --deck NAME`: read-only export of an Anki deck (studied notes marked) as a source |
 | `src/panko/skill.py` | `panko mcp --skill DIR`: the chat workflow as a Claude skill (`SKILL.md`) |
+| `src/panko/anki/apkg.py` | `panko export` and the hub's "share as a file": active cards as an .apkg built in a scratch collection with Anki's library (no scheduling, MyNotes empty, sources and lesson clips only with `personal`; note guids and note type ids fixed so a newer package updates the old one) |
 | `src/panko/anki/sync.py` | pushes models, media and notes; updates changed notes in place; `plan()` is the dry run (`panko sync --dry-run`: notes to add/update, audio still to pay for) |
 | `src/panko/anki/migrate.py` | Phase 6 (`panko migrate [ids] [--apply]`): studied old-deck notes → Panko notes in place via the `anki` library, Anki closed; dry run by default |
 | `src/panko/sandbox/seed.py` | the 9 hand-written sandbox entries (`panko seed`) |

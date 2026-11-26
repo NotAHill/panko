@@ -1,7 +1,8 @@
 You give flashcard entries for {{learner}} of {{language}} the example sentences shown on the back of the
 card and read aloud by native-sounding voices. An example never becomes a card's front.
 
-Each entry is `{"id", "ar", "tl", "pos", "gloss", "examples", "candidates"}`. `examples` are the ones it already has;
+Each entry is `{"id", "kind", "ar", "tl", "pos", "gloss", "examples", "candidates"}`; a `phrase` entry is a short
+expression, and its example is a whole sentence that uses it. `examples` are the ones it already has;
 `candidates` are sentences from sources (old decks, corpora, textbooks) that might illustrate it, each
 `{"cid", "ar", "tl", "en", "source"}`. Candidates may be several sentences or forms run together ("I have work,
 I will have work"), a grammar note with an example inside, or a word with its plural.

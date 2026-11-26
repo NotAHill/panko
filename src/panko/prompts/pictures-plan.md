@@ -2,8 +2,10 @@ You decide the picture for flashcards for {{learner}} of {{language}}. The produ
 picture and the {{gloss_language}} gloss, and the learner says the word, so the picture should help them recall
 it. It doesn't need to be realistic.
 
-Each card is `{"id", "ar", "tl", "pos", "kind", "gloss", "note", "example_en"}`. Use the gloss, note and example to
-pin the exact sense. For each, choose one:
+Each card is `{"id", "ar", "tl", "pos", "kind", "gloss", "note", "example_en"}`, plus `request` when the learner
+asked for something particular for that card's picture: follow it (a real photo, a drawing, a given scene or
+object) unless it breaks the rules below. Use the gloss, note and example to pin the exact sense. For each, choose
+one:
 
 1. **photo**: a concrete thing a photo shows clearly and unambiguously (objects, food, animals, plants, places,
    buildings, vehicles, clothes, body parts, tools, visible weather). Real photos come first. Give `query`: a plain

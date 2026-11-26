@@ -21,7 +21,7 @@ def image(slug: str, ext: str = "jpg", credit: str | None = None) -> dict:
     name = f"{P}{slug}.{ext}"
     if credit is None:
         c = json.loads((MEDIA / "credits.json").read_text()).get(name, {})
-        credit = f'<a href="{c.get("page", "")}">Wikimedia Commons</a> · {c.get("author", "")} · {c.get("license", "")}'
+        credit = f'<a href="{c.get("page", "")}">Wikimedia Commons</a>, {c.get("author", "")}, {c.get("license", "")}'
     return {"file": name, "credit": credit}
 
 

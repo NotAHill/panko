@@ -32,8 +32,8 @@ def tool(name, args):
 
 def push_models():
     existing = set(tool("model_names", {})["modelNames"])
-    for name, fields, tmpls in [(T.WORD_MODEL, T.WORD_FIELDS, T.WORD_TEMPLATES),
-                                (T.PHRASE_MODEL, T.PHRASE_FIELDS, T.PHRASE_TEMPLATES)]:
+    for name, fields, tmpls in [(T.WORD_MODEL, T.WORD_FIELDS, T.word_templates()),
+                                (T.PHRASE_MODEL, T.PHRASE_FIELDS, T.phrase_templates())]:
         if name in existing:
             tool("update_model_templates", {"model_name": name,
                                             "templates": {t["Name"]: {"Front": t["Front"], "Back": t["Back"]} for t in tmpls}})

@@ -63,9 +63,11 @@ def test_clashes_found_decided_applied(store):
     groups = clashes.find(store, focus=["dw-3"])
     assert len(groups) == 1 and groups[0]["sense"] == "address" and len(groups[0]["entries"]) == 3
     d = clashes.decide(groups, llm=Fake(), quiet=True)
-    assert d == {"dw-2": {"gloss": "address (French loan)"}, "dw-3": {"drop": "same word"}}
+    assert d["dw-2"] == {"gloss": "address (French loan)"} and d["dw-3"]["drop"] == "same word"
+    assert d["dw-3"]["same"] in ("dw-1", "dw-2")          # the card it copies, one the model kept
     r = clashes.apply(store, {**d, "dw-1": {"drop": "test: an active card is never retired"}})
     assert store.get("dw-3")["status"] == "retired" and store.get("dw-2")["gloss"] == "address (French loan)"
+    assert store.get("dw-3")["merged_into"].startswith("same as ") and r["duplicates"] == 1
     assert store.get("dw-1")["status"] == "active" and store.get("dw-1")["cards"] == ["recognition"]
     assert r["for_you"][0]["id"] == "dw-1"
     assert clashes.senses("to look (at); to watch, see") == {"look", "watch", "see"}

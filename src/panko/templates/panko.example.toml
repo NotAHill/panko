@@ -74,6 +74,9 @@ model = ""
 "claude-sonnet-5-5" = [2.0, 10.0, 0.10, 2.5]
 "claude-haiku-5-5" = [0.10, 0.50, 0.01, 0.125]
 
+[export]
+# dir = "~/Panko exports"         # where the hub saves .apkg packages to share (default: cache/exports here)
+
 [anki]
 backend = "mcp"                    # the Anki MCP Server add-on, while Anki is open
 url = "http://127.0.0.1:3141/"

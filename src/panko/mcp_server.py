@@ -16,13 +16,11 @@ from pathlib import Path
 from mcp.server.mcpserver import Audio, Image, MCPServer
 
 from panko import prompts, work
-from panko.store import Store
+from panko.store import EDITABLE, Store
 
 INSTRUCTIONS = """Panko turns language-learning sources into checked Anki cards. Call `panko_guide` first: it explains
 the workflow (units → prompts → evidence → submit → ingest) and when to ask the learner before acting."""
 
-EDITABLE = {"ar", "tl", "tl_alt", "gloss", "gloss_note", "pos", "gender", "plural", "present", "imperative", "literal",
-            "usage", "notes", "related", "examples", "tags", "region", "cards"}
 
 server = MCPServer("panko", instructions=INSTRUCTIONS)
 
@@ -199,7 +197,7 @@ def panko_reject(ids: list[str]) -> dict:
     s = Store()
     done = [i for i in ids if (e := s.get(i)) and e["status"] == "candidate"]
     for i in done:
-        s.set_status(i, "retired")
+        s.set_status(i, "retired", why="rejected in chat")
     return {"retired": done, "skipped": [i for i in ids if i not in done]}
 
 
@@ -319,16 +317,19 @@ def panko_clashes(all: bool = False, limit: int = 30) -> dict:
     """Groups of production cards whose glosses share a sense, so their fronts would be ambiguous (by default only
     groups with a candidate). Decide as `panko_prompt("clashes")` says, then `panko_clashes_apply`."""
     from panko import clashes
-    s = Store()
-    groups = clashes.find(s, None if all else [e["id"] for e in s.entries("candidate")])
+    from panko.config import ROOT
+    s, path = Store(), ROOT / "data" / "work" / "clashes.json"
+    found = clashes.open_groups(clashes.find(s, None if all else [e["id"] for e in s.entries("candidate")]), path)
+    groups = clashes.undecided(found, clashes.load(path))      # the learner settled the rest in the hub
     return {"groups": len(groups), "shown": groups[:limit]}
 
 
 @tool()
 def panko_clashes_apply(decisions: dict) -> dict:
     """Apply clash decisions {entry id: {"gloss": new} | {"cards": ["recognition"], "note": "The everyday word is …"}
-    | {"drop": why}}. Dropped candidates are retired; a card already in Anki is never removed: it becomes
-    recognition-only and is listed for the learner."""
+    | {"drop": why, "same": id of the card it duplicates}}. A candidate with `same` becomes that card's duplicate,
+    other dropped candidates are retired; a card already in Anki is never removed: it becomes recognition-only and is
+    listed for the learner."""
     from panko import clashes
     return clashes.apply(Store(), decisions)
 

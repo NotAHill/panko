@@ -27,6 +27,14 @@ images = []   # kept so older install commands still work; Pillow is a core depe
 migrate = [
     "anki==26.9.4",
 ]
+apkg = [                 # `panko export` and the hub's "share as a file": Anki's own library builds the package
+    "anki==26.9.4",
+]
+hub = [
+    "starlette>=0.40",
+    "uvicorn>=0.30",
+    "python-multipart>=0.0.18",
+]
 mcp = [
     "mcp>=1.20",
     "jsonschema>=4",

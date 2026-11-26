@@ -180,7 +180,7 @@ def test_contact_sheet_shows_every_site(monkeypatch, tmp_path):
 
 def test_credit_names_the_site():
     from panko.media.pictures import _credit
-    assert ">Pexels</a> · Cy · Pexels License" in _credit({"provider": "pexels", "page": "u", "author": "Cy",
+    assert ">Pexels</a>, Cy, Pexels License" in _credit({"provider": "pexels", "page": "u", "author": "Cy",
                                                            "license": "Pexels License"})
     assert ">Wikimedia Commons</a>" in _credit({"provider": "wikidata"})
     assert ">Openverse</a>" in _credit({"provider": "openverse"})

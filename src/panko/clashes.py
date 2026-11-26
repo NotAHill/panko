@@ -5,6 +5,10 @@ open. `find` groups entries that share a sense (one gloss segment, normalised); 
 the learner's Claude (chat mode, `panko_clashes`) decides per card: keep, sharpen the gloss, recognition only (a
 less usual synonym), or drop a duplicate. `apply` writes the decisions; a duplicate already in Anki is never retired
 here (the learner decides), it becomes recognition-only instead.
+
+The learner can choose too (the hub, per card): their choices carry `"by": "you"`, the model never overwrites them,
+and a group they settled is not sent to the model. Groups they called fine are kept in a second file and stay out
+until a new card joins them.
 """
 from __future__ import annotations
 
@@ -54,6 +58,48 @@ def find(store, focus: list[str] | None = None, statuses=("active", "candidate")
     return groups
 
 
+def key(group: dict) -> str:
+    """A group's identity: its cards. A new card joining the group makes it a new group."""
+    return "|".join(sorted(e["id"] for e in group["entries"]))
+
+
+def load(path: Path) -> dict:
+    return json.loads(path.read_text()) if path.exists() else {}
+
+
+def _fine_path(path: Path) -> Path:
+    return path.with_name(path.stem + "-fine.json")
+
+
+def fine(path: Path) -> set[str]:
+    """Keys of the groups the learner called fine as they are."""
+    p = _fine_path(path)
+    return set(json.loads(p.read_text())) if p.exists() else set()
+
+
+def mark_fine(path: Path, group_key: str, undo: bool = False) -> None:
+    keys = fine(path)
+    (keys.discard if undo else keys.add)(group_key)
+    _fine_path(path).parent.mkdir(parents=True, exist_ok=True)
+    _fine_path(path).write_text(json.dumps(sorted(keys), ensure_ascii=False, indent=1))
+
+
+def open_groups(groups: list[dict], path: Path) -> list[dict]:
+    """The groups not called fine (the ones to show)."""
+    done = fine(path)
+    return [g for g in groups if key(g) not in done]
+
+
+def undecided(groups: list[dict], decisions: dict) -> list[dict]:
+    """Groups with no card the learner chose for: the ones worth asking the model about."""
+    return [g for g in groups if not any((decisions.get(e["id"]) or {}).get("by") == "you" for e in g["entries"])]
+
+
+def merge(saved: dict, model: dict) -> dict:
+    """The model's new decisions over the saved ones, except where the learner chose."""
+    return {**saved, **{k: v for k, v in model.items() if (saved.get(k) or {}).get("by") != "you"}}
+
+
 def _asks(groups):
     return [prompts.ask("clashes", f"clashes-{groups[i]['id']}", ["\n".join(json.dumps(g, ensure_ascii=False)
                                                                            for g in groups[i:i + CHUNK])],
@@ -63,12 +109,16 @@ def _asks(groups):
 def decide(groups: list[dict], **kw) -> dict:
     """{entry id: {"gloss"} | {"cards": ["recognition"], "note"} | {"drop": why}} from the `clashes` prompt; `keep`
     decisions are left out. Groups whose answer is still in a batch are left out too."""
+    from panko.dedupe import nar
     got = llm.run("clashes", _asks(groups), **kw) if groups else {}
+    by_id = {g["id"]: g for g in groups}
     out = {}
     for a in got.values():
         if a.error:
             continue
         for r in a.data.get("results", []):
+            g = by_id.get(r.get("id"))
+            dropped = {d["entry_id"] for d in r.get("decisions", []) if d["action"] == "drop"}
             for d in r.get("decisions", []):
                 if d["action"] == "gloss" and d.get("gloss"):
                     out[d["entry_id"]] = {"gloss": d["gloss"], **({"note": d["note"]} if d.get("note") else {})}
@@ -76,23 +126,35 @@ def decide(groups: list[dict], **kw) -> dict:
                     out[d["entry_id"]] = {"cards": ["recognition"], "note": d.get("note", "")}
                 elif d["action"] == "drop":
                     out[d["entry_id"]] = {"drop": d.get("why") or "duplicate"}
+                    # the card it duplicates: one the model kept, the same spelling first
+                    me = next((e for e in (g or {}).get("entries", []) if e["id"] == d["entry_id"]), None)
+                    kept = [e for e in (g or {}).get("entries", []) if e["id"] not in dropped]
+                    if me and kept:
+                        out[d["entry_id"]]["same"] = sorted(kept, key=lambda e: nar(e["ar"]) != nar(me["ar"]))[0]["id"]
     return out
 
 
 def apply(store, decisions: dict) -> dict:
-    """Write decisions to the store. Dropped candidates are retired; a dropped card that is already active becomes
-    recognition-only and is listed for the learner."""
-    rep = {"gloss": 0, "recognition": 0, "retired": 0, "for_you": []}
+    """Write decisions to the store. `keep` changes nothing. A candidate that is the same word as another card
+    (`same`) becomes its duplicate; one dropped for another reason is retired. A card already active is never
+    retired here: it becomes recognition-only and is listed for the learner."""
+    rep = {"gloss": 0, "recognition": 0, "retired": 0, "duplicates": 0, "for_you": []}
     for eid, d in decisions.items():
         e = store.get(eid)
-        if not e:
+        if not e or d.get("keep"):
+            continue
+        kept = store.get(d["same"]) if d.get("same") else None
+        if kept and e["status"] == "candidate":
+            store.put({**e, "merged_into": f"same as {kept['id']} {kept['ar']}"})
+            store.set_status(eid, "retired", why=f"the same word as {kept['id']} (gloss clash)")
+            rep["duplicates"] += 1
             continue
         if "drop" in d and e["status"] == "candidate":
-            store.set_status(eid, "retired")
+            store.set_status(eid, "retired", why=f"dropped for a gloss clash: {d['drop']}")
             rep["retired"] += 1
             continue
-        if "drop" in d:
-            rep["for_you"].append({"id": eid, "ar": e["ar"], "why": d["drop"]})
+        if "drop" in d or kept:
+            rep["for_you"].append({"id": eid, "ar": e["ar"], "why": d.get("drop") or f"the same word as {kept['id']}"})
             d = {"cards": ["recognition"], "note": ""}
         note = d.get("note", "")
         if note:
