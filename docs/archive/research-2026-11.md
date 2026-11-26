@@ -2,9 +2,31 @@
 
 *Researched 2026-11-21/22. Scope: a personal tool that turns your own Arabic study material into verified, reconfigurable Anki cards.*
 
+> **Archived 2026-11-26. Don't work from this file.** It's the research from before Panko was built, kept as a
+> record. What was actually decided is in [DECISIONS.md](../DECISIONS.md), and where things stand is in
+> [ROADMAP.md](../ROADMAP.md). Still current: the Anki
+> facts in §1, the Arabic background in §3.1, the competitor scan in §4.1, the findings in §9 and the source notes
+> in §10. Superseded, each marked where it appears:
+>
+> | Section | Recommended here | What happened instead |
+> |---|---|---|
+> | §0 | Dialect open; just you; auto-add and flag | Moroccan Darija + Fusha; a package for other learners too; items go through the inbox in small batches, doubtful ones stay out of Anki |
+> | §1, §5 | AnkiConnect API v1 | The Anki MCP Server add-on (127.0.0.1:3141); the `anki` library with Anki closed for migration |
+> | §2.2 | This field list | Different fields, frozen in `cards/note_types.py`; the enable-field gating was kept |
+> | §2.3 | A recipe file per deck | No recipes; choices live in `config/panko.toml` |
+> | §2.4 | Change Note Type through AnkiConnect | `panko migrate`: the `anki` library, Anki closed, one full sync |
+> | §3.3 | CAMeL-based rules, `panko::needs-review` | Verdicts with evidence (course book, DODa, Wiktionary, web), `panko::doubtful`; CAMeL waits for Phase 5 |
+> | §3.5 | Azure TTS by default | ElevenLabs v3 voices; Azure untested |
+> | §5 | SQLModel + sqlite-vec, a FastAPI/HTMX web UI, a job queue | A plain SQLite store, the CLI and chat mode (`panko mcp`); a web app is only the S10 idea |
+> | §6 | Phases 0–5 | The ROADMAP's phases and standalone track (S1–S10) |
+> | §8 | Open questions | All answered |
+> | §10 | Correction cards; auto-add policy | No correction cards; everything goes through the inbox |
+
 ---
 
 ## 0. What you told me (the requirements)
+
+> *Superseded: see the status table at the top.*
 
 | Topic | Answer |
 |---|---|
@@ -25,6 +47,8 @@
 ## 1. The big decision: clone, fork, or standalone?
 
 **Recommendation: build a standalone Python app that writes into your real Anki collection through AnkiConnect. Don't clone Anki and don't fork it.**
+
+> *Superseded: standalone was kept, but Panko writes through the Anki MCP Server add-on, not AnkiConnect.*
 
 | Option | Verdict | Why |
 |---|---|---|
@@ -61,6 +85,8 @@ This is what makes "change the format later" safe.
 Panko's own database holds **lexemes and items**, independent of any card format. A lexeme has a lemma, root, pattern, form, plurals, masdar, glosses by register (MSA, Classical, dialect), examples, audio hashes, sources/provenance and a per-field verification status. Each one links to the Anki note ID plus a stable `panko_id`.
 
 ### 2.2 "Future-proof" Panko note types (avoiding full syncs)
+
+> *Superseded: the real fields are in `cards/note_types.py` and `docs/SPEC-note-types.md`; the gating idea was kept.*
 Design each note type **once**, with a generous field set, so that later "format changes" are almost always template/CSS edits, which sync normally:
 
 - **Fields (fixed up front):** `PankoID`, `Ar_Full`, `Ar_Bare`, `Ar_Partial`, `Root`, `Pattern`, `VerbForm`, `Plurals`, `Masdar`, `Gloss`, `Register`, `Dialect`, `Example_Full`, `Example_Bare`, `Example_Gloss`, `Audio`, `ExampleAudio`, `Conjugation` (HTML), `Notes`, `Source`, `Verification`, `Data` (hidden JSON for anything new), plus a few `Spare1..3`.
@@ -69,9 +95,13 @@ Design each note type **once**, with a generous field set, so that later "format
 - Genuine schema changes (a new field or template) are batched rarely. Panko then runs an explicit routine: "sync all devices → apply → upload from desktop".
 
 ### 2.3 Recipes (per-deck configuration)
+
+> *Superseded: no recipes; settings live in `config/panko.toml`.*
 A **recipe** is a declarative YAML/TOML file per deck or subject. It sets which note type to use, which card types are enabled, the harakat rule per side, register and dialect, TTS voice, gloss style and example difficulty. Changing a recipe recomputes affected fields or template HTML and pushes the diff through `notes.update` and `noteTypes.update`. Review history stays intact.
 
 ### 2.4 Taking over your existing cards
+
+> *Superseded: done with `panko migrate` (the `anki` library, Anki closed), only for studied notes.*
 This is a one-time, deliberate migration:
 1. Panko first reads them without changing anything (`findNotes`/`notesInfo`).
 2. It shows you a mapping plan.
@@ -106,6 +136,8 @@ Claude models scored *below* some competitors on these diacritization benchmarks
 | Dialect | CAMeL dialect ID; Egyptian (`calima-egy`) or Gulf (`calima-glf`) DBs; MADAR lexicon (personal use) | **Egyptian or Gulf have far better tooling than Levantine or Maghrebi** |
 
 ### 3.3 Verification rules (what gets the `panko::needs-review` tag)
+
+> *Superseded: items get a verdict with evidence and `panko::doubtful`; CAMeL checks wait for Phase 5.*
 | Field | Check |
 |---|---|
 | Base letters | With harakat stripped, the text must match the source exactly; otherwise reject |
@@ -126,6 +158,8 @@ Matching what you asked for: cards are **auto-added**, failures are **tagged and
 - **Media:** `yt-dlp` fetches subtitles where they exist. Otherwise a frontier audio LLM transcribes (best on dialect in 2026 benchmarks), with a Whisper Arabic fine-tune as cross-check. Whisper large-v3 tends to replace dialect with MSA.
 
 ### 3.5 Audio (TTS)
+
+> *Superseded: Darija uses ElevenLabs v3 voices; Azure is in the chain but untested.*
 - **Azure Neural**: 16 Arabic locales, each with a male and a female voice. `ar-SA` for MSA, and the matching locale (ar-EG, ar-JO, ar-LB, ar-SY, ar-AE…) for your dialect. Azure improved its Arabic diacritizer, but **send fully vowelled, verified text**, which removes ambiguity. Use SSML for fixes. Caveat: many "dialect" voices are MSA with a local accent, so test yours.
 - Open fallback: SILMA TTS (Apache-2.0, accepts tashkeel), or Habibi for dialects.
 - Cache audio by hash of (text, voice, settings), so regenerating a card never re-buys audio it already has.
@@ -159,9 +193,46 @@ Recurring complaints about AI cards that Panko must design against:
 
 Built-in fixes: one fact per card, rule-based checks for leaks and compound prompts, a cap on new cards per source, and prefer **real** sentences (from your source, Tanzil or hadith corpora) over invented ones.
 
+### 4.1 Competitor scan for a distributed Panko (2026-11-23)
+
+A web scan of current tools. Prices and claims mostly come from vendor or rival pages, so treat them with care. Unconfirmed points are marked.
+
+| Tool | What | Price / licence | Arabic / Darija | Checks against sources | Updates Anki notes in place | Complaints |
+|---|---|---|---|---|---|---|
+| anki-llm | Rust CLI that batch-generates and edits notes with any OpenAI-compatible LLM, plus TTS (v2.0.18, May 2026) | Open source; bring your own key | Any LLM language | No: an LLM "verify translation" step and human review only | Yes, edits fields through AnkiConnect; no dedup | Needs the CLI and AnkiConnect |
+| Smart Notes | Add-on that fills fields with AI text, TTS and images | Subscription since v2 | Any LLM language | No | Yes, fills fields | The subscription |
+| Yomitan | Pop-up dictionary that mines cards | Free, GPL | MSA dictionaries; no Darija | Shows real dictionary entries (nothing generated) | Adds notes; duplicate check on the first field only | Thin Arabic dictionaries, fiddly setup |
+| asbplayer | Mines sentence, audio and screenshot cards from video subtitles | Free, MIT | Any language with subtitles | No | "Update last card" | Needs subtitle files |
+| Migaku | Mines from Netflix and YouTube into its own SRS | About $10–15/mo, $499 lifetime | Arabic; no Darija | No | Left Anki for its own SRS | Price, bugs, sale-only pricing |
+| Language Reactor | Dual subtitles, export to Anki | Free; Pro about $5/mo | Arabic, buggy | No | Export only | Broken Arabic exports |
+| LingQ / Readlang | Read and save unknown words | Freemium | MSA; Darija unconfirmed | No (user-written hints) | Not Anki / CSV export | Hint quality |
+| Clozemaster | Cloze sentences from Tatoeba | Freemium | MSA | Corpus sentences | Not Anki | No dialects |
+| Glossika | Sentence drilling with audio | Subscription | Has a Moroccan course | Made by people | Not Anki | Darija "unnaturally formal" |
+| AnkiMorphs | Orders notes by known morphs | Free, AGPL | No Arabic parser | n/a | Yes (tags and fields) | Maintainer burnout: the repository is archived (checked on GitHub 2026-11-23; last release v6.4.0, Sep 2026) |
+| Quizgecko, StudyFetch, Language Anki Deck Generator, AnkiLingoFlash, Videos2Cards | AI cards from PDFs, video or a topic | Subscription or bring your own key | Generic | No | Add only / .apkg export | Hallucinations, generic cards |
+| AnkiAIUtils | Explains and improves cards you keep failing | Free | Generic | No | Yes | Hobby project |
+| Darija content: Lingualism deck, AnkiWeb shared decks, Moroccan Darija Dictionary app, SayDarija, GoDarija, Morolingo, DarijApp | Fixed decks and apps (SayDarija has an AI tutor) | Paid decks; freemium apps | Darija, some with Arabizi and audio | Made by people | No own sources, no Anki sync | Fixed content |
+
+**What no tool does (Panko's case if distributed):**
+- **Checking generated cards against sources.** Every LLM card tool trusts the model or the user. Cited evidence answers the main objection on r/Anki: "AI cards can't be trusted".
+- **Dedup against the user's collection** by lemma and meaning, across script and transliteration. Yomitan's first-field check is the best there is.
+- **Safe in-place updates on a real store:** re-rendering, a protected user field and no full syncs. Others edit fields ad hoc.
+- **Mixed sources into one inbox.** Others take one input type: video, PDF or web.
+- **Dialects.** Darija and others (Swiss German, Levantine, Cantonese) are badly served.
+
+**What a distributed version needs:**
+- Verification that plugs in per language (Wiktionary/kaikki, corpora, user dictionaries).
+- Bring-your-own-key provider chains: subscriptions draw backlash at Smart Notes and Migaku.
+- An Anki add-on install, not only a CLI. The CLI is anki-llm's barrier.
+- Open source.
+
+**Risk:** anki-llm is active and closest. It could add dictionary checks.
+
 ---
 
 ## 5. Recommended stack
+
+> *Superseded: see the status table at the top; Python + uv and Claude Opus were kept.*
 
 | Layer | Choice |
 |---|---|
@@ -177,6 +248,8 @@ Why a web UI rather than a CLI alone: Arabic card previews (RTL, harakat, audio)
 ---
 
 ## 6. Phased plan
+
+> *Superseded: see ROADMAP.md.*
 
 **Phase 0: Spikes (de-risk; about 1 session each)**
 1. Confirm AnkiConnect v1 works on your Anki version. Read-only export of your existing Arabic decks to see what we're migrating.
@@ -210,11 +283,13 @@ Recipe editing → automatic field/template diffs, known-word tracking (the gap 
 | LLM Arabic errors | Deterministic verification (§3.3); flags instead of silent trust; per-task model choice from the eval |
 | Dialect tooling gaps (Levantine, Maghrebi) | Lean on LLM + MADAR + manual review for dialect fields; mark them lower confidence |
 | AnkiWeb terms for headless sync (unverified) | Only use the AnkiConnect path, which goes through your own desktop app; a self-hosted sync server is an option if ever needed |
-| License creep (GPL/NC data) | Fine for personal use. If Panko is ever distributed, switch to the CC BY/MIT stack listed in §3.2 |
+| License creep (GPL/NC data) | *Updated 2026-11-23, now that Panko is public (AGPL-3.0-or-later):* Panko ships no third-party data. `panko refs --download` fetches open data onto the learner's own machine: Wiktionary via kaikki (CC BY-SA) and DODa, which is free for research, personal and educational use, with commercial use needing its authors' permission. Course books and dictionaries are only a path in config, never shipped or downloaded. ARASAAC pictograms (CC BY-NC-SA) are off by default. A hosted Panko (the S10 hub idea) or any commercial use would need DODa's permission or a different Darija lexicon; QAC (GPL, non-commercial) would need the same care if it's ever added |
 
 ---
 
 ## 8. Open questions for you
+
+> *Superseded: all answered (§9, DECISIONS.md).*
 1. **Which dialect?** It decides how much can be verified automatically. Egyptian and Gulf have good tooling; Levantine and Maghrebi much less.
 2. **Can you share 3–5 of your existing hand-made cards** (an export, or a description of the fields/templates) plus a sample page of a textbook you use?
 3. Do you have **AnkiConnect** installed, and which Anki version is on your desktop?
@@ -284,7 +359,7 @@ Every source feeds the same pipeline through its own **source adapter**. Panko r
 ### Lesson recordings: the most valuable source
 - **Transcription:** lessons mix Darija, English and possibly French. Whisper handles this poorly, so the default is a frontier audio model with **speaker separation** (teacher vs. you).
 - **Teaching moments:** an LLM pass finds moments such as "X means Y", "we say X", "no, it's X not Y", and spelled-out words. These count as *taught*, which is stronger than *mentioned*.
-- **Corrections become cards:** when the teacher corrects you, Panko creates the card for the correct form, tagged `panko::correction`. Where it helps, the back of the card notes your mistake.
+- **Corrections become cards:** when the teacher corrects you, Panko creates the card for the correct form, tagged `panko::correction`. Where it helps, the back of the card notes your mistake. *(Superseded: no separate correction cards; the correct form becomes an ordinary card.)*
 - **Teacher audio:** each sighting keeps its timestamp, so the teacher saying the word or phrase becomes the card's native audio, ranked above TTS and any other recording.
 - **Missed words:** anything taught in a lesson that isn't in your deck or on that lesson's sheet goes into the inbox.
 
@@ -319,6 +394,8 @@ Every source feeds the same pipeline through its own **source adapter**. Panko r
 - **More Darija resources to add** (from the Idea 02 research): the **DODa** lexicon (Darija Open Dataset, Arabizi + Arabic script, non-commercial licence, fine for personal use), **Atlas-Chat** (a Darija LLM), and **Habibi TTS**.
 
 ### Candidate ranking and add policy
+
+> *Superseded: nothing is auto-added; items land in the inbox and go to Anki in small batches.*
 - **Ranked by:** taught in a lesson > on a teacher sheet > sighted in several sources > frequency in your media > appears once.
 - **Auto-added** (matching your "auto-add, flag the doubtful ones" choice): items taught or corrected in a lesson, and teacher-sheet items.
 - **Parked in the inbox** for you to promote: things only mentioned in passing, or seen once in media.
@@ -335,4 +412,5 @@ Every source feeds the same pipeline through its own **source adapter**. Panko r
 - LLM diacritization (LREC 2026): https://aclanthology.org/2026.lrec-1.40/ · SHAMS (Levantine): https://arxiv.org/abs/2610.01427
 - QARI-OCR: https://arxiv.org/abs/2506.02295 · Azure Arabic voices: https://learn.microsoft.com/en-us/azure/ai-services/speech-service/language-support?tabs=tts
 - AnkiMobile harakat clipping: https://forums.ankiweb.net/t/arabic-diacritic-when-shaddah-another-the-display-on-ankimobile-ios-gets-cut-off/67313
+- Competitor scan 2026-11-23: Smart Notes https://ankiweb.net/shared/info/1531888719 · Yomitan https://github.com/yomidevs/yomitan · Migaku pricing https://migaku.com/faq/pricing · Language Reactor Arabic bug https://forum.languagelearningwithnetflix.com/t/arabic-subtitles-still-broken/39986 · Glossika Darija review https://kalimah-center.com/?p=88681 · Lingualism Darija deck https://lingualism.com/products/moroccan-colloquial-arabic-vocabulary-anki-flashcards · AnkiWeb forum on AI generators https://forums.ankiweb.net/t/anki-ai-card-generators/67940
 - anki-llm: https://github.com/raine/anki-llm · Cappa: https://github.com/bmakh9748/Cappa · AnkiMorphs (archived): https://github.com/mortii/anki-morphs

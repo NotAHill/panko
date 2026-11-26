@@ -1,3 +1,5 @@
+> **Archived.** The v0.1 sandbox prototype; the note types now live in `src/panko/cards/note_types.py` and [SPEC-note-types.md](../SPEC-note-types.md).
+
 # Panko sandbox prototype
 
 This builds spec v0.1 (`../SPEC-note-types.md`) inside your real Anki, isolated from your other decks:

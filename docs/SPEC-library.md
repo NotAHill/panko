@@ -64,6 +64,30 @@ any unit:
 
 Media is copied into `data/media` under its own file name.
 
+**How a pack goes through ingest (settled 2026-11-26).** Ingest takes extracted items (word, gloss, examples), and a
+pack holds whole cards. They meet in the unit queue, not in a new path:
+
+- `panko library import` registers the pack as a work source of type `pack` and writes its entries as units of 25,
+  already **submitted**. Each item is the whole card plus `origin` = `{pack, id, version, hash}`. These units skip
+  the extraction schema: Panko built them, so `pack.json`'s format version is checked instead.
+- `ingest_source` then runs unchanged in what it decides: a known word, a held near-duplicate, a word you set aside,
+  or a new card. Held cards appear on the source's page in the hub and are settled with `work decide`, like any
+  other source's.
+- **New cards are written whole.** Ingest already builds a new entry from every `ENTRY_KEYS` field of the item, so
+  the picture, card types, notes, related words and the check come across. They get your own ids. Their sources
+  are the pack's title (packs carry none of their own), and the tag `src::pack::<id>`. The pack's verdict becomes
+  the item's verdict, so nothing is checked again by a model; the free tool checks (`checks.flag`) still run.
+- **A word you already have keeps your card.** It gets a sighting, and the pack's real sentences as examples
+  (written-by-Panko ones are skipped, as for any source). A gap is filled only where your card has none: a picture,
+  for now. Nothing of yours is overwritten.
+- **Origin lives on the sighting** (`sightings.origin`, which already exists) and, for a new card, on the entry. L4
+  finds a pack's cards by those, and the `hash` is how it tells your edits from the pack's.
+- **Language and varieties must match.** A pack in another language is refused. Cards of a variety you don't
+  learn are skipped and counted, unless `--variety` adds it to your config.
+- `role` on the sighting is `pack` (not `taught`), so a pack counts as weaker evidence than a lesson.
+- Audio isn't a field: sync names each file by its text and voice, so with the same voices the pack's audio is
+  found and nothing is paid. With other voices, the next sync makes new audio as usual.
+
 **Updates.** Importing v2 over v1 matches entries by `origin`. A field the pack changed is updated unless you
 edited it since the last import: Panko keeps a hash of what each pack gave, and your edits win, as with MyNotes. An
 entry the pack dropped is not removed; it is listed for you.
@@ -85,3 +109,5 @@ a teacher), once its pictures are done.
   plan that made it. Check before the first deck with audio; if not, publish the no-audio variant.
 - **Licence for the card text:** CC BY-SA 4.0 is suggested. Photos keep their own licences.
 - **Repo name:** e.g. `panko-decks`.
+- **Reference data in packs:** none. Packs carry cards, not DODa or Wiktionary data (their licences are summed up in
+  the archived research, `docs/archive/research-2026-11.md` §7).

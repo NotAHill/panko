@@ -8,7 +8,7 @@ Arabic. Single user. They review on Anki desktop, AnkiMobile and AnkiWeb.
 1. `docs/ROADMAP.md`: **Now** section = current state and next step. `data/STATUS.md` (git-ignored) = the learner's own state: decks, counts, what's waiting.
 2. `docs/DECISIONS.md`: why things are the way they are.
 3. `docs/ARCHITECTURE.md`: Mermaid diagrams + code map. Keep the diagrams in sync with the code; the user edits the stack by pointing at boxes.
-4. `docs/SPEC-note-types.md`: fields, card types, display rules. `docs/SPEC-library.md`: the deck library (S10 step 2). `docs/RESEARCH.md`: background research.
+4. `docs/SPEC-note-types.md`: fields, card types, display rules. `docs/SPEC-library.md`: the deck library (S10 step 2). `docs/archive/` holds dated records (early research, the v0.1 prototype): don't work from them.
 
 ## Run
 - `uv sync --all-extras`, `uv run pytest -q`, `uv run ruff check .`

@@ -548,7 +548,11 @@ a.flag:hover { text-decoration: none; border-color: var(--accent); color: var(--
 /* the PANKO banner: blue and the logo's green woven through it, drifting slowly */
 .logo { background: linear-gradient(100deg, var(--accent) 0%, var(--green) 22%, var(--accent) 44%, var(--info) 60%, var(--green) 78%, var(--accent) 100%);
   background-size: 240% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none;
-  animation: weave 14s ease-in-out infinite alternate; filter: drop-shadow(2px 2px 0 color-mix(in srgb, var(--accent) 22%, transparent)); }
+  animation: weave 14s ease-in-out infinite alternate;
+  /* a stepped 3D edge: each shadow also shadows the ones before it, so they stack into a solid block */
+  --edge: color-mix(in srgb, var(--accent) 38%, #06141a);
+  filter: drop-shadow(1px 1px 0 var(--edge)) drop-shadow(1px 1px 0 var(--edge)) drop-shadow(1px 1px 0 var(--edge))
+    drop-shadow(0 4px 6px rgb(0 0 0 / 0.14)); }
 @keyframes weave { from { background-position: 0% 50%; } to { background-position: 100% 50%; } }
 @media (prefers-reduced-motion: reduce) { .logo { animation: none; } }
 
