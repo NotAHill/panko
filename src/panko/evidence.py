@@ -50,7 +50,12 @@ def _tokens(s: str) -> set[str]:
 
 
 def _path(p: str) -> Path:
-    return Path(p) if Path(p).is_absolute() else ROOT / p
+    """A reference's file. On the server only inside the user's folder: one named elsewhere goes to cache/refs."""
+    from panko.config import inside
+    try:
+        return inside(p)
+    except ValueError:
+        return ROOT / "cache" / "refs" / Path(p).name
 
 
 @cache
@@ -250,6 +255,8 @@ def download(force: bool = False, client=None, say=print) -> list[dict]:
         if r["present"] and not force:
             report.append({**r, "done": "present"})
             continue
+        from panko.config import public_url
+        public_url(r["url"])
         if r["url"].startswith("https://github.com/"):
             p.mkdir(parents=True, exist_ok=True)
             files = _github_files(r["url"], r["include"], client)

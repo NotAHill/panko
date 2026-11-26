@@ -2,6 +2,27 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-26 · On the server, limits come from the environment, and nothing a user writes reaches outside their
+folder.** A user can edit their own config and keys, so the quota, the upload limit, the front door's secret and the
+CAMeL Tools interpreter come from the environment the front door starts their Panko with, never from their config.
+Every path from a user or their config is kept inside their folder (`config.inside`), and URLs from the config must
+be public https (`config.public_url`), since all users' Pankos run as one system user on one machine. Keys can be
+set from the hub's setup page in every mode (written to `.env`, readable only by you, used at once). WAL stays off
+locally so copying `panko.db` is still a whole backup; the busy timeout is on everywhere.
+
+**2026-11-26 · The hosted Panko is a website first.** Not a desktop or phone app: one codebase, nothing to install
+but the Anki add-on, any device with a browser. What only a local program can do (writing into Anki, noticing a
+lesson call) goes to small helpers: the Anki add-on now, a menu-bar recorder maybe later. DODa stays on; it is
+switched off if its authors object.
+
+**2026-11-26 · A hosted Panko runs one Panko per user, and an Anki add-on carries the cards.** For you plus a
+few invited people, on one small server (a plain server or a container host with a disk; serverless platforms
+like Vercel can't hold Panko's long jobs, store and media). Panko assumes one folder per process, so the server
+runs one Panko per user with `PANKO_HOME` set to their folder, behind a front door that handles accounts, invites
+and OAuth, and stops idle ones. Each user's keys and spend stay theirs (their own API key, or their own Claude in
+chat mode). Cards are rendered on the server and an Anki add-on writes them in place under the same rules as sync
+(no MyNotes, no deletes, no field changes). Spec: `docs/SPEC-hosted.md`.
+
 **2026-11-26 · The library repo is `panko-decks`, and its decks can carry their audio.** The library is
 github.com/NotAHill/panko-decks: a README for both kinds of learner, `index.json`, and one release per deck version.
 Card text is CC BY-SA 4.0, and photos keep their own licences, listed in each pack's `credits.json`. A deck's audio

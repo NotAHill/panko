@@ -120,7 +120,23 @@ Update the **Now** section at the end of every work session: it's what a fresh s
   and 304 phrases with 694 pictures and 2,420 clips, as a pack and an .apkg on the release `darija-peace-corps-v1`.
   Only one picture was left out (its licence couldn't be read). `panko library list` finds it on GitHub, and both
   files download and match the index's sha256.
-- **Next:** L4 (taking v2 over v1, your edits kept, dropped cards listed), then S10 step 3.
+- **L4 skipped for now (your call, 2026-11-26):** it matters once a deck has a v2 to ship; until then `get`
+  refuses to take a newer version over an older one.
+- **S10 step 3 planned (2026-11-26): a hosted Panko.** Spec: `docs/SPEC-hosted.md`. For you plus a few invited
+  people, on one small server; each user brings their own key or their own Claude; cards reach Anki through a
+  small Anki add-on. One Panko process per user behind a front door (accounts, invites, admin, OAuth for chat
+  mode), so the code runs nearly unchanged. Build order H1 (hosted mode inside Panko) → H2 (front door and the
+  server) → H3 (the Anki add-on) → H4 (chat mode remotely) → H5 (polish).
+- **H1 built (2026-11-26): hosted mode inside Panko.** With `PANKO_HOSTED=1`, `panko hub --socket PATH` listens on
+  a Unix socket only its user can open and trusts the front door's secret (`PANKO_FRONT_SECRET`) in place of the
+  launch link. Every path a user gives or a config names stays inside their folder (sources, references, library
+  files, exports); URLs from the config must be public https; the CAMeL Tools interpreter is the server's. Keys are
+  set on the setup page (locally too, no restart; values never shown again), and the config is edited there.
+  Uploads have a size limit and the folder a quota, both from the front door's environment. The store waits for
+  other writers (busy timeout, all modes) and uses WAL on the server. Sync to Anki and "open the folder" are refused;
+  the .apkg is the way to Anki until the add-on. Tests: `tests/test_hosted.py`, including two hubs on two sockets
+  side by side; tried in the browser (`hub-hosted` in `.claude/launch.json`).
+- **Next:** H2, the front door and the server. Before inviting anyone: a domain and a server. DODa stays on (free and invite-only fits its terms; switched off if its authors object).
 - The learner's own state (deck sizes, what's waiting on whom, plans) is in `data/STATUS.md` (git-ignored).
 
 ## Phases
@@ -152,7 +168,7 @@ sentences, clashes, picture decisions) are briefs in `data/` (git-ignored) run b
 
 | S8 ✅ | **The steps still done by agents** (built 2026-11-23) | Picture choice from the contact sheets as a command (`pictures-pick` prompt, API) and as chat tools; example sentences (`examples` prompt) and gloss clashes as commands; an audio tool and a packaged skill file for chat mode. Then the Peace Corps pictures run on the chat-mode picture step. |
 | S9 ✅ | **Any language** (built 2026-11-25) | Nothing Arabic-specific left in code or prompts: script detection, romanisation rules, references and voices come from config; a worked setup for a second language. Built as `panko.lang` + language presets (Moroccan Darija, Spanish); Arabic rules kept in one module; Spanish tested end to end. Not yet: a real Spanish source run with the model, presets for more languages, a morphological analyser for a second language. |
-| S10 | **Panko hub** (step 1 built 2026-11-26; step 2 planned, `docs/SPEC-library.md`) | A web dashboard or app: search pre-built language decks, or configure your own (language, varieties, sources, card types) and have Panko build it; the same pipeline behind it. Three steps (your call, 2026-11-26): (1) a local dashboard, `panko hub`, built; (2) a shareable deck library; (3) a hosted web service, private at first. |
+| S10 | **Panko hub** (steps 1 and 2 built 2026-11-26, `docs/SPEC-library.md`; step 3 under way, H1 built, `docs/SPEC-hosted.md`) | A web dashboard or app: search pre-built language decks, or configure your own (language, varieties, sources, card types) and have Panko build it; the same pipeline behind it. Three steps (your call, 2026-11-26): (1) a local dashboard, `panko hub`, built; (2) a shareable deck library; (3) a hosted web service, private at first. |
 
 Order (your call, 2026-11-23; product first from 2026-11-25): Phase 4 (lessons and recordings, built), Phase 5
 (verification, built), S9 (any language, built), S10. Card migration (Peace Corps pictures and sync, the Fusha round of Phase 6) waits until

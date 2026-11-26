@@ -14,7 +14,7 @@ import os
 import subprocess
 import sys
 
-from panko.config import CACHE, secret
+from panko.config import CACHE, hosted, secret
 from panko.providers import register
 from panko.providers.base import Morph
 
@@ -42,7 +42,8 @@ json.dump(out, sys.stdout, ensure_ascii=False)
 @register("morph", "camel")
 class Camel(Morph):
     def python(self) -> str:
-        p = self.cfg.get("python") or secret("PANKO_CAMEL_PYTHON")
+        # on the server the interpreter is the server's (its environment), never a path from the user's own config
+        p = secret("PANKO_CAMEL_PYTHON") if hosted() else self.cfg.get("python") or secret("PANKO_CAMEL_PYTHON")
         if p:
             return p if os.path.exists(p) else ""
         return sys.executable if importlib.util.find_spec("camel_tools") else ""
@@ -62,8 +63,9 @@ class Camel(Morph):
         todo = sorted({w for w in words if w and w not in cached})
         if todo:
             env = {**os.environ}
-            if self.cfg.get("data") or secret("CAMELTOOLS_DATA"):
-                env["CAMELTOOLS_DATA"] = self.cfg.get("data") or secret("CAMELTOOLS_DATA")
+            data = secret("CAMELTOOLS_DATA") if hosted() else self.cfg.get("data") or secret("CAMELTOOLS_DATA")
+            if data:
+                env["CAMELTOOLS_DATA"] = data
             r = subprocess.run([self.python(), "-I", "-c", HELPER], env=env, capture_output=True, text=True,
                                input=json.dumps({"db": db, "words": todo, "keys": KEYS}, ensure_ascii=False))
             if r.returncode:

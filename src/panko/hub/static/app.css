@@ -628,3 +628,10 @@ td.two button { white-space: nowrap; margin: 2px 0 2px 6px; }
 .box.deck.off { opacity: .6; }
 ul.samples { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 4px; }
 ul.samples li { display: flex; gap: 10px; align-items: baseline; }
+
+/* setup: keys and the config editor */
+table.keys td { vertical-align: top; }
+table.keys tr.grp td { color: var(--faint); font-size: 12px; padding-top: 14px; border-bottom: 0; }
+form.key-f { display: flex; gap: 6px; }
+form.key-f input { flex: 1; min-width: 140px; }
+textarea.cfg-text { width: 100%; min-height: 360px; font: 13px/1.5 ui-monospace, Menlo, monospace; background: var(--field); color: var(--fg); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 10px; box-sizing: border-box; }

@@ -16,7 +16,7 @@ import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 
-from panko.config import ROOT
+from panko.config import ROOT, hosted
 from panko.store.normalize import strip_article as key
 
 DB_PATH = ROOT / "data" / "panko.db"
@@ -76,8 +76,11 @@ def now() -> str:
 class Store:
     def __init__(self, path: Path | str = DB_PATH):
         Path(path).parent.mkdir(parents=True, exist_ok=True)
-        self.db = sqlite3.connect(path)
+        # the hub, its jobs and the MCP server can write at once: wait for each other rather than fail
+        self.db = sqlite3.connect(path, timeout=15)
         self.db.row_factory = sqlite3.Row
+        if hosted():     # readers don't block the writer; kept off locally so copying panko.db stays a full backup
+            self.db.execute("PRAGMA journal_mode=WAL")
         self.db.executescript(SCHEMA)
 
     # ---- entries

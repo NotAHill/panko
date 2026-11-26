@@ -381,7 +381,7 @@ function paintStatus() {
   const m = S.meta || {};
   const run = S.jobs.find(j => j.status === 'running');
   const q = S.jobs.filter(j => j.status === 'queued').length;
-  put($('#status'), html`<span>${m.config ? m.language || 'set up' : 'not set up yet'}</span><span class="path">${tilde(m.root)}</span>
+  put($('#status'), html`<span>${m.config ? m.language || 'set up' : 'not set up yet'}</span><span class="path">${m.hosted ? '' : tilde(m.root)}</span>
     ${run ? html`<a class="job" href="#/jobs/${run.id}"><span class="spin">✻</span> ${run.title}… ${dur(run.started)}${q ? `, ${q} queued` : ''}</a>` : ''}
     <span class="grow"></span>${modeBadge()}${S.spend != null ? html`<a href="#/usage" class="dim">${usd(S.spend)} this month</a>` : ''}<span class="kbd-hint"><kbd>?</kbd> keys</span>`);
   put($('#top-meta'), m.config ? learning(m) : html`<a href="#/setup">set up</a>`);
@@ -498,7 +498,7 @@ VIEWS.overview = async el => {
       <ol class="steps">
         <li><span><b>Add something you learn from.</b> A PDF or photos of a lesson, a recording, or an Anki deck you already have.
           <a href="#/sources?add=1">add a source</a></span></li>
-        <li><span><b>Choose who reads it.</b> <span id="st-who">Your own Claude in chat, free (<a href="#/setup">connect it in setup</a>), or the API with a key in <code>.env</code> in ${tilde(m.root)} (paid, priced first).</span></span></li>
+        <li><span><b>Choose who reads it.</b> <span id="st-who">Your own Claude in chat, free (<a href="#/setup">connect it in setup</a>), or the API with your key (<a href="#/setup">add it in setup</a>; paid, priced first).</span></span></li>
         <li><span><b>Pick the good words.</b> They wait in the <a href="#/inbox">inbox</a> until you activate them.</span></li>
         <li><span><b>Send them to Anki</b> with the MCP add-on open. <a href="#/sync">Sync</a> shows what would change before anything does.</span></li>
       </ol>
@@ -509,7 +509,7 @@ VIEWS.overview = async el => {
         <span class="k">learning</span><span class="v">${m.language}</span>
         <span class="k">varieties</span><span class="v">${m.varieties.map(v => v.title).join(', ')}</span>
         <span class="k">glosses in</span><span class="v">${m.gloss_language}</span>
-        <span class="k">folder</span><span class="v">${tilde(m.root)}</span>
+        ${m.hosted ? '' : html`<span class="k">folder</span><span class="v">${tilde(m.root)}</span>`}
         <span class="k">spend</span><span class="v">${usd(o.spend.month)} this month, <span class="dim">${usd(o.spend.all)} in all</span></span>
       </div>
       ${empty ? '' : week(o.added)}
@@ -1184,7 +1184,7 @@ async function sourceView(el, sid, r) {
         <button class="${d.llm_ready ? 'pri' : ''}" data-a="run" ${P.todo && d.llm_ready ? '' : 'disabled'}><span class="paid">$</span>read them with the model</button>
         <button data-a="ingest" ${P.submitted ? '' : 'disabled'}>ingest ${plural(P.submitted, 'ready unit')}</button>
       </div>
-      ${d.llm_ready ? '' : html`<p class="faint mt-s">Reading with the model needs an API key: add <code>ANTHROPIC_API_KEY</code> to <code>.env</code> in ${tilde(S.meta.root)}, then restart the hub.</p>`}
+      ${d.llm_ready ? '' : html`<p class="faint mt-s">Reading with the model needs an API key: <a href="#/setup">add <code>ANTHROPIC_API_KEY</code> in setup</a>.</p>`}
       ${P.todo ? html`<details class="mt-s" ${d.llm_ready ? '' : 'open'}><summary>or read it in chat, free</summary>
         <p class="muted-p mt-s">With Panko connected to your own Claude (<a href="#/setup">setup → chat mode</a>), ask it:</p>
         <div class="snippet mt-s"><pre>Work through the Panko source "${s.title}" (${sid}) and submit each unit.</pre></div>
@@ -1541,14 +1541,15 @@ document.addEventListener('mouseout', e => { const q = e.target.closest?.('[data
 
 // ---- sync ---------------------------------------------------------------------------------------------------------
 VIEWS.sync = async el => {
+  const hosted = !!S.meta.hosted;
   put(el, html`<div class="page-h"><h1>sync</h1><span class="sub">active cards → Anki, updated in place</span></div>
-    <section class="box warn"><div class="t">before you sync</div><ul class="arrows">
+    ${hosted ? html`<section class="box warn"><div class="t">to Anki from the server</div><p class="muted-p">Syncing straight into your Anki needs the Panko add-on, which is coming. Until then, make an .apkg below and open it in Anki: it adds the cards, and a newer one updates them in place.</p></section>` : html`<section class="box warn"><div class="t">before you sync</div><ul class="arrows">
       <li>Anki is open, with the MCP add-on listening on 127.0.0.1:3141.</li>
       <li>Panko writes only its own notes, decks and note types. Your review history stays, and your MyNotes field is never written.</li>
       <li>Template and CSS changes go through a normal sync; nothing here forces a full one.</li>
       <li>Audio for new text is made on the way (paid). The plan shows how much first.</li></ul></section>
     <section class="box"><div class="t">plan <span class="dim">free, no Anki needed</span></div>
-      <div class="acts"><button class="pri" data-a="plan">check what a sync would do</button></div><div id="plan">${S.plan ? '' : ''}</div></section>
+      <div class="acts"><button class="pri" data-a="plan">check what a sync would do</button></div><div id="plan">${S.plan ? '' : ''}</div></section>`}
     <section class="box" id="share"><div class="t">share as a file</div>
       <p class="muted-p">An Anki package (.apkg) of your active cards, for a friend: they open it and Anki adds the decks. It has the pictures and the audio already made, and no review history, so they start fresh. Your Anki isn't touched.</p>
       <div class="acts mt">${S.meta.varieties.length > 1 ? S.meta.varieties.map(v => html`<label class="chk-l"><input type="checkbox" data-var="${v.name}" checked> ${v.title}</label>`) : ''}
@@ -1589,7 +1590,7 @@ VIEWS.sync = async el => {
       startJob('/sync', { confirm: true }, j => { const r = j.result; if (r) put($('#plan'), html`<hr><p class="ok">✔ synced: ${n(r.added)} added, ${n(r.updated)} updated, ${n(r.unchanged)} unchanged, ${n(r.media)} media files</p>`); S.plan = null; });
     },
   });
-  if (S.plan) showPlan({ result: S.plan });
+  if (S.plan && !hosted) showPlan({ result: S.plan });
 };
 
 // ---- usage --------------------------------------------------------------------------------------------------------
@@ -1652,30 +1653,51 @@ VIEWS.setup = async (el, r) => {
   const d = await api('/setup');
   if (!d.config) return setupWizard(el, d);
   if (r?.q?.again) return setupWizard(el, d);
-  const ready = await api('/readiness');
-  put(el, html`<div class="page-h"><h1>setup</h1><span class="sub">${tilde(d.path)}</span></div>
+  const [ready, K] = await Promise.all([api('/readiness'), api('/setup/keys')]);
+  const hosted = !!S.meta.hosted;
+  put(el, html`<div class="page-h"><h1>setup</h1><span class="sub">${hosted ? 'your Panko on the server' : tilde(d.path)}</span></div>
     <section class="box"><div class="t">your language</div><p>${S.meta.language}, ${learning(S.meta)}, glosses in ${S.meta.gloss_language}.</p>
-      <p class="muted-p mt-s">To add a variety, add it to <code>varieties</code> in the config and reload. A Panko folder holds one language:
-      for a second one, make another folder and run <code>panko init</code> there (or set <code>PANKO_HOME</code> to it), so each keeps its own cards.</p>
+      <p class="muted-p mt-s">${hosted ? html`To add a variety, add it to <code>varieties</code> in the config below. Your Panko holds one language.`
+        : html`To add a variety, add it to <code>varieties</code> in the config and reload. A Panko folder holds one language:
+      for a second one, make another folder and run <code>panko init</code> there (or set <code>PANKO_HOME</code> to it), so each keeps its own cards.`}</p>
       <div class="acts mt"><button data-a="again">start again with a different language</button></div></section>
     <section class="box"><div class="t">what's ready</div>${ready.rows.map(r => html`<div class="check-row"><span class="${r.ok ? 'ok' : 'faint'}">${r.ok ? '✔' : '○'}</span><span>${r.what}</span><span class="dim">${ticks(tilde(r.detail))}</span></div>`)}</section>
     <section class="box"><div class="t">reference data</div>
-      <table class="t"><tbody>${d.references.map(x => html`<tr><td>${x.name}</td><td class="nw">${x.present ? html`<span class="ok">present</span>` : x.url ? html`<span class="warn">missing</span>` : html`<span class="faint">add it yourself</span>`}</td><td class="dim cut" style="max-width:320px">${tilde(x.path)}</td></tr>`)}</tbody></table>
+      <table class="t"><tbody>${d.references.map(x => html`<tr><td>${x.name}</td><td class="nw">${x.present ? html`<span class="ok">present</span>` : x.url ? html`<span class="warn">missing</span>` : html`<span class="faint">add it yourself</span>`}</td><td class="dim cut" style="max-width:320px">${hosted ? '' : tilde(x.path)}</td></tr>`)}</tbody></table>
       <div class="acts mt"><button data-a="refs" ${d.references.some(x => !x.present && x.url) ? '' : 'disabled'}>download the open ones that are missing</button></div></section>
-    <section class="box"><div class="t">config</div><p class="muted-p">Your language, varieties, decks, providers and budget live in <code>${tilde(d.path)}</code>. Edit it, then reload this page.</p>
-      <div class="acts mt"><button data-a="open-config">open it</button><button data-a="open-folder">open the Panko folder</button></div>
-      <details class="mt"><summary>show it</summary><div class="snippet mt-s"><pre>${d.text}</pre></div></details></section>
+    <section class="box" id="keys"><div class="t">keys <span class="dim">yours, kept in ${hosted ? 'your Panko' : html`<code>.env</code>`}; never shown again once saved</span></div>
+      <table class="t keys"><tbody>${K.keys.map((k, i) => html`${k.note && k.note !== K.keys[i - 1]?.note ? html`<tr class="grp"><td colspan="3">${k.note}</td></tr>` : ''}<tr><td class="nw"><code>${k.name}</code></td>
+        <td class="nw">${k.set ? html`<span class="ok">set</span>` : html`<span class="faint">not set</span>`}</td>
+        <td><form class="key-f" data-key="${k.name}" autocomplete="off"><input type="password" name="v" placeholder="${k.set ? 'replace it' : 'paste it'}" aria-label="${k.name}" autocomplete="off" spellcheck="false">
+          <button>save</button>${k.set ? html`<button type="button" data-a="clear-key" data-key="${k.name}">remove</button>` : ''}</form></td></tr>`)}</tbody></table>
+      ${K.disk ? html`<p class="muted-p mt">Disk: ${n(Math.round(K.disk.used / 1e6))} MB of ${K.disk.quota_gb} GB used. One upload can be up to ${n(K.disk.upload_mb)} MB.</p>` : ''}</section>
+    <section class="box"><div class="t">config</div><p class="muted-p">Your language, varieties, decks, providers and budget${hosted ? '' : html` live in <code>${tilde(d.path)}</code>`}. Edit them here (the old version is kept as <code>panko.toml.bak</code>)${hosted ? '' : ', or in your own editor and reload this page'}.</p>
+      ${hosted ? '' : html`<div class="acts mt"><button data-a="open-config">open it</button><button data-a="open-folder">open the Panko folder</button></div>`}
+      <details class="mt" id="cfg-box"><summary>edit it</summary><textarea id="cfg-text" class="cfg-text mt-s" spellcheck="false">${d.text}</textarea>
+        <div class="acts mt-s"><button class="pri" data-a="save-config">save</button><span id="cfg-out"></span></div></details></section>
     ${(i => i ? html`<section class="box"><div class="t">how Panko reads</div>
       <div class="check-row"><span class="${d.modes.chat.active ? 'ok' : 'faint'}">${d.modes.chat.active ? '●' : '○'}</span><span>${i.chat}</span></div>
       <div class="check-row"><span class="${d.modes.api.ready ? 'acc' : 'faint'}">${d.modes.api.ready ? '●' : '○'}</span><span>${i.api}</span></div></section>` : '')(modeInfo(d.modes))}
-    <section class="box"><div class="t">chat mode</div><p class="muted-p">Let your own Claude (Desktop or Code) read sources and decide with Panko's tools, with no API spend.
+    <section class="box"><div class="t">chat mode</div>${hosted ? html`<p class="muted-p">Connecting your own Claude to your Panko on the server is coming. Until then, use the API with your key, or Panko on your own computer.</p>`
+      : html`<p class="muted-p">Let your own Claude (Desktop or Code) read sources and decide with Panko's tools, with no API spend.
       Add this to Claude's MCP config, then restart it.</p>${d.chat ? html`<div class="snippet mt"><button data-a="copy">copy</button><pre id="snip">${d.chat}</pre></div>`
-        : html`<p class="warn">Needs the extra: <code>uv sync --extra mcp</code></p>`}</section>
+        : html`<p class="warn">Needs the extra: <code>uv sync --extra mcp</code></p>`}`}</section>
     <section class="box"><div class="t">look</div><div class="acts"><button data-a="theme">switch light / dark</button><button data-a="tour">show me around</button><span class="dim kbd-hint">or press <kbd>t</kbd> to switch</span></div></section>`);
   actions(el, {
     refs: () => startJob('/refs/download', {}, () => VIEWS.setup(el)),
     'open-config': () => api('/open', { body: { what: 'config' } }).catch(e => toast(e.message, 'bad')),
     'open-folder': () => api('/open', { body: { what: 'folder' } }).catch(e => toast(e.message, 'bad')),
+    'clear-key': async b => {
+      if (!await confirmIt(`remove ${b.dataset.key}?`, html`<p>Panko stops using it until you add it again.</p>`, 'Remove')) return;
+      try { await api('/setup/keys', { body: { name: b.dataset.key, value: '' } }); toast('removed'); VIEWS.setup(el); } catch (e) { toast(e.message, 'bad'); }
+    },
+    'save-config': async () => {
+      try {
+        await api('/setup/text', { body: { text: $('#cfg-text').value } });
+        put($('#cfg-out'), html`<span class="ok">✔ saved</span>`);
+        S.meta = await api('/meta'); paintNav(); paintStatus();
+      } catch (e) { put($('#cfg-out'), html`<span class="bad">✘ ${e.message}</span>`); }
+    },
     copy: async () => { try { await navigator.clipboard.writeText($('#snip').textContent); toast('copied'); } catch { toast('select the text and copy it', 'bad'); } },
     theme: () => toggleTheme(),
     tour: () => tour(),
@@ -1684,6 +1706,17 @@ VIEWS.setup = async (el, r) => {
       if (await confirmIt('start again with a different language?', html`<p>Panko writes a new config and keeps the old one next to it as <code>panko.toml.bak</code>.</p>
         ${n ? html`<p class="warn">Your cards stay in this folder and keep their old language. For a second language, a new Panko folder is usually better.</p>` : ''}`, 'Start again')) go('#/setup?again=1');
     },
+  });
+  $$('form.key-f', el).forEach(f => f.onsubmit = async ev => {
+    ev.preventDefault();
+    const v = f.elements.v.value.trim();
+    if (!v) return f.elements.v.focus();
+    try {
+      await api('/setup/keys', { body: { name: f.dataset.key, value: v } });
+      f.elements.v.value = '';
+      toast(html`<span class="ok">✔</span> ${f.dataset.key} saved`, 'ok');
+      VIEWS.setup(el);
+    } catch (e) { toast(e.message, 'bad'); }
   });
 };
 
@@ -1967,7 +2000,7 @@ VIEWS.voices = async (el, r) => {
   const meta = v => [GENDER[v.gender] || v.gender, v.accent, v.age && v.age.replace(/_/g, ' ')].filter(Boolean).join(', ');
   const playBtn = v => v.sample ? html`<button class="play" data-a="play" data-src="${v.sample}" aria-label="play ${shown(v)}">${icon('play')}</button>` : html`<span class="play-gap"></span>`;
   put(el, html`<div class="page-h"><h1>voices</h1><span class="sub">who reads your cards aloud</span></div>
-    ${!first.ready ? html`<section class="box warn"><div class="t">no ElevenLabs key</div><p class="muted-p">Voices come from ElevenLabs. Add <code>ELEVENLABS_API_KEY</code> to <code>.env</code> in the Panko folder, then restart the hub.
+    ${!first.ready ? html`<section class="box warn"><div class="t">no ElevenLabs key</div><p class="muted-p">Voices come from ElevenLabs. <a href="#/setup">Add <code>ELEVENLABS_API_KEY</code> in setup</a>.
       Listening is free; library voices need a paid ElevenLabs plan to speak.</p></section>`
       : !first.in_chain ? html`<section class="box warn"><div class="t">not in use yet</div><p class="muted-p">ElevenLabs isn't in your <code>[audio] chain</code>, so cards are read by another provider. Add it in your config to use what you choose here.</p></section>` : ''}
     ${vs.length > 1 ? html`<div class="tabs mb-s" id="vc-var">${vs.map(v => html`<button data-v="${v}" class="${v === st.variety ? 'on' : ''}">${V(v).title}</button>`)}</div>` : ''}

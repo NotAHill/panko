@@ -49,7 +49,8 @@ def slug(text: str) -> str:
 
 
 def _abs(p: str | Path) -> Path:
-    return Path(p) if Path(p).is_absolute() else ROOT / p
+    from panko.config import inside
+    return inside(p)
 
 
 # ---- sources -----------------------------------------------------------------------------------------------------

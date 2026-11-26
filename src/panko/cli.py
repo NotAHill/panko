@@ -122,6 +122,8 @@ def _main(argv=None):
     hb.add_argument("--port", type=int, default=8770)
     hb.add_argument("--no-open", action="store_true", help="print the link without opening a browser")
     hb.add_argument("--token", default="", help=argparse.SUPPRESS)
+    hb.add_argument("--socket", metavar="PATH", help="on the server: listen on this Unix socket behind the front door "
+                    "(needs PANKO_FRONT_SECRET; see docs/SPEC-hosted.md)")
     i = sub.add_parser("ingest", help="load an extraction JSON into the store")
     i.add_argument("path")
     i.add_argument("--verdicts", nargs="*", default=[], help="verification JSON files to apply first")
@@ -331,7 +333,10 @@ def _main(argv=None):
             from panko import hub
         except ImportError:
             ap.error("the hub needs the extra: uv sync --extra hub")
-        hub.serve(args.port, not args.no_open, args.token or os.environ.get("PANKO_HUB_TOKEN") or None)
+        if args.socket:
+            hub.serve_socket(args.socket)
+        else:
+            hub.serve(args.port, not args.no_open, args.token or os.environ.get("PANKO_HUB_TOKEN") or None)
     elif args.cmd == "ingest":
         import json
         from pathlib import Path

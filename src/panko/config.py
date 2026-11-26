@@ -30,6 +30,77 @@ ROOT = find_root()
 CACHE = ROOT / "cache"
 
 
+# ---- hosted mode ---------------------------------------------------------------------------------------------------
+# On the server (docs/SPEC-hosted.md) each user's Panko runs with PANKO_HOSTED=1 behind the front door. Its limits
+# come from the environment the front door sets, never from the user's own config, which they can edit.
+
+def hosted() -> bool:
+    """True when this Panko runs on the server for one user, rather than on the learner's own computer."""
+    return os.environ.get("PANKO_HOSTED", "").strip().lower() not in ("", "0", "false", "no")
+
+
+def host_limits() -> dict:
+    """Upload size (MB, per request) and disk quota (GB, the whole Panko folder) on the server."""
+    def num(name, default):
+        try:
+            return float(os.environ.get(name) or default)
+        except ValueError:
+            return float(default)
+    return {"upload_mb": num("PANKO_UPLOAD_MB", 500), "quota_gb": num("PANKO_QUOTA_GB", 5)}
+
+
+def disk_use() -> int:
+    """Bytes the Panko folder holds (what the quota counts)."""
+    total = 0
+    for d, _, files in os.walk(ROOT):
+        for f in files:
+            try:
+                total += os.lstat(os.path.join(d, f)).st_size
+            except OSError:
+                pass
+    return total
+
+
+def room_for(n: int) -> None:
+    """On the server, refuse to add `n` bytes that would take the Panko folder over its quota."""
+    if not hosted():
+        return
+    quota = host_limits()["quota_gb"] * 1e9
+    used = disk_use()
+    if used + n > quota:
+        raise ValueError(f"that needs {n / 1e6:,.0f} MB and your Panko has {max(quota - used, 0) / 1e6:,.0f} MB left "
+                         f"of {quota / 1e9:g} GB: remove a source or old exports first")
+
+
+def public_url(u: str) -> str:
+    """On the server, a URL from the user's config (a reference, a library index) must be https to a public name, so
+    it can't be used to reach the server's own or its network's services."""
+    if not hosted():
+        return u
+    import ipaddress
+    from urllib.parse import urlsplit
+    host = (urlsplit(u).hostname or "").lower()
+    bad = not u.startswith("https://") or not host or host == "localhost" or host.endswith((".local", ".internal"))
+    try:
+        ip = ipaddress.ip_address(host)
+        bad = bad or not ip.is_global
+    except ValueError:
+        pass
+    if bad:
+        raise ValueError(f"on the server, downloads must be https from a public site: {u}")
+    return u
+
+
+def inside(p: str | Path) -> Path:
+    """A path the learner gave or a source stored, relative to the Panko folder unless absolute. On the server it must
+    be inside their own folder (files come in by upload), so no one reads another user's files or the server's."""
+    q = Path(p).expanduser()
+    q = q if q.is_absolute() else ROOT / q
+    if hosted() and not q.resolve().is_relative_to(ROOT.resolve()):
+        raise ValueError("on the server, files come in by upload: this path is outside your Panko folder")
+    return q
+
+
 def choices_path() -> Path:
     """Choices made in the hub (card design, pictures, voices). They override config/panko.toml, which keeps your
     comments untouched; delete this file to go back to panko.toml alone."""

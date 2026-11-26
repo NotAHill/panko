@@ -138,6 +138,69 @@ def write_config(answers: dict, force: bool = False, path: Path = CONFIG) -> Pat
     return path
 
 
+# ---- keys (.env) -----------------------------------------------------------------------------------------------------
+# Set from the hub's setup page as well as by editing .env. Only the names env.example lists; values are never sent
+# back, only whether each is set. On the server the paths to local tools aren't the user's to set.
+
+LOCAL_ONLY_KEYS = {"PANKO_CAMEL_PYTHON", "CAMELTOOLS_DATA"}
+KEY_NAME = re.compile(r"^([A-Z][A-Z0-9_]*)=")
+
+
+def keys() -> list[dict]:
+    """[{name, note, set}] in env.example's order; `note` is the comment above each group."""
+    import os
+
+    from panko.config import hosted, settings
+    try:
+        settings()          # loads .env into the environment
+    except FileNotFoundError:
+        pass
+    out, note = [], ""
+    for line in (TEMPLATES / "env.example").read_text().splitlines():
+        if line.startswith("#"):
+            note = "" if line.startswith(("# Copy", "# Keep")) else line.lstrip("# ").strip()
+            continue
+        m = KEY_NAME.match(line)
+        if m and not (hosted() and m[1] in LOCAL_ONLY_KEYS):
+            out.append({"name": m[1], "note": note, "set": bool(os.environ.get(m[1]))})
+        elif not line.strip():
+            note = ""
+    return out
+
+
+def set_key(name: str, value: str, env: Path | None = None) -> Path:
+    """Write NAME=value into the Panko folder's .env (readable by you only) and into this process, so the change works
+    without a restart. An empty value removes it."""
+    import os
+    allowed = {k["name"] for k in keys()}
+    if name not in allowed:
+        raise ValueError(f"{name} isn't a key Panko uses here")
+    value = (value or "").strip()
+    if any(c in value for c in "\r\n\0") or len(value) > 4000:
+        raise ValueError("that doesn't look like a key")
+    env = env or ROOT / ".env"
+    lines = env.read_text().splitlines() if env.exists() else []
+    line = f"{name}={value}"
+    for i, old in enumerate(lines):
+        if old.startswith(f"{name}="):
+            lines[i] = line
+            break
+    else:
+        lines.append(line)
+    env.parent.mkdir(parents=True, exist_ok=True)
+    tmp = env.with_name(".env.tmp")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        f.write("\n".join(lines) + "\n")
+    os.chmod(tmp, 0o600)
+    os.replace(tmp, env)
+    if value:
+        os.environ[name] = value
+    else:
+        os.environ.pop(name, None)
+    return env
+
+
 def anki_profiles() -> list[str]:
     from panko.config import anki_folder
     d = anki_folder()
@@ -168,21 +231,27 @@ def check() -> list[tuple[str, bool, str]]:
         rows.append(("config", True, str(CONFIG)))
     except FileNotFoundError:
         return [("config", False, "no config/panko.toml: run `panko init`")]
+    from panko.config import hosted
+    keys_at = "under keys below" if hosted() else "in .env (or under keys in the hub's setup)"
     for cap, what in (("llm", "API mode (language model)"), ("audio", "audio"), ("images", "pictures")):
         ready = [p.name for p in providers.chain(cap) if p.name not in ("native", "source")]   # need your own material
-        rows.append((what, bool(ready), ", ".join(ready) or f"no {cap} provider has its key in .env"))
+        rows.append((what, bool(ready), ", ".join(ready) or f"no {cap} provider has its key yet: add one {keys_at}"))
     for v in s.get("learner", {}).get("varieties", []):
         voices = s.get("audio", {}).get("elevenlabs", {}).get(f"voices_{v}", [])
         rows.append((f"voices for {v}", bool(voices), ", ".join(voices) or "none set: cards get no audio"))
-    a = anki()
-    rows.append(("Anki (open, MCP add-on)", _anki_reachable(a["url"]),
-                 a["url"] if _anki_reachable(a["url"]) else f"nothing answers at {a['url']}: open Anki with the "
-                 "Anki MCP Server add-on"))
-    col = collection_path()
-    rows.append(("Anki collection (migrations)", col.exists(), str(col)))
+    if not hosted():         # on the server, cards reach Anki through the Panko add-on instead
+        a = anki()
+        rows.append(("Anki (open, MCP add-on)", _anki_reachable(a["url"]),
+                     a["url"] if _anki_reachable(a["url"]) else f"nothing answers at {a['url']}: open Anki with the "
+                     "Anki MCP Server add-on"))
+        col = collection_path()
+        rows.append(("Anki collection (migrations)", col.exists(), str(col)))
     for r in references_status():
         rows.append((r["name"], r["present"], r["path"] if r["present"] else
-                     ("`panko refs --download`" if r["url"] else f"add the file at {r['path']}")))
+                     (("download it below" if hosted() else "`panko refs --download`") if r["url"]
+                      else f"add the file at {r['path']}")))
+    if hosted():             # connecting your Claude to the server comes with H4
+        return rows
     try:
         import mcp  # noqa: F401
         rows.append(("chat mode (panko mcp)", True, "`panko mcp --config` for the Claude snippet"))

@@ -48,9 +48,9 @@ KEEP = {"kind", "variety", "ar", "tl", "tl_alt", "gloss", "gloss_note", "pos", "
 
 def out_dir() -> Path:
     """`[export] dir` in your config, else cache/exports (packs can be hundreds of MB)."""
-    from panko.config import CACHE, settings
+    from panko.config import CACHE, hosted, settings
     d = settings().get("export", {}).get("dir")
-    return Path(d).expanduser() if d else CACHE / "exports"
+    return Path(d).expanduser() if d and not hosted() else CACHE / "exports"
 
 
 def pictures_dir() -> Path:
@@ -458,8 +458,10 @@ def index_source() -> str:
 
 def library_dir() -> Path:
     """Where downloaded decks go: `[library] dir`, else beside your exports (packs are big), else cache/library."""
-    from panko.config import CACHE, settings
+    from panko.config import CACHE, hosted, settings
     s = settings()
+    if hosted():                 # on the server, always inside the user's folder
+        return CACHE / "library"
     if s.get("library", {}).get("dir"):
         return Path(s["library"]["dir"]).expanduser()
     if s.get("export", {}).get("dir"):
@@ -478,11 +480,14 @@ def load_index(src: str | None = None) -> dict:
         raise ValueError("no library set: put its index in [library] index (a URL or a file), or [library] repo")
     if _is_url(src):
         import httpx
-        r = httpx.get(src, timeout=20, follow_redirects=True)
+
+        from panko.config import public_url
+        r = httpx.get(public_url(src), timeout=20, follow_redirects=True)
         r.raise_for_status()
         idx = r.json()
     else:
-        idx = json.loads(Path(src).expanduser().read_text())
+        from panko.config import inside
+        idx = json.loads(inside(src).read_text())
     if not isinstance(idx, dict) or idx.get("format") != 1 or not isinstance(idx.get("decks"), list):
         raise ValueError(f"{src} isn't a Panko library index (format 1)")
     return idx
@@ -536,12 +541,14 @@ def fetch(entry: dict, kind: str = "pack", *, src: str | None = None, dest: Path
     src = src or index_source()
     url = f.get("url", "")
     part = out.with_suffix(out.suffix + ".part")
-    beside = Path(src).expanduser().parent / f["name"] if src and not _is_url(src) else None
+    from panko.config import inside, public_url
+    beside = inside(src).parent / f["name"] if src and not _is_url(src) else None
     if beside and beside.is_file():                # a local library: the files sit beside its index
         shutil.copyfile(beside, part)
     elif url:
         if not url.startswith("https://"):
             raise ValueError(f"{entry['id']}: only https downloads are allowed")
+        public_url(url)
         import httpx
         with httpx.stream("GET", url, timeout=60, follow_redirects=True) as r, open(part, "wb") as w:
             r.raise_for_status()

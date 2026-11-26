@@ -35,8 +35,11 @@ class Req:
 
 
 def _json(data, status: int = 200) -> Response:
-    return Response(json.dumps(data, ensure_ascii=False, default=str), status_code=status,
-                    media_type="application/json")
+    text = json.dumps(data, ensure_ascii=False, default=str)
+    from panko.config import ROOT, hosted
+    if hosted():    # the server's own layout isn't shown: paths in the user's folder go relative to it
+        text = text.replace(str(ROOT) + "/", "").replace(json.dumps(str(ROOT))[1:-1], "")
+    return Response(text, status_code=status, media_type="application/json")
 
 
 def api(method: str, path: str):
@@ -54,6 +57,8 @@ def api(method: str, path: str):
                 res = await run_in_threadpool(fn, Req(request, body))
             except KeyError as e:
                 return _json({"error": str(e.args[0]) if e.args else "not found"}, 404)
+            except PermissionError as e:
+                return _json({"error": str(e)}, 403)
             except EXPECTED as e:
                 return _json({"error": str(e)}, 400)
             return res if isinstance(res, Response) else _json(res)
@@ -89,6 +94,22 @@ def _reload():
     evidence._INDEX.clear()
 
 
+def _shown(p) -> str:
+    """A path for the page: on the server, relative to the user's folder (the server's own layout isn't shown)."""
+    from panko.config import ROOT, hosted
+    if not hosted() or not p:
+        return str(p)
+    p = Path(p)
+    return "" if p == ROOT or not p.is_relative_to(ROOT) else str(p.relative_to(ROOT))
+
+
+def _local_only(what: str):
+    """Things that reach this computer's own apps (Anki, Finder) don't exist on the server."""
+    from panko.config import hosted
+    if hosted():
+        raise PermissionError(f"{what} works in your own Panko, not on the server")
+
+
 def _confirmed(req: Req) -> bool:
     return req.body.get("confirm") is True
 
@@ -113,10 +134,10 @@ def _presets() -> list[dict]:
 @api("GET", "/meta")
 def meta(req: Req):
     from panko import lang, setup
-    from panko.config import ROOT
+    from panko.config import ROOT, hosted
     if not _config_ready():
-        return {"config": False, "root": str(ROOT), "presets": _presets(), "defaults": setup.DEFAULTS,
-                "profiles": setup.anki_profiles()}
+        return {"config": False, "root": _shown(ROOT), "presets": _presets(), "defaults": setup.DEFAULTS,
+                "profiles": [] if hosted() else setup.anki_profiles(), "hosted": hosted()}
     from panko.cards import build
     from panko.config import deck, settings
     s = settings()
@@ -127,7 +148,8 @@ def meta(req: Req):
         morph = {v: p.name for p in providers.chain("morph") for v in p.dbs()}
     except Exception:  # an analyser that can't load must not stop the hub
         pass
-    return {"config": True, "root": str(ROOT), "config_path": str(setup.CONFIG), "language": L.get("language", ""),
+    return {"config": True, "root": _shown(ROOT), "config_path": _shown(setup.CONFIG), "hosted": hosted(),
+            "language": L.get("language", ""),
             "gloss_language": L.get("gloss_language", "English"), "romanised": lang.romanised(),
             "regions": L.get("regions", []), "topics": L.get("topics", []),
             "varieties": [{"name": v, "title": v.title(), "script": lang.label(v), "rtl": lang.is_rtl(v),
@@ -309,6 +331,8 @@ def add_source(req: Req):
                  speakers=[x.strip() for x in (b.get("speakers") or "").split(",") if x.strip()],
                  learner=b.get("learner", ""), transcript=b.get("transcript", ""))
     if b.get("deck"):
+        _local_only("exporting a deck from Anki")
+
         def run(job: Job):
             from panko.anki.export import export_deck
             path = work.WORK / "decks" / f"{work.slug(b['deck'])}.json"
@@ -725,7 +749,7 @@ def library_state(req: Req):
     """The library's decks, with what fits this Panko and what you have. A library that can't be reached says why."""
     from panko import library
     src = library.index_source()
-    out = {"source": src, "dir": str(library_dir_safe()), "decks": [], "error": ""}
+    out = {"source": src, "dir": _shown(library_dir_safe()), "decks": [], "error": ""}
     if not src:
         out["error"] = "no library set"
         return out
@@ -752,6 +776,8 @@ def library_get(req: Req):
     d = next((x for x in library.decks() if x["id"] == did), None)
     if not d:
         return JSONResponse({"error": "no such deck in the library"}, 404)
+    from panko.config import room_for
+    room_for(2 * sum(int(f.get("bytes") or 0) for f in d.get("files", []) if f.get("kind") == "pack"))  # zip + media
 
     def run(job: Job):
         step = {"at": -1}
@@ -867,7 +893,11 @@ def pictures_choose(req: Req):
     eid, idx = str(req.body.get("id", "")), int(req.body.get("index", -1))
     d = choose.load_decisions().get(eid, {})
     allowed = {str(_chosen_dir())} | ({d["photo"]["dir"]} if d.get("photo") else set())
-    where = str(req.body.get("dir", ""))
+    from panko.config import inside
+    try:
+        where = str(inside(str(req.body.get("dir", "")))) if req.body.get("dir") else ""
+    except ValueError:
+        where = ""
     if where not in allowed:
         return JSONResponse({"error": "pick from the candidates shown"}, 400)
     try:
@@ -990,7 +1020,7 @@ def design_save(req: Req):
     else:
         path = save_choices("cards", D.normalise(req.body.get("design")))
     _reload()
-    return {"design": D.load(), "path": str(path)}
+    return {"design": D.load(), "path": _shown(path)}
 
 
 # ---- picture choices -----------------------------------------------------------------------------------------------
@@ -1102,6 +1132,7 @@ def sync_plan(req: Req):
 
 @api("POST", "/sync")
 def sync_now(req: Req):
+    _local_only("syncing straight to Anki")
     if not _confirmed(req):
         raise ValueError("a sync needs confirm: true (check what it would do first)")
 
@@ -1160,7 +1191,7 @@ def llm_collect(req: Req):
 def setup_state(req: Req):
     from panko import evidence, setup
     out = {"config": _config_ready(), "presets": _presets(), "profiles": setup.anki_profiles(),
-           "defaults": setup.DEFAULTS, "path": str(setup.CONFIG)}
+           "defaults": setup.DEFAULTS, "path": _shown(setup.CONFIG)}
     if out["config"]:
         out["modes"] = modes.state()
         out["references"] = evidence.references_status()
@@ -1171,6 +1202,48 @@ def setup_state(req: Req):
         except ImportError:
             out["chat"] = ""
     return out
+
+
+@api("GET", "/setup/keys")
+def setup_keys(req: Req):
+    """Which keys are set (never their values), the disk quota on the server."""
+    from panko import setup
+    from panko.config import disk_use, host_limits, hosted
+    out = {"keys": setup.keys(), "hosted": hosted()}
+    if hosted():
+        out["disk"] = {"used": disk_use(), **host_limits()}
+    return out
+
+
+@api("POST", "/setup/keys")
+def setup_key_write(req: Req):
+    """Set or clear one key in .env; it works at once, no restart."""
+    from panko import setup
+    name = str(req.body.get("name", ""))
+    setup.set_key(name, str(req.body.get("value") or ""))
+    _reload()
+    return {"name": name, "set": bool(str(req.body.get("value") or "").strip())}
+
+
+@api("POST", "/setup/text")
+def setup_text(req: Req):
+    """Save the config as edited on the setup page (checked as TOML first; the old one kept as panko.toml.bak)."""
+    import shutil
+    import tomllib
+
+    from panko import setup
+    text = str(req.body.get("text") or "")
+    try:
+        tomllib.loads(text)
+    except tomllib.TOMLDecodeError as e:
+        raise ValueError(f"that isn't valid TOML: {e}") from e
+    if not text.strip():
+        raise ValueError("the config can't be empty")
+    if setup.CONFIG.exists():
+        shutil.copy2(setup.CONFIG, setup.CONFIG.with_suffix(".toml.bak"))
+    setup.CONFIG.write_text(text)
+    _reload()
+    return {"path": _shown(setup.CONFIG)}
 
 
 @api("POST", "/setup/preview")
@@ -1187,7 +1260,7 @@ def setup_write(req: Req):
         raise ValueError("which language are you learning?")
     p = setup.write_config(answers, force=bool(req.body.get("force")))
     _reload()
-    return {"path": str(p)}
+    return {"path": _shown(p)}
 
 
 @api("POST", "/refs/download")
@@ -1205,6 +1278,7 @@ def open_path(req: Req):
     """Open the config file or the Panko folder in this computer's own app (local hub only)."""
     from panko import setup
     from panko.config import ROOT
+    _local_only("opening files on the computer")
     what = {"config": setup.CONFIG, "folder": ROOT}.get(req.body.get("what", ""))
     if not what or not what.exists():
         raise ValueError("nothing to open")
