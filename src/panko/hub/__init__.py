@@ -139,7 +139,7 @@ def app(token: str | None = None, front: str | None = None) -> Starlette:
     if front and _mcp_ready():      # behind the front door: chat mode for the learner's own Claude, at /mcp
         from panko.mcp_server import http_app
         endpoint, sm = http_app()
-        routes.append(Route("/mcp", endpoint, methods=["GET", "POST", "DELETE"]))
+        routes.append(Route("/mcp", Connected(endpoint), methods=["GET", "POST", "DELETE"]))
 
         @contextlib.asynccontextmanager
         async def lifespan(_):
@@ -149,6 +149,20 @@ def app(token: str | None = None, front: str | None = None) -> Starlette:
     a.state.token = token or secrets.token_urlsafe(24)
     a.add_middleware(Guard, token=a.state.token, front=front)
     return a
+
+
+class Connected:
+    """The MCP endpoint, noting every call as chat mode in use, so the hub shows it as soon as Claude connects (it
+    lists the tools), not only after its first tool call."""
+
+    def __init__(self, inner):
+        self.inner = inner
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("method") == "POST":
+            from panko import modes
+            modes.mark_chat("connect")
+        await self.inner(scope, receive, send)
 
 
 def _mcp_ready() -> bool:

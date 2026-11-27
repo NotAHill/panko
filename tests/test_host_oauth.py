@@ -147,6 +147,9 @@ def test_claude_connects_and_uses_the_tools(data):
                                                        "clientInfo": {"name": "t", "version": "1"}})
         assert init.status_code == 200, init.text
         assert init.json()["result"]["serverInfo"]["name"] == "panko"
+        uid = a.state.door.store.by_name("amina")["id"]
+        chat = data / "users" / uid / "data" / "work" / "chat.json"
+        assert '"connect"' in chat.read_text()          # the hub shows chat mode once Claude connects
         names = {x["name"] for x in rpc(c, t["access_token"], "tools/list", n=2).json()["result"]["tools"]}
         assert {"panko_guide", "panko_sources", "panko_submit"} <= names
         sync = rpc(c, t["access_token"], "tools/call", {"name": "panko_sync", "arguments": {}}, n=3).json()

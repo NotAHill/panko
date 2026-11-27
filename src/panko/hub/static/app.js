@@ -368,11 +368,12 @@ function modeInfo(md) {
   if (!md) return null;
   const c = md.chat, a = md.api;
   const chat = c.active ? `Chat mode: your Claude used Panko’s tools ${since(c.ago)}. Reading and deciding there costs nothing here.`
-    : c.last ? `Chat mode: last used ${since(c.ago)}.` : 'Chat mode: not used yet. Connect your Claude with the snippet under setup → chat mode.';
+    : c.last ? `Chat mode: last used ${since(c.ago)}.` : 'Chat mode: not used yet. Connect your Claude under setup → chat mode.';
   const api = a.ready ? `API mode: ready (${a.model || a.provider}). Paid steps here use your key, and always show the price first.`
     : 'API mode: no key, so paid steps are off.';
   const [cls, label] = c.active ? ['chat', a.ready ? 'chat mode · API key set' : 'chat mode']
-    : a.ready ? ['api', 'API mode · paid'] : ['none', 'no model connected'];
+    : a.ready ? ['api', 'API mode · paid']
+    : c.last && c.ago < 30 * 86400 ? ['idle', 'chat mode · idle'] : ['none', 'no model connected'];
   return { cls, label, chat, api, tip: chat + '\n' + api };
 }
 const modeBadge = () => { const i = modeInfo(S.ov?.modes); return i ? html`<a href="#/setup" class="mode ${i.cls}" data-tip="${i.tip}" aria-label="${i.tip}"><span class="dot"></span>${i.label}</a>` : ''; };

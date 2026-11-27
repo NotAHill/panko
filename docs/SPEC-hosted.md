@@ -162,7 +162,7 @@ opens no ports. If you'd rather not look after a server, Fly.io (machines with v
 Render or Railway (with a persistent disk) run the same image; a plain server (e.g. Hetzner) is the cheapest and
 simplest.
 
-## Chat mode on the server (H4, built; not deployed yet)
+## Chat mode on the server (H4, deployed)
 
 The learner's own Claude reads the sources, on their own Claude plan, with the same tools as `panko mcp`.
 - **In each user's Panko:** `panko hub --socket` also serves the MCP tools at `/mcp` (streamable HTTP, stateless,
@@ -183,7 +183,8 @@ The learner's own Claude reads the sources, on their own Claude plan, with the s
   it. Changing the password, disabling the account or deleting it ends them all. Registrations are limited per
   address; registered clients never used are dropped after a day.
 - **Connecting:** claude.ai or Claude Desktop: Settings → Connectors → add a custom connector with `<site>/mcp`.
-  Claude Code: `claude mcp add --transport http panko <site>/mcp`, then `/mcp` to sign in.
+  Claude Code: `claude mcp add --transport http panko <site>/mcp`, then `/mcp` to sign in. The hub's status bar
+  shows chat mode from the first call (connecting lists the tools), and "chat mode · idle" for 30 days after.
 
 ## Privacy and the invited
 
@@ -198,7 +199,7 @@ everything (their folder as a zip) and how to delete it all. Recording a lesson 
 | H1 ✅ | **Hosted mode inside Panko.** `PANKO_HOSTED=1`: socket listening, paths kept inside the folder, keys on the setup page, local-only buttons hidden, upload limits and quota, WAL. Tested locally with two folders side by side. |
 | H2 ✅ | **Front door and the server.** Accounts and invites, a Panko per user started and stopped on demand, the proxy, admin, export and delete. Deployed with Caddy and backups (restore tried). You use it first, then one invited person. |
 | H3 | **The Anki add-on.** The server's add-on routes and the add-on itself, tested against a scratch Anki profile. Then your own Panko moves to the server if you want it there. |
-| H4 🔶 | **Chat mode remotely.** Each user's MCP server over HTTP behind the front door, with OAuth so their Claude (claude.ai, the desktop app, Claude Code) connects as a custom connector. |
+| H4 ✅ | **Chat mode remotely.** Each user's MCP server over HTTP behind the front door, with OAuth so their Claude (claude.ai, the desktop app, Claude Code) connects as a custom connector. |
 | H5 | **Polish.** Jobs that survive a restart, quota warnings, invite emails, simple monitoring. |
 
 ## Open

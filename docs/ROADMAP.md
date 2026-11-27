@@ -147,13 +147,13 @@ Update the **Now** section at the end of every work session: it's what a fresh s
   Live on the Oracle server with a DuckDNS name; your admin account is made. Backups aren't set up yet.
 - **PDF text layers (2026-11-27):** a scanned book's OCR layer (or a garbled or presentation-form one) no longer
   reaches the model; the hub's page view says which kind of layer a page has (`lang.text_layer`).
-- **H4 built, not deployed (2026-11-27): chat mode on the server.** Each user's Panko serves the MCP tools at
+- **H4 deployed (2026-11-27): chat mode on the server.** Connected from claude.ai and used end to end. Each user's Panko serves the MCP tools at
   `/mcp` (streamable HTTP, stateless); the front door is an OAuth 2.1 server for their Claude (discovery documents,
   dynamic registration and client metadata documents, PKCE, consent page, rotating refresh tokens) and lets `/mcp`
   through on an access token only. The account page shows the connector address and the connected apps (end one
   any time); the hub's setup page shows the address too. Tool errors now reach Claude with their reason (the MCP
   SDK hid them, locally too). Tests: `tests/test_host_oauth.py`, including a full run against a real Panko.
-- **Next:** deploy H4 and connect from claude.ai (custom connector at `<site>/mcp`). Backups before inviting
+- **Next:** backups before inviting
   anyone (`deploy/README.md` §5). Then one invited person, then H3 (the Anki add-on). DODa stays on (free and
   invite-only fits its terms; switched off if its authors object).
 - The learner's own state (deck sizes, what's waiting on whom, plans) is in `data/STATUS.md` (git-ignored).
@@ -193,7 +193,7 @@ S10 has two numbered tracks of its own, one per later step:
 | Track | Step | Status |
 |---|---|---|
 | **L** (S10 step 2): the deck library, `docs/SPEC-library.md` | L1 Panko packs (`panko pack build`, `panko library import`) · L2 `panko publish` · L3 the library repo, `panko library list` / `get`, the hub's library page · L4 updates (a deck's v2 over v1, your edits kept) | L1–L3 built 2026-11-26, library live; L4 waits for a deck's v2 |
-| **H** (S10 step 3): the hosted Panko, `docs/SPEC-hosted.md` | H1 hosted mode inside Panko · H2 the front door and the server · H3 the Anki add-on · H4 chat mode remotely (MCP over HTTP, OAuth) · H5 polish (jobs survive a restart, quota warnings, invite emails, monitoring) | H1, H2 deployed; H4 built, not deployed; H3, H5 to do |
+| **H** (S10 step 3): the hosted Panko, `docs/SPEC-hosted.md` | H1 hosted mode inside Panko · H2 the front door and the server · H3 the Anki add-on · H4 chat mode remotely (MCP over HTTP, OAuth) · H5 polish (jobs survive a restart, quota warnings, invite emails, monitoring) | H1, H2, H4 deployed; H3, H5 to do |
 
 Order (your call, 2026-11-23; product first from 2026-11-25): Phase 4 (lessons and recordings, built), Phase 5
 (verification, built), S9 (any language, built), S10. Card migration (Peace Corps pictures and sync, the Fusha round of Phase 6) waits until
