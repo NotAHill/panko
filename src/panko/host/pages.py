@@ -53,7 +53,10 @@ def e(s) -> str:
     return escape(str(s if s is not None else ""), quote=True)
 
 
-def page(title: str, body: str, *, user: dict | None = None, narrow: bool = False, status: int = 200) -> HTMLResponse:
+def page(title: str, body: str, *, user: dict | None = None, narrow: bool = False, status: int = 200,
+         form_to: str = "") -> HTMLResponse:
+    """`form_to`: one more origin a form here may lead to (the consent page sends the learner back to their app, and
+    browsers check a form's redirect against form-action)."""
     nav = ""
     if user:
         nav = ('<a href="/">your Panko</a><a href="/host/account">account</a>'
@@ -68,7 +71,8 @@ def page(title: str, body: str, *, user: dict | None = None, narrow: bool = Fals
     return HTMLResponse(html, status, headers={"Cache-Control": "no-store", "X-Frame-Options": "DENY",
                                                "Referrer-Policy": "same-origin",
                                                "Content-Security-Policy": "default-src 'self'; style-src 'unsafe-inline'; "
-                                               "img-src 'self'; form-action 'self'; frame-ancestors 'none'"})
+                                               f"img-src 'self'; form-action 'self'{' ' + form_to if form_to else ''}; "
+                                               "frame-ancestors 'none'"})
 
 
 def ago(t: float | None) -> str:

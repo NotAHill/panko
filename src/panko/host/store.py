@@ -1,7 +1,7 @@
 """The front door's own records (`<data>/host.db`): users, invites and sign-in sessions. No learner data lives here:
 each user's cards, sources and keys are in their own Panko folder.
 
-Invite and session tokens are stored only as SHA-256 hashes, so a copy of this file can't sign anyone in. Passwords
+Invite, session and OAuth tokens (host/oauth.py) are stored only as SHA-256 hashes, so a copy of this file can't sign anyone in. Passwords
 are argon2 hashes."""
 from __future__ import annotations
 
@@ -46,6 +46,8 @@ class HostStore:
         self.db.execute("PRAGMA journal_mode=WAL")
         self.db.execute("PRAGMA foreign_keys=ON")
         self.db.executescript(SCHEMA)
+        from panko.host.oauth import SCHEMA as OAUTH
+        self.db.executescript(OAUTH)
 
     # ---- users
     def users(self) -> list[dict]:
@@ -94,6 +96,7 @@ class HostStore:
         with self.db:
             self.db.execute("UPDATE users SET pw = ? WHERE id = ?", (_hasher().hash(password), uid))
             self.db.execute("DELETE FROM sessions WHERE user_id = ?", (uid,))     # signed out everywhere
+            self.db.execute("DELETE FROM oauth_grants WHERE user_id = ?", (uid,))  # and Claude must connect again
 
     def update(self, uid: str, **fields) -> None:
         allowed = {"admin", "disabled", "quota_gb"}
@@ -105,6 +108,7 @@ class HostStore:
                             (*sets.values(), uid))
             if sets.get("disabled"):
                 self.db.execute("DELETE FROM sessions WHERE user_id = ?", (uid,))
+                self.db.execute("DELETE FROM oauth_grants WHERE user_id = ?", (uid,))
 
     def seen(self, uid: str) -> None:
         with self.db:

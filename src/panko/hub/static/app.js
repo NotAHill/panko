@@ -1083,8 +1083,8 @@ VIEWS.sources = async (el, r) => {
       ${earlier.map(k => html`<tr class="row" data-href="#/cards?status=all&source=${encodeURIComponent(k.id)}"><td>${k.title}<div class="faint">${k.id}${k.date ? ', ' + k.date : ''}</div></td>
         <td class="dim">${k.kind}</td><td class="r num dim">${k.trust}</td><td class="r num">${n(k.entries)}</td></tr>`)}</tbody></table>
       <p class="faint mt-s">Trust decides which source wins when two disagree: your teacher high, shared decks low. Open one to see its cards.</p></section>` : ''}
-    ${S.meta.hosted ? '' : html`<section class="box"><div class="t">reading in chat <span class="dim">no API spend</span></div><p class="muted-p">Your own Claude can read the units instead of the API:
-      connect Panko once (<a href="#/setup">setup → chat mode</a>), then ask Claude to work through a source with Panko. What it submits shows up here, ready to ingest.</p></section>`}`);
+    <section class="box"><div class="t">reading in chat <span class="dim">no API spend</span></div><p class="muted-p">Your own Claude can read the units instead of the API:
+      connect Panko once (<a href="#/setup">setup → chat mode</a>), then ask Claude to work through a source with Panko. What it submits shows up here, ready to ingest.</p></section>`);
   actions(el, { add: () => addForm() });
   if (r.q.add) addForm();
 };
@@ -1681,7 +1681,9 @@ VIEWS.setup = async (el, r) => {
     ${(i => i ? html`<section class="box"><div class="t">how Panko reads</div>
       <div class="check-row"><span class="${d.modes.chat.active ? 'ok' : 'faint'}">${d.modes.chat.active ? '●' : '○'}</span><span>${i.chat}</span></div>
       <div class="check-row"><span class="${d.modes.api.ready ? 'acc' : 'faint'}">${d.modes.api.ready ? '●' : '○'}</span><span>${i.api}</span></div></section>` : '')(modeInfo(d.modes))}
-    <section class="box"><div class="t">chat mode</div>${hosted ? html`<p class="muted-p">Connecting your own Claude to your Panko on the server is coming. Until then, use the API with your key, or Panko on your own computer.</p>`
+    <section class="box"><div class="t">chat mode</div>${hosted ? html`<p class="muted-p">Let your own Claude read sources and decide with Panko's tools, on your own Claude plan with no API spend. Add Panko as a custom connector with this address (claude.ai or Claude Desktop: Settings, then Connectors), then connect and allow it.</p>
+      ${d.chat_url ? html`<div class="snippet mt"><button data-a="copy">copy</button><pre id="snip">${d.chat_url}</pre></div>
+      <p class="faint mt-s">Claude Code: <code>claude mcp add --transport http panko ${d.chat_url}</code>, then <code>/mcp</code> to sign in. Connected apps are on your <a href="/host/account">account</a> page.</p>` : html`<p class="faint">Your account page has the address.</p>`}`
       : html`<p class="muted-p">Let your own Claude (Desktop or Code) read sources and decide with Panko's tools, with no API spend.
       Add this to Claude's MCP config, then restart it.</p>${d.chat ? html`<div class="snippet mt"><button data-a="copy">copy</button><pre id="snip">${d.chat}</pre></div>`
         : html`<p class="warn">Needs the extra: <code>uv sync --extra mcp</code></p>`}`}</section>

@@ -2,7 +2,10 @@
 user's own Panko over its Unix socket.
 
 Changes are guarded twice: the session cookie is SameSite=Lax, and every POST must come from this site's own pages
-(Origin, else Referer). The user's Panko never sees the session cookie, and can't set cookies here."""
+(Origin, else Referer). The user's Panko never sees the session cookie, and can't set cookies here.
+
+Chat mode (host/oauth.py): `/mcp` takes an OAuth access token, never the cookie, and passes the call to the user's
+Panko; `/authorize`, `/token`, `/register`, `/revoke` and the two `.well-known` documents let their Claude get one."""
 from __future__ import annotations
 
 import asyncio
@@ -23,18 +26,27 @@ from starlette.requests import Request
 from starlette.responses import FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from starlette.routing import Route
 
+from panko.host import oauth
+from panko.host.oauth import OAuth, OAuthError
 from panko.host.pages import ago, e, page, size
 from panko.host.pankos import Pankos
 from panko.host.store import HostStore
 
 COOKIE = "panko_session"
 HOP = {b"connection", b"keep-alive", b"proxy-authenticate", b"proxy-authorization", b"te", b"trailer",
-       b"transfer-encoding", b"upgrade", b"host", b"cookie", b"x-panko-front", b"forwarded", b"x-forwarded-for",
+       b"transfer-encoding", b"upgrade", b"host", b"cookie", b"authorization", b"x-panko-front", b"forwarded", b"x-forwarded-for",
        b"x-forwarded-host", b"x-forwarded-proto", b"x-real-ip"}
 DROP_BACK = {b"connection", b"keep-alive", b"transfer-encoding", b"set-cookie", b"server", b"date"}
 LOGO = Path(__file__).resolve().parents[1] / "hub" / "static" / "logo.svg"
 FAILS: dict[str, list[float]] = {}
 FAIL_LIMIT, FAIL_WINDOW = 5, 900
+REGISTERED: dict[str, list[float]] = {}
+REGISTER_LIMIT = 30          # client registrations per address per hour (anyone can register; few need to)
+CORS = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Authorization, Content-Type, Accept, Mcp-Protocol-Version, Mcp-Session-Id, "
+                                        "Last-Event-ID",
+        "Access-Control-Expose-Headers": "WWW-Authenticate, Mcp-Session-Id, Mcp-Protocol-Version",
+        "Access-Control-Max-Age": "600"}
 
 
 class Door:
@@ -44,8 +56,10 @@ class Door:
         self.data.mkdir(parents=True, exist_ok=True)
         os.chmod(self.data, 0o700)
         self.store = HostStore(self.data / "host.db")
-        self.pankos = Pankos(self.data, idle_minutes=idle_minutes, quota_gb=quota_gb, upload_mb=upload_mb)
+        self.oauth = OAuth(self.store)
         self.base_url = base_url.rstrip("/")
+        self.pankos = Pankos(self.data, idle_minutes=idle_minutes, quota_gb=quota_gb, upload_mb=upload_mb,
+                             base_url=self.base_url)
         self.clients: dict[str, httpx.AsyncClient] = {}
 
     # ---- helpers
@@ -206,7 +220,20 @@ def app(data: Path | str, **opts) -> Starlette:
                                              user=u), req, t)
         used = await asyncio.to_thread(_du, door.pankos.home(u["id"]))
         quota = u["quota_gb"] or door.pankos.quota_gb
+        mcp_url = door.link(req, "/mcp")
+        conns = "".join(f"""<tr><td><b>{e(g['client_name'] or 'an app')}</b></td><td class="wide">connected
+            {ago(g['created'])}</td><td>used {ago(g['last_used'])}</td><td><form method="post"
+            action="/host/account/connection/{e(g['id'])}"><button>end</button></form></td></tr>"""
+                        for g in door.oauth.grants(u["id"]))
         return page("account", f"""<h1>account</h1><p class="muted">Signed in as <b>{e(u['name'])}</b>.</p>{msg}
+            <section class="box"><div class="t">chat mode: your Claude reads the sources</div>
+            <p>Add Panko to your own Claude as a connector, at this address:</p><span class="link-out">{e(mcp_url)}</span>
+            <p class="muted"><b>claude.ai or Claude Desktop:</b> in Settings, under Connectors, add a custom connector
+            with this address, then connect and allow it here.<br><b>Claude Code:</b>
+            <code>claude mcp add --transport http panko {e(mcp_url)}</code>, then <code>/mcp</code> to sign in.</p>
+            <p class="faint">Your Claude does the reading on your own plan; Panko spends nothing for it.</p>
+            {f'<table><tr><th>connected apps</th><th class="wide"></th><th></th><th></th></tr>{conns}</table>'
+             if conns else '<p class="faint">Nothing connected yet.</p>'}</section>
             <section class="box"><div class="t">your data</div><p>{size(used)} of {quota:g} GB used.</p>
             <div class="acts"><a class="btn" href="/host/account/export">download everything (zip)</a></div>
             <p class="faint">Your config, keys, cards, sources and media, as a folder you can open with Panko on your own
@@ -361,6 +388,9 @@ def app(data: Path | str, **opts) -> Starlette:
             return page("starting", f'<p class="err">{e(ex)}</p>', user=u, status=503)
         if time.time() - (u["last_seen"] or 0) > 60:
             door.store.seen(u["id"])
+        return await forward(req, u, r, path)
+
+    async def forward(req: Request, u: dict, r, path: str, extra: dict | None = None):
         c = await door.client(u["id"], r.sock, r.secret)
         headers = [(k, v) for k, v in req.headers.raw if k.lower() not in HOP]
         headers.append((b"x-panko-front", r.secret.encode()))
@@ -373,9 +403,189 @@ def app(data: Path | str, **opts) -> Starlette:
             return JSONResponse({"error": "your Panko didn't answer: it's restarting, try again"}, 502)
         back = [(k, v) for k, v in up.headers.raw if k.lower() not in DROP_BACK]
         back.append((b"x-frame-options", b"SAMEORIGIN"))
+        back += [(k.lower().encode(), v.encode()) for k, v in (extra or {}).items()]
         resp = StreamingResponse(up.aiter_raw(), up.status_code, background=BackgroundTask(up.aclose))
         resp.raw_headers = back
         return resp
+
+    # ---- chat mode: OAuth for the learner's own Claude, and /mcp on its token
+    def base(req: Request) -> str:
+        return door.link(req, "")
+
+    def cors(resp: Response) -> Response:
+        resp.headers.update(CORS)
+        return resp
+
+    def preflight():
+        return cors(Response(status_code=204))
+
+    def oauth_json(data: dict, status: int = 200) -> Response:
+        return cors(JSONResponse(data, status, headers={"Cache-Control": "no-store", "Pragma": "no-cache"}))
+
+    async def resource_meta(req: Request):
+        if req.method == "OPTIONS":
+            return preflight()
+        return cors(JSONResponse(oauth.protected_resource(base(req))))
+
+    async def server_meta(req: Request):
+        if req.method == "OPTIONS":
+            return preflight()
+        return cors(JSONResponse(oauth.authorization_server(base(req))))
+
+    async def register(req: Request):
+        if req.method == "OPTIONS":
+            return preflight()
+        ip = req.client.host if req.client else "?"
+        now = time.time()
+        REGISTERED[ip] = [t for t in REGISTERED.get(ip, []) if now - t < 3600]
+        if len(REGISTERED[ip]) >= REGISTER_LIMIT:
+            return oauth_json({"error": "slow_down", "error_description": "too many registrations; try later"}, 429)
+        try:
+            meta = await req.json()
+            if not isinstance(meta, dict):
+                raise ValueError
+        except ValueError:
+            return oauth_json({"error": "invalid_client_metadata", "error_description": "send JSON"}, 400)
+        try:
+            out = door.oauth.register(meta)
+        except OAuthError as ex:
+            return oauth_json(ex.body(), ex.status)
+        REGISTERED[ip].append(now)
+        return oauth_json(out, 201)
+
+    async def find_client(cid: str) -> dict | None:
+        """A registered client, or one whose id is the address of its metadata document (fetched, then kept for a
+        day)."""
+        c = door.oauth.client(cid)
+        if c and not (c["metadata_doc"] and time.time() - c["created"] > 86400):
+            return c
+        if oauth.document_url_ok(cid):
+            try:
+                return door.oauth.remember_document(cid, await oauth.fetch_document(cid))
+            except OAuthError:
+                return c        # the copy from yesterday, if there is one
+        return None
+
+    def no_app(msg: str, status: int = 400):
+        return page("connect", f'<h1>connect an app</h1><p class="err">{e(msg)}</p><p class="muted">Go back to the '
+                    f'app and connect again. If it keeps happening, the app may not support this server.</p>',
+                    narrow=True, status=status)
+
+    async def authorize(req: Request):
+        """The learner says whether this app may use their Panko. Problems with the app itself are shown here; other
+        problems are sent back to the app, as OAuth says."""
+        p = dict(req.query_params) if req.method == "GET" else {k: str(v) for k, v in (await req.form()).items()}
+        c = await find_client(p.get("client_id", ""))
+        if not c:
+            return no_app("This app isn't known here (its client_id).")
+        ru = p.get("redirect_uri") or (c["redirect_uris"][0] if len(c["redirect_uris"]) == 1 else "")
+        if not ru or not any(oauth.same_redirect(ru, x) for x in c["redirect_uris"]):
+            return no_app("This app asked to send you back to an address it didn't register.")
+        iss, state = base(req), p.get("state", "")
+
+        def back(**kw):
+            return RedirectResponse(oauth.back_to(ru, state=state, iss=iss, **kw), 303)
+        if p.get("response_type") != "code":
+            return back(error="unsupported_response_type")
+        if not p.get("code_challenge") or p.get("code_challenge_method", "plain") != "S256":
+            return back(error="invalid_request", error_description="PKCE with S256 is required")
+        if p.get("resource") and p["resource"].rstrip("/") not in (iss, f"{iss}/mcp"):
+            return back(error="invalid_target", error_description="this server's resource is " + iss + "/mcp")
+        u = door.user(req)
+        if not u:
+            if req.method == "POST":
+                return no_app("You were signed out. Go back to the app and connect again.", 401)
+            return RedirectResponse("/host/login?next=" + quote("/authorize?" + req.url.query, safe=""), 303)
+        if req.method == "POST":
+            if not same_site(req):
+                return no_app("Use the buttons on this page.", 403)
+            if p.get("do") != "allow":
+                return back(error="access_denied", error_description="the learner said no")
+            code = door.oauth.approve(u["id"], c, ru, p["code_challenge"])
+            return back(code=code)
+        name = c["name"] or urlsplit(c["id"]).hostname or "An app"
+        dest = urlsplit(ru)
+        keep = "".join(f'<input type="hidden" name="{k}" value="{e(p[k])}">' for k in
+                       ("client_id", "redirect_uri", "response_type", "code_challenge", "code_challenge_method",
+                        "state", "resource", "scope") if p.get(k) is not None)
+        if not p.get("redirect_uri"):
+            keep += f'<input type="hidden" name="redirect_uri" value="{e(ru)}">'
+        return page("connect", f"""<h1>connect {e(name)}?</h1>
+            <p class="muted">Signed in as <b>{e(u['name'])}</b>.</p>
+            <section class="box"><p><b>{e(name)}</b> wants to use your Panko in chat: read your sources, add and edit
+            cards, search for pictures, and run the free checks. Anything paid still asks you first.</p>
+            <p class="faint">It sends you back to <code>{e(dest.scheme + '://' + (dest.netloc or ''))}</code>. You can
+            end this connection any time on your <a href="/host/account">account</a> page.</p>
+            <form method="post" action="/authorize">{keep}<div class="acts">
+            <button class="pri" name="do" value="allow">allow</button><button name="do" value="deny">no</button>
+            </div></form></section>""", user=u, narrow=True, form_to=f"{dest.scheme}://{dest.netloc}")
+
+    def client_auth(req: Request, form) -> tuple[str, str | None]:
+        h = req.headers.get("authorization", "")
+        if h.lower().startswith("basic "):
+            import base64
+            from urllib.parse import unquote
+            try:
+                cid, _, sec = base64.b64decode(h[6:]).decode().partition(":")
+                return unquote(cid), unquote(sec)
+            except ValueError:
+                return "", None
+        return str(form.get("client_id", "")), (str(form["client_secret"]) if form.get("client_secret") else None)
+
+    async def token(req: Request):
+        if req.method == "OPTIONS":
+            return preflight()
+        form = await req.form()
+        cid, sec = client_auth(req, form)
+        c = await find_client(cid)
+        if not c or not door.oauth.client_ok(c, sec):
+            return oauth_json({"error": "invalid_client"}, 401)
+        try:
+            kind = form.get("grant_type")
+            if kind == "authorization_code":
+                out = door.oauth.exchange(c, str(form.get("code", "")), str(form.get("redirect_uri", "")),
+                                          str(form.get("code_verifier", "")))
+            elif kind == "refresh_token":
+                out = door.oauth.refresh(c, str(form.get("refresh_token", "")))
+            else:
+                raise OAuthError("unsupported_grant_type")
+        except OAuthError as ex:
+            return oauth_json(ex.body(), ex.status)
+        return oauth_json(out)
+
+    async def revoke(req: Request):
+        if req.method == "OPTIONS":
+            return preflight()
+        form = await req.form()
+        door.oauth.revoke(str(form.get("token", "")))
+        return oauth_json({})
+
+    async def mcp(req: Request):
+        """The learner's Claude: an access token in the Authorization header, nothing else."""
+        if req.method == "OPTIONS":
+            return preflight()
+        meta = f'{base(req)}/.well-known/oauth-protected-resource/mcp'
+        h = req.headers.get("authorization", "")
+        found = door.oauth.user_for(h[7:].strip()) if h[:7].lower() == "bearer " else None
+        if not found:
+            err = ', error="invalid_token"' if h else ""
+            return cors(JSONResponse({"error": "sign in: connect this app to your Panko"}, 401, headers={
+                "WWW-Authenticate": f'Bearer resource_metadata="{meta}"{err}, scope="{oauth.SCOPE}"'}))
+        u, _ = found
+        try:
+            r = await door.pankos.ensure(u["id"], u["quota_gb"])
+        except RuntimeError as ex:
+            return cors(JSONResponse({"error": str(ex)}, 503))
+        if time.time() - (u["last_seen"] or 0) > 60:
+            door.store.seen(u["id"])
+        return await forward(req, u, r, "/mcp", CORS)
+
+    async def end_connection(req: Request):
+        u = door.user(req)
+        if not u or not same_site(req):
+            return RedirectResponse("/host/account", 303)
+        door.oauth.end_grant(req.path_params["gid"], u["id"])
+        return RedirectResponse("/host/account", 303)
 
     @contextlib.asynccontextmanager
     async def lifespan(a):
@@ -396,6 +606,15 @@ def app(data: Path | str, **opts) -> Starlette:
               Route("/host/admin/user/{uid}", admin_user, methods=["GET", "POST"]),
               Route("/host/admin/export/{uid}", admin_export), Route("/host/logo.svg", logo),
               Route("/host/health", health),
+              Route("/host/account/connection/{gid}", end_connection, methods=["POST"]),
+              Route("/.well-known/oauth-protected-resource", resource_meta, methods=["GET", "OPTIONS"]),
+              Route("/.well-known/oauth-protected-resource/mcp", resource_meta, methods=["GET", "OPTIONS"]),
+              Route("/.well-known/oauth-authorization-server", server_meta, methods=["GET", "OPTIONS"]),
+              Route("/register", register, methods=["POST", "OPTIONS"]),
+              Route("/authorize", authorize, methods=["GET", "POST"]),
+              Route("/token", token, methods=["POST", "OPTIONS"]),
+              Route("/revoke", revoke, methods=["POST", "OPTIONS"]),
+              Route("/mcp", mcp, methods=["GET", "POST", "DELETE", "OPTIONS"]),
               Route("/{path:path}", proxy, methods=["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"])]
     a = Starlette(routes=routes, lifespan=lifespan)
     a.state.door = door

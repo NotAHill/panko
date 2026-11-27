@@ -11,6 +11,7 @@ door, which has already signed the user in: every request must carry the front d
 """
 from __future__ import annotations
 
+import contextlib
 import os
 import re
 import secrets
@@ -65,6 +66,8 @@ class Guard:
         return await self._changes(req, scope, receive, send)
 
     async def _changes(self, req, scope, receive, send):
+        if self.front and scope["path"] == "/mcp":   # chat mode: the front door let it in on a bearer token, no cookie
+            return await self.app(scope, receive, send)
         if scope["method"] not in ("GET", "HEAD") and req.headers.get("x-panko") != "1":
             return await JSONResponse({"error": "missing X-Panko header"}, 403)(scope, receive, send)
         return await self.app(scope, receive, send)
@@ -132,10 +135,28 @@ def app(token: str | None = None, front: str | None = None) -> Starlette:
     api.JOBS = api.JOBS or Jobs()
     routes = [Route("/", index), Route("/api/upload", upload, methods=["POST"]), *api.ROUTES,
               Route("/media/{name}", api.media), Route("/export/file/{name}", api.export_file), Mount("/static", StaticFiles(directory=STATIC), name="static")]
-    a = Starlette(routes=routes)
+    lifespan = None
+    if front and _mcp_ready():      # behind the front door: chat mode for the learner's own Claude, at /mcp
+        from panko.mcp_server import http_app
+        endpoint, sm = http_app()
+        routes.append(Route("/mcp", endpoint, methods=["GET", "POST", "DELETE"]))
+
+        @contextlib.asynccontextmanager
+        async def lifespan(_):
+            async with sm.run():
+                yield
+    a = Starlette(routes=routes, lifespan=lifespan)
     a.state.token = token or secrets.token_urlsafe(24)
     a.add_middleware(Guard, token=a.state.token, front=front)
     return a
+
+
+def _mcp_ready() -> bool:
+    try:
+        import mcp  # noqa: F401
+        return True
+    except ImportError:
+        return False
 
 
 def port_free(port: int) -> bool:

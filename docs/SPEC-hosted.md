@@ -101,7 +101,7 @@ Small, and it never decides anything about a card.
   updates them in place. Tried on a copy of your collection in a scratch profile first, never on the real one
   without your OK.
 
-## The front door (H2, built; not deployed yet)
+## The front door (H2, deployed)
 
 `src/panko/host/` and `panko host serve`. Tried locally (an invite, an account, that user's own Panko started and
 reached through the proxy, an upload, the admin page, the data download) and in `tests/test_host.py`, which starts
@@ -162,6 +162,29 @@ opens no ports. If you'd rather not look after a server, Fly.io (machines with v
 Render or Railway (with a persistent disk) run the same image; a plain server (e.g. Hetzner) is the cheapest and
 simplest.
 
+## Chat mode on the server (H4, built; not deployed yet)
+
+The learner's own Claude reads the sources, on their own Claude plan, with the same tools as `panko mcp`.
+- **In each user's Panko:** `panko hub --socket` also serves the MCP tools at `/mcp` (streamable HTTP, stateless,
+  JSON answers, so a Panko stopped when idle loses nothing). The front door's secret guards it like every other
+  route; the SDK's host check is off (it's for servers on localhost). Paths in answers are relative to the user's
+  folder, and paths the model sends back are kept inside it (`config.inside`). `panko_sync` says to use the .apkg.
+- **The front door is the OAuth 2.1 server** (`host/oauth.py`, the MCP authorisation spec): `/mcp` without a token
+  answers 401 pointing to `/.well-known/oauth-protected-resource[/mcp]`, which names this site;
+  `/.well-known/oauth-authorization-server` lists `/authorize`, `/token`, `/register` (dynamic registration) and
+  `/revoke`. A client id may also be the https address of the client's metadata document (fetched from public
+  addresses only, 64 KB at most, no redirects, kept a day). Redirects: https, or http to a loopback address (any
+  port). PKCE S256 is required. The learner signs in as usual and allows the app on a consent page that names it
+  and where it sends them back. Access tokens last an hour, refresh tokens 30 days and are replaced each use. Codes
+  last 10 minutes; one used twice ends its grant.
+- **`/mcp` at the door takes the access token only** (never the session cookie), drops it, and passes the call
+  to the user's Panko with the secret. CORS is open on the OAuth endpoints and `/mcp` (no cookies are involved).
+- **Grants:** each connection is listed on the account page (app, when connected, last used) with a button to end
+  it. Changing the password, disabling the account or deleting it ends them all. Registrations are limited per
+  address; registered clients never used are dropped after a day.
+- **Connecting:** claude.ai or Claude Desktop: Settings → Connectors → add a custom connector with `<site>/mcp`.
+  Claude Code: `claude mcp add --transport http panko <site>/mcp`, then `/mcp` to sign in.
+
 ## Privacy and the invited
 
 Invited users bring lesson recordings, teacher sheets and their teachers' voices. A short page for them says what
@@ -173,9 +196,9 @@ everything (their folder as a zip) and how to delete it all. Recording a lesson 
 | Step | What "done" means |
 |---|---|
 | H1 ✅ | **Hosted mode inside Panko.** `PANKO_HOSTED=1`: socket listening, paths kept inside the folder, keys on the setup page, local-only buttons hidden, upload limits and quota, WAL. Tested locally with two folders side by side. |
-| H2 🔶 | **Front door and the server.** Accounts and invites, a Panko per user started and stopped on demand, the proxy, admin, export and delete. Deployed with Caddy and backups (restore tried). You use it first, then one invited person. |
+| H2 ✅ | **Front door and the server.** Accounts and invites, a Panko per user started and stopped on demand, the proxy, admin, export and delete. Deployed with Caddy and backups (restore tried). You use it first, then one invited person. |
 | H3 | **The Anki add-on.** The server's add-on routes and the add-on itself, tested against a scratch Anki profile. Then your own Panko moves to the server if you want it there. |
-| H4 | **Chat mode remotely.** Each user's MCP server over HTTP behind the front door, with OAuth so their Claude (claude.ai, the desktop app, Claude Code) connects as a custom connector. |
+| H4 🔶 | **Chat mode remotely.** Each user's MCP server over HTTP behind the front door, with OAuth so their Claude (claude.ai, the desktop app, Claude Code) connects as a custom connector. |
 | H5 | **Polish.** Jobs that survive a restart, quota warnings, invite emails, simple monitoring. |
 
 ## Open

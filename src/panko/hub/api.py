@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import os
 import re
 import subprocess
 import sys
@@ -1197,6 +1198,11 @@ def setup_state(req: Req):
         out["modes"] = modes.state()
         out["references"] = evidence.references_status()
         out["text"] = setup.CONFIG.read_text()
+        from panko.config import hosted
+        if hosted():     # chat mode through the front door: the connector address (host/oauth.py)
+            site = os.environ.get("PANKO_HOST_URL", "").rstrip("/")
+            out["chat"], out["chat_url"] = "", f"{site}/mcp" if site else ""
+            return out
         try:
             from panko.mcp_server import config_snippet
             out["chat"] = config_snippet()

@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 
 from mcp.server.mcpserver import Audio, Image, MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 
 from panko import prompts, work
 from panko.store import EDITABLE, Store
@@ -33,8 +34,29 @@ def quiet(fn):
         from panko import modes
         modes.mark_chat(fn.__name__)
         with contextlib.redirect_stdout(sys.stderr):
-            return fn(*a, **kw)
+            try:
+                return _hide(fn(*a, **kw))
+            except EXPECTED as e:    # written for the learner: Claude sees the reason (the SDK hides other errors)
+                raise ToolError(_hide(str(e.args[0]) if isinstance(e, KeyError) and e.args else str(e))) from e
     return wrap
+
+
+EXPECTED = (ValueError, LookupError, PermissionError, FileNotFoundError, RuntimeError)
+
+
+def _hide(x):
+    """On the server the learner's Claude sees paths relative to their Panko folder, never the server's layout (the
+    tools take those short paths back)."""
+    from panko.config import ROOT, hosted
+    if not hosted():
+        return x
+    if isinstance(x, str):
+        return x.replace(str(ROOT) + "/", "").replace(json.dumps(str(ROOT))[1:-1] + "/", "")
+    if isinstance(x, dict):
+        return {k: _hide(v) for k, v in x.items()}
+    if isinstance(x, (list, tuple)):
+        return type(x)(_hide(v) for v in x)
+    return x
 
 
 def tool(**kw):
@@ -343,12 +365,29 @@ def panko_sync(confirm: bool = False) -> dict:
     """Without confirm: a dry run (notes to add/update, audio clips still to pay for), touching neither Anki nor any
     paid service. confirm=true only after the learner agrees: generates the audio and pushes to Anki (Anki must be
     open with its MCP add-on)."""
+    from panko.config import hosted
+    if hosted():
+        raise PermissionError("on the server Panko can't reach Anki: the learner downloads an .apkg from the hub's "
+                              "sync page and opens it in Anki (a newer one updates the same notes in place)")
     from panko.anki import sync
     if not confirm:
         p = sync.plan()
         return {**p, "add": len(p["add"]), "update": len(p["update"]), "add_ids": p["add"][:50],
                 "update_ids": p["update"][:50], "note": "dry run; call again with confirm=true after the learner agrees"}
     return sync.sync()
+
+
+def http_app():
+    """The same tools over streamable HTTP, for a Panko behind the front door (`panko hub --socket`): returns the ASGI
+    endpoint and its session manager, which must run in the hosting app's lifespan. Stateless JSON answers, so a
+    Panko stopped when idle and started again loses nothing. The front door has checked the bearer token and the hub
+    checks its secret, so the SDK's host check (meant for servers on localhost) is off."""
+    from mcp.server.streamable_http_manager import StreamableHTTPASGIApp
+    from mcp.server.transport_security import TransportSecuritySettings
+    server.streamable_http_app(streamable_http_path="/mcp", json_response=True, stateless_http=True,
+                               transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False))
+    sm = server.session_manager
+    return StreamableHTTPASGIApp(sm), sm
 
 
 def config_snippet() -> str:

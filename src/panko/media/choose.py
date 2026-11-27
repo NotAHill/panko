@@ -50,7 +50,8 @@ def validate(decisions: dict) -> list[str]:
             ph = d["photo"]
             try:
                 if ph["dir"] not in cands:
-                    cands[ph["dir"]] = json.loads((Path(ph["dir"]) / "cands.json").read_text())
+                    from panko.config import inside
+                    cands[ph["dir"]] = json.loads((inside(ph["dir"]) / "cands.json").read_text())
                 found = cands[ph["dir"]].get(eid, [])
                 if not 0 <= int(ph["index"]) < len(found):
                     errs.append(f"{eid}: {ph['dir']} has no candidate {ph['index']} for it ({len(found)} found)")
@@ -66,6 +67,10 @@ def save_decisions(new: dict, path: Path | None = None) -> dict:
     errs = validate(new)
     if errs:
         return {"ok": False, "errors": errs[:25]}
+    from panko.config import inside
+    for d in new.values():          # stored whole, so it reads the same from any folder (the model sees short paths)
+        if "photo" in d:
+            d["photo"]["dir"] = str(inside(d["photo"]["dir"]))
     p = path or decisions_path()
     p.parent.mkdir(parents=True, exist_ok=True)
     allof = {**load_decisions(p), **new}

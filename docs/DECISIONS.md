@@ -2,6 +2,15 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-27 · On the server, the front door is its own OAuth server for chat mode.** The learner's Claude
+connects to `<site>/mcp` as a custom connector, so the front door implements the MCP authorisation spec itself
+(dynamic registration and client metadata documents, PKCE, consent, rotating refresh tokens) rather than bringing in
+an identity provider: the accounts already live there, it adds no service and no cost, and a grant is one row the
+learner can end on their account page. `/mcp` takes the access token only, never the session cookie, so no web page
+can call the tools on a signed-in learner's behalf. Each user's Panko serves MCP statelessly, so stopping an idle
+Panko never breaks a chat. Tool errors are passed to Claude as `ToolError`s with their reason, since the MCP SDK
+hides the text of any other exception.
+
 **2026-11-27 · A PDF's text layer reaches the model only when it can be trusted.** Scanned books (the Internet
 Archive's, for one) carry an invisible OCR layer that reads Latin well and mangles Arabic. When a page's text is
 OCR (`GlyphLessFont`) and the learner's script isn't Latin, or it's stored as shaped glyphs, or too many of its

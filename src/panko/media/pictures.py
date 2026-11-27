@@ -20,6 +20,7 @@ from pathlib import Path
 import httpx
 
 from panko import providers
+from panko.config import inside
 from panko.providers.images.web import UA
 
 GEN_PREFIX = "_panko_proto_gen_"
@@ -207,7 +208,7 @@ def apply(decisions: dict[str, dict], store=None, out: Path | None = None, downl
         if not e or e.get("image"):
             continue
         try:
-            c = json.loads((Path(d["photo"]["dir"]) / "cands.json").read_text())[eid][d["photo"]["index"]]
+            c = json.loads((inside(d["photo"]["dir"]) / "cands.json").read_text())[eid][d["photo"]["index"]]
             name = f"{PHOTO_PREFIX}{eid}.jpg"
             download(c, out / name)
         except Exception as ex:  # noqa: BLE001

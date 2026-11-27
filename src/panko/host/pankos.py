@@ -36,8 +36,10 @@ class Running:
 
 
 class Pankos:
-    def __init__(self, data: Path, *, idle_minutes: float = 20, quota_gb: float = 5, upload_mb: float = 500):
+    def __init__(self, data: Path, *, idle_minutes: float = 20, quota_gb: float = 5, upload_mb: float = 500,
+                 base_url: str = ""):
         self.data = Path(data)
+        self.base_url = base_url
         self.idle = idle_minutes * 60
         self.quota_gb, self.upload_mb = quota_gb, upload_mb
         self.running: dict[str, Running] = {}
@@ -58,6 +60,8 @@ class Pankos:
         env.update({"HOME": str(self.home(uid)), "PANKO_HOME": str(self.home(uid)), "PANKO_HOSTED": "1",
                     "PANKO_FRONT_SECRET": secret, "PANKO_QUOTA_GB": str(quota_gb or self.quota_gb),
                     "PANKO_UPLOAD_MB": str(self.upload_mb), "PYTHONUNBUFFERED": "1"})
+        if self.base_url:     # its setup page shows the address to connect Claude to (<site>/mcp)
+            env["PANKO_HOST_URL"] = self.base_url
         return env
 
     def alive(self, uid: str) -> Running | None:
