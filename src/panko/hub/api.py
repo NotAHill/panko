@@ -645,6 +645,31 @@ def verify(req: Req):
     return _start("verify", "Check with tools" + (" and tag" if apply else ""), run)
 
 
+def _llm_ready() -> bool:
+    from panko import providers
+    try:
+        return bool(providers.chain("llm"))
+    except Exception:  # noqa: BLE001  a provider that can't load: not ready
+        return False
+
+
+@api("GET", "/examples")
+def examples_state(req: Req):
+    """Cards that still need an example sentence (status active or candidate, optionally one tag)."""
+    from panko import examples as ex
+    st, status, tag = _store(), req.query.get("status", "active"), req.query.get("tag", "")
+    every = ex.todo(st, status)
+    tags: dict[str, int] = {}
+    for e in every:
+        for t in e.get("tags", []):
+            tags[t] = tags.get(t, 0) + 1
+    es = [e for e in every if not tag or tag in e.get("tags", [])]
+    return {"todo": len(es), "status": status, "llm_ready": _llm_ready(),
+            "cards": [{k: e.get(k, "") for k in ("id", "kind", "ar", "tl", "gloss", "variety")} for e in es],
+            "tags": sorted(tags.items(), key=lambda x: (-x[1], x[0]))[:80],
+            "other": len(ex.todo(st, "candidate" if status == "active" else "active"))}
+
+
 @api("POST", "/examples")
 def examples(req: Req):
     from panko import examples as ex

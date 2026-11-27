@@ -48,6 +48,7 @@ const ICON = {
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
 };
 ICON.design = '<path d="M12 3a9 9 0 1 0 0 18c.9 0 1.5-.7 1.5-1.5 0-.4-.2-.8-.4-1.1-.3-.3-.4-.6-.4-1 0-.8.7-1.5 1.5-1.5H16a5 5 0 0 0 5-5c0-4.4-4-7.9-9-7.9z"/><circle cx="7.5" cy="10.5" r="1"/><circle cx="12" cy="7.5" r="1"/><circle cx="16.5" cy="10.5" r="1"/>';
+ICON.examples = '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9h8M8 13h5"/>';
 ICON.voices = '<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8"/>';
 ICON.play = '<path d="M7 4v16l13-8z"/>';
 ICON.stop = '<rect x="6" y="6" width="12" height="12" rx="1"/>';
@@ -104,6 +105,8 @@ const HINTS = {
   'gloss clashes': 'A production card shows the meaning and asks for the word, so two cards with the same meaning can’t both be answered. For each card: keep it, give it a sharper gloss, make it recognition only, or mark it as the same word as another (an inbox card then moves to duplicates). Nothing changes until you apply.',
   'to do': 'Cards without a picture or a decision about one.',
   'waiting for a picture': 'Active cards with no picture yet. Prayers, grammar words and the like are often better without one: mark those “no picture”.',
+  'to write': 'Words, and phrases of up to four words, with no example sentence yet. A longer phrase is its own example.',
+  'waiting for an example': 'Open a card and press e to write one yourself, or let chat or the model write them for every card here.',
   'library': 'Ready-made decks, checked and with pictures. Adding one goes through the same checks as any source: words you have keep your card, near ones wait for you, new ones land in your inbox.',
   'decisions': 'What the model chose for each card: a photo, a drawing to make, or no picture. Apply puts them on the cards.',
   'cards': 'How many words each variety has, and how many of them are already in Anki.',
@@ -261,6 +264,7 @@ const COMMANDS = [
   ['/checks', 'tool checks and gloss clashes', () => go('#/checks')],
   ['/verify', 'run the free tool checks on the inbox', () => startJob('/verify', { status: 'candidate' })],
   ['/pictures', 'pictures for cards without one', () => go('#/pictures')],
+  ['/examples', 'example sentences for words without one', () => go('#/examples')],
   ['/design', 'how your cards look, and where pictures come from', () => go('#/design')],
   ['/voices', 'the voices that read your cards', () => go('#/voices')],
   ['/sync', 'what a sync would change, then sync', () => go('#/sync')],
@@ -314,7 +318,7 @@ function palette(initial = '') {
 
 function keysHelp() {
   const rows = [['/', 'commands and search'], ['g o', 'overview'], ['g i', 'inbox'], ['g c', 'cards'], ['g s', 'sources'],
-    ['g k', 'checks'], ['g p', 'pictures'], ['g d', 'card design'], ['g v', 'voices'], ['g y', 'sync'], ['g u', 'usage'], ['g j', 'jobs'], ['g ,', 'setup'], ['t', 'light or dark'],
+    ['g k', 'checks'], ['g p', 'pictures'], ['g e', 'examples'], ['g d', 'card design'], ['g v', 'voices'], ['g y', 'sync'], ['g u', 'usage'], ['g j', 'jobs'], ['g ,', 'setup'], ['t', 'light or dark'],
     ['j k ↑ ↓', 'move in a list'], ['enter', 'open the card'], ['x', 'select'], ['shift click', 'select a range'], ['a', 'activate'], ['r', 'reject'],
     ['u', 'back to the inbox'], ['e', 'edit'], ['space', 'flip the card'], ['[ ]', 'other card of the note'], ['s', 'search'],
     ['n p', 'next or previous page'], ['⌘ enter', 'save an edit'], ['esc', 'close, clear']];
@@ -334,7 +338,7 @@ function toggleTheme() {
 const theme = () => document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
 
 // ---- frame: nav, status line, jobs polling -----------------------------------------------------------------------
-const NAV = ['learn', ['overview', 'o'], ['inbox', 'i'], ['cards', 'c'], ['sources', 's'], ['library', 'l'], 'tools', ['checks', 'k'], ['pictures', 'p'],
+const NAV = ['learn', ['overview', 'o'], ['inbox', 'i'], ['cards', 'c'], ['sources', 's'], ['library', 'l'], 'tools', ['checks', 'k'], ['pictures', 'p'], ['examples', 'e'],
   ['sync', 'y'], 'your cards', ['design', 'd'], ['voices', 'v'], 'system', ['usage', 'u'], ['jobs', 'j'], ['setup', ',']];
 
 function navName() {
@@ -568,7 +572,7 @@ function varietyRow(v, c) {
       <a href="${q('status=candidate')}"><b>${n(c.candidate)}</b> in the inbox</a>
       ${c.doubtful ? html`<a class="w" href="${q('status=candidate&flag=doubtful')}"><b>${n(c.doubtful)}</b> doubtful</a>` : ''}
       ${c.no_picture ? html`<a href="${q('status=active&flag=no-picture')}"><b>${n(c.no_picture)}</b> without a picture</a>` : ''}
-      ${c.no_example ? html`<a href="${q('status=all&flag=no-example')}"><b>${n(c.no_example)}</b> without an example</a>` : ''}
+      ${c.no_example ? html`<a href="#/examples"><b>${n(c.no_example)}</b> without an example</a>` : ''}
       ${c.duplicate ? html`<a href="${q('status=duplicate')}"><b>${n(c.duplicate)}</b> duplicates</a>` : ''}
       ${c.rejected ? html`<a href="${q('status=rejected')}"><b>${n(c.rejected)}</b> rejected</a>` : ''}
     </div></div>`;
@@ -581,6 +585,7 @@ function nextSteps(o) {
   const unsynced = sum('active') - sum('in_anki');
   if (unsynced > 0) steps.push({ text: `${plural(unsynced, 'active card')} not in Anki yet: sync`, go: '#/sync' });
   if (sum('no_picture')) steps.push({ text: `${plural(sum('no_picture'), 'card')} without a picture`, go: '#/pictures' });
+  if (sum('no_example')) steps.push({ text: `${plural(sum('no_example'), 'card')} without an example sentence`, go: '#/examples' });
   if (sum('doubtful')) steps.push({ text: `${plural(sum('doubtful'), 'doubtful candidate')} to fix or reject`, go: '#/cards?status=candidate&flag=doubtful' });
   if (!Object.keys(o.sources).length && !sum('active') && !sum('candidate')) steps.push({ text: 'add your first source', go: '#/sources?add=1' });
   return steps.length ? html`<ul class="arrows">${steps.map(s => html`<li><a href="${s.go}">${s.text}</a></li>`)}</ul>` : html`<p class="empty">All caught up.</p>`;
@@ -1457,7 +1462,7 @@ VIEWS.library = async el => {
 };
 
 // ---- pictures -----------------------------------------------------------------------------------------------------
-const PIC = { page: { decisions: 0, waiting: 0 }, key: '' };
+const PIC = { page: { decisions: 0, waiting: 0, examples: 0 }, key: '' };
 const PIC_PAGE = 100;
 /* one page of rows and a pager under it ("101–200 of 770  ‹ ›") */
 const paged = (rows, which, row, head) => {
@@ -1627,6 +1632,45 @@ document.addEventListener('mouseover', e => {
 });
 document.addEventListener('mousemove', e => { if (e.target.closest?.('[data-peek]')) peekMove(e); });
 document.addEventListener('mouseout', e => { const q = e.target.closest?.('[data-peek]'); if (q && !q.contains(e.relatedTarget)) peekHide(); });
+
+// ---- examples -----------------------------------------------------------------------------------------------------
+VIEWS.examples = async (el, r) => {
+  const status = r.q.status || 'active', tag = r.q.tag || '';
+  if (PIC.key !== 'ex|' + status + '|' + tag) { PIC.key = 'ex|' + status + '|' + tag; PIC.page.examples = 0; }
+  const d = await api('/examples?' + new URLSearchParams({ status, tag }));
+  const which = status === 'active' ? 'active cards' : 'inbox cards';
+  const other = status === 'active' ? 'inbox' : 'active';
+  put(el, html`<div class="page-h"><h1>examples</h1><span class="sub">a sentence on the back of each word, read aloud with it</span></div>
+    <section class="box"><div class="t">to write</div>
+      <p><span class="acc big">${n(d.todo)}</span> ${status === 'active' ? 'active' : 'inbox'} card${d.todo === 1 ? '' : 's'}${tag ? ` tagged ${tagName(tag)}` : ''} without an example sentence.
+        ${d.other ? html`<span class="dim"><a href="#/examples?status=${status === 'active' ? 'candidate' : 'active'}">${n(d.other)} more</a> ${other === 'inbox' ? 'in the inbox' : 'among your active cards'}.</span>` : ''}</p>
+      <div class="acts mt"><div class="seg"><button data-a="st" data-s="active" class="${status === 'active' ? 'on' : ''}">active</button><button data-a="st" data-s="candidate" class="${status === 'candidate' ? 'on' : ''}">inbox</button></div>
+        <select id="x-tag" aria-label="tag"><option value="">any tag</option>${d.tags.map(([t, k]) => html`<option value="${t}" ${t === tag ? 'selected' : ''}>${tagName(t)} (${n(k)})</option>`)}</select></div>
+      ${d.todo ? html`<div class="by-hand"><b>write them in chat, free</b>
+        <p class="muted-p mt-s">With Panko connected to your own Claude (<a href="#/setup">setup → chat mode</a>), ask it:</p>
+        <div class="snippet mt-s"><button data-a="copy-ask">copy</button><pre id="x-ask">Use Panko to add example sentences to my ${which}${tag ? ` tagged ${tagName(tag)}` : ''}.</pre></div>
+        <p class="faint mt-s">It takes a sentence from your own sources or the open corpora when one fits, and writes one when none does. Each card gets one, added to any it has; they show on the next sync.</p></div>
+      <p class="muted-p">Or let the model write them here, with your API key: it picks from the same sentences first.</p>
+      <div class="acts mt"><label class="dim">at most <input id="x-lim" type="number" min="1" value="${Math.min(100, d.todo)}"> cards</label>
+        <button class="${d.llm_ready ? 'pri' : ''}" data-a="write" ${d.llm_ready ? '' : 'disabled'}><span class="paid">$</span>write examples with the model</button></div>
+      ${d.llm_ready ? '' : html`<p class="faint mt-s">Writing them here needs an API key: <a href="#/setup">add <code>ANTHROPIC_API_KEY</code> in setup</a>. Chat mode needs none.</p>`}` : html`<p class="empty mt">Every card here has one.</p>`}
+    </section>
+    <details class="box" data-fold="examples-waiting" open><summary class="t">waiting for an example <span class="dim">${n(d.todo)}</span></summary>
+      ${d.todo ? paged(d.cards, 'examples', c => html`<tr class="row" data-href="#/cards?status=all&id=${c.id}"><td class="nw faint">${c.id}</td><td>${tgt(c.ar, '')}</td><td class="dim">${c.tl || ''}</td><td>${c.gloss}</td>
+        <td class="nw faint">${c.kind === 'phrase' ? 'phrase' : ''}</td></tr>`,
+        html`<thead><tr><th>card</th><th>word</th><th>transliteration</th><th>gloss</th><th></th></tr></thead>`) : html`<p class="empty mt">Nothing waiting.</p>`}</details>`);
+  $('#x-tag').onchange = e => go('#/examples?' + new URLSearchParams({ status, tag: e.target.value }));
+  const redraw = () => VIEWS.examples(el, r);
+  actions(el, {
+    st: b => go('#/examples?' + new URLSearchParams({ status: b.dataset.s, tag })),
+    page: b => { PIC.page[b.dataset.w] = +b.dataset.p; redraw(); },
+    write: () => {
+      const lim = Math.max(1, +$('#x-lim').value || d.todo);
+      paidAction('/examples', { status, tag, ids: d.cards.slice(0, lim).map(c => c.id) }, `write examples for ${plural(Math.min(lim, d.todo), 'card')}?`, { onDone: redraw });
+    },
+    'copy-ask': async () => { try { await navigator.clipboard.writeText($('#x-ask').textContent); toast('copied'); } catch { toast('select the text and copy it', 'bad'); } },
+  });
+};
 
 // ---- sync ---------------------------------------------------------------------------------------------------------
 VIEWS.sync = async el => {

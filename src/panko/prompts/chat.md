@@ -71,8 +71,10 @@ check as for pages. At ingest, each item the recording says gets a clip of the r
 ## Gloss clashes and examples
 - `panko_clashes()` lists production cards whose glosses would be ambiguous. Decide as `panko_prompt("clashes")`
   says and send the changes with `panko_clashes_apply`.
-- A word with no example: write one as `panko_prompt("examples")` says (corpus sentences from `panko_evidence`
-  first) and add it with `panko_edit(id, {"examples": [...]})`, keeping the ones it has.
+- Example sentences: `panko_examples_todo()` lists the cards that need one, with candidate sentences from the
+  learner's sources and the corpora. Write as `panko_prompt("examples")` says (a good candidate first) and send a
+  batch at a time with `panko_examples_save([...])`, which adds without replacing. For many cards, hand batches
+  of 20 to subagents. To fix one card's examples, `panko_edit(id, {"examples": [...]})`.
 
 ## Audio
 - `panko_audio(id)` says what a card's audio would cost; `panko_audio(id, confirm=true)` (after the learner agrees)

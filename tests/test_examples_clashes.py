@@ -71,3 +71,50 @@ def test_clashes_found_decided_applied(store):
     assert store.get("dw-1")["status"] == "active" and store.get("dw-1")["cards"] == ["recognition"]
     assert r["for_you"][0]["id"] == "dw-1"
     assert clashes.senses("to look (at); to watch, see") == {"look", "watch", "see"}
+
+
+def test_examples_add_never_replaces_or_repeats(store):
+    store.put({**store.get("dw-1"), "examples": [{"ar": "فين العنوان؟", "tl": "fin l3onwan?", "en": "Where's the address?"}]})
+    r = examples.add(store, [
+        {"id": "dw-1", "examples": [{"ar": "فين العنوان؟"}]},                       # already there: nothing added
+        {"id": "dw-2", "examples": [{"ar": "عطيني لدريسة", "tl": "3tini ladrisa", "en": "Give me the address."},
+                                    {"ar": "عطيني لدريسة"}]},                       # one each, never twice
+        {"id": "dw-3", "examples": [], "note": "no good sentence"},
+        {"id": "nope", "examples": [{"ar": "x"}]}])
+    assert r["added"] == 1 and r["entries"] == 1
+    assert len(store.get("dw-1")["examples"]) == 1
+    assert store.get("dw-2")["examples"] == [{"ar": "عطيني لدريسة", "tl": "3tini ladrisa", "en": "Give me the address.",
+                                             "source": ""}]
+    assert r["skipped"] == {"dw-1": "", "dw-3": "no good sentence", "nope": "no such card"}
+
+
+def test_examples_in_chat_mode(store, monkeypatch, tmp_path):
+    pytest.importorskip("mcp")
+    import anyio
+    from mcp import Client
+
+    from panko import mcp_server
+    monkeypatch.setattr(mcp_server, "Store", lambda: Store(tmp_path / "s.db"))   # tools run in a worker thread
+
+    async def go():
+        async with Client(mcp_server.server) as c:
+            todo = json.loads((await c.call_tool("panko_examples_todo", {})).content[0].text)
+            assert todo["left"] == 2 and {x["id"] for x in todo["cards"]} == {"dw-1", "dw-2"}
+            one = next(x for x in todo["cards"] if x["id"] == "dw-1")
+            assert one["wanted"] == 1 and one["candidates"][0]["ar"] == "عطيني العنوان ديالك"
+            saved = json.loads((await c.call_tool("panko_examples_save", {"results": [
+                {"id": "dw-1", "examples": [{**one["candidates"][0], "tl": "3tini l3onwan dyalek"}]}]})).content[0].text)
+            assert saved == {"added": 1, "cards": 1, "skipped": {}}
+            inbox = json.loads((await c.call_tool("panko_examples_todo", {"status": "candidate"})).content[0].text)
+            assert inbox["left"] == 1
+    anyio.run(go)
+    assert store.get("dw-1")["examples"][0]["source"] == "Corpus"
+    assert [e["id"] for e in examples.todo(store)] == ["dw-2"]
+
+
+def test_a_phrase_that_is_a_sentence_is_its_own_example():
+    phrase = {"kind": "phrase", "ar": "من فضلك", "gloss": "please"}
+    assert examples.needs_example(phrase)
+    assert not examples.needs_example({**phrase, "ar": "كيف كان السفر؟", "gloss": "How was the trip?"})
+    assert not examples.needs_example({**phrase, "ar": "شحال هادا", "gloss": "How much is this?"})
+    assert not examples.needs_example({**phrase, "ar": "واحد اثنين ثلاثة أربعة خمسة"})

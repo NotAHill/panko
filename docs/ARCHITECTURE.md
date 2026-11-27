@@ -192,7 +192,7 @@ reaches every card without touching review history. Panko never writes `MyNotes`
 | `src/panko/ingest/verify.py` | applies check verdicts + overrides to items before ingest |
 | `src/panko/cards/build.py` | store entry → Anki note (fields, deck, tags, audio) |
 | `src/panko/media/choose.py` | choosing a picture per card (`panko pictures decide`, chat tools `panko_pictures_todo` / `panko_photo_search` / `panko_pictures_save` / `panko_pictures_apply`): saved or `pictures-plan` plans → photo search (earlier search folders reused) → `pictures-pick` on each contact sheet → decisions in `data/pictures/decisions.json` |
-| `src/panko/examples.py` | `panko examples`: example sentences for words without one, from sightings and corpus sentences (`evidence.sentences`) via the `examples` prompt |
+| `src/panko/examples.py` | `panko examples`: example sentences for words without one, from sightings and corpus sentences (`evidence.sentences`) via the `examples` prompt; `add()` is shared with chat mode's `panko_examples_save` and the hub's examples page |
 | `src/panko/clashes.py` | `panko clashes` / `panko_clashes`: production cards whose glosses share a sense → keep, sharpen, recognition-only or drop (never removes a card already in Anki) |
 | `src/panko/anki/export.py` | `panko work add --deck NAME`: read-only export of an Anki deck (studied notes marked) as a source |
 | `src/panko/skill.py` | `panko mcp --skill DIR`: the chat workflow as a Claude skill (`SKILL.md`) |

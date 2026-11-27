@@ -582,3 +582,15 @@ def test_select_all_gets_every_match_and_its_doubtful_ones(env):
     assert set(d["ids"]) == {"dw-2", "dw-3", "dw-4"} and d["doubtful"] == ["dw-3"] and d["total"] == 3
     assert c.get("/api/entries?status=candidate&flag=doubtful&ids=1").json()["ids"] == ["dw-3"]
     assert c.get("/api/entries?status=candidate&q=glass&ids=1").json()["ids"] == ["dw-2"]
+
+
+def test_examples_page_lists_what_needs_one(env):
+    c, s, _ = env
+    d = c.get("/api/examples?status=candidate").json()
+    assert d["todo"] == 3 and d["other"] == 0 and {x["id"] for x in d["cards"]} == {"dw-2", "dw-3", "dw-4"}
+    assert ["panko::doubtful", 1] in d["tags"]
+    assert c.get("/api/examples?status=candidate&tag=panko::doubtful").json()["todo"] == 1
+    assert c.get("/api/examples").json()["todo"] == 0          # dw-1 has one
+    r = c.post("/api/examples", json={"status": "candidate", "ids": ["dw-2"]}, headers=H)
+    assert r.status_code in (200, 400)                         # an estimate, or why the model isn't ready; nothing spent
+    assert not s.get("dw-2").get("examples")

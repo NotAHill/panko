@@ -165,11 +165,15 @@ Update the **Now** section at the end of every work session: it's what a fresh s
 - **H3 built (2026-11-27): the Anki add-on.** "Panko sync" in Anki (Tools → Panko: sync now) pulls the user's
   cards from their server Panko on a device code made on the account page, writes them through Anki's library
   (adds new notes, updates the rest in place, never MyNotes, review history or note type fields), and downloads the
-  media. Each Panko gets its own note types (your call). Audio is made on the server from the sync page. Tests on a
-  scratch collection; not yet tried inside Anki itself.
-- **Next:** try the add-on in a scratch Anki profile; backups before inviting
-  anyone (`deploy/README.md` §5). Then one invited person, then H3 (the Anki add-on). DODa stays on (free and
-  invite-only fits its terms; switched off if its authors object).
+  media. Each Panko gets its own note types (your call). Audio is made on the server from the sync page (the
+  server's own voice key, `PANKO_DEFAULT_ELEVENLABS_API_KEY`, when a user has none). Tried in a scratch Anki
+  profile: it syncs.
+- **Examples page (2026-11-27).** The hub's examples page lists the cards still without an example sentence, with a
+  request to copy into chat (free: `panko_examples_todo` / `panko_examples_save`, which add without replacing) and
+  the model button (API key, priced first). A short phrase that is a whole sentence ("How was the trip?") is its own
+  example, so it no longer counts as missing one.
+- **Next:** backups before inviting anyone (`deploy/README.md` §5). Then one invited person, then H5. DODa stays on
+  (free and invite-only fits its terms; switched off if its authors object).
 - The learner's own state (deck sizes, what's waiting on whom, plans) is in `data/STATUS.md` (git-ignored).
 
 ## Phases
@@ -207,7 +211,7 @@ S10 has two numbered tracks of its own, one per later step:
 | Track | Step | Status |
 |---|---|---|
 | **L** (S10 step 2): the deck library, `docs/SPEC-library.md` | L1 Panko packs (`panko pack build`, `panko library import`) · L2 `panko publish` · L3 the library repo, `panko library list` / `get`, the hub's library page · L4 updates (a deck's v2 over v1, your edits kept) | L1–L3 built 2026-11-26, library live; L4 waits for a deck's v2 |
-| **H** (S10 step 3): the hosted Panko, `docs/SPEC-hosted.md` | H1 hosted mode inside Panko · H2 the front door and the server · H3 the Anki add-on · H4 chat mode remotely (MCP over HTTP, OAuth) · H5 polish (jobs survive a restart, quota warnings, invite emails, monitoring) | H1, H2, H4 deployed; H3, H5 to do |
+| **H** (S10 step 3): the hosted Panko, `docs/SPEC-hosted.md` | H1 hosted mode inside Panko · H2 the front door and the server · H3 the Anki add-on · H4 chat mode remotely (MCP over HTTP, OAuth) · H5 polish (jobs survive a restart, quota warnings, invite emails, monitoring) | H1–H4 deployed; H5 to do |
 
 Order (your call, 2026-11-23; product first from 2026-11-25): Phase 4 (lessons and recordings, built), Phase 5
 (verification, built), S9 (any language, built), S10. Card migration (Peace Corps pictures and sync, the Fusha round of Phase 6) waits until

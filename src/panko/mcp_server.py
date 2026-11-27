@@ -362,6 +362,27 @@ def panko_clashes_apply(decisions: dict) -> dict:
 
 
 @tool()
+def panko_examples_todo(status: str = "active", tag: str = "", limit: int = 20) -> dict:
+    """Cards that still need an example sentence (words, and phrases of up to four words), each with the sentences
+    it has and candidates from the learner's sources and the open corpora. Write as `panko_prompt("examples")` says,
+    then `panko_examples_save`. status: active (cards) or candidate (the inbox)."""
+    from panko import examples
+    s = Store()
+    es = examples.todo(s, status, None, tag)
+    return {"left": len(es), "cards": [examples.row(e, s) for e in es[:limit]]}
+
+
+@tool()
+def panko_examples_save(results: list[dict]) -> dict:
+    """Add example sentences: [{"id", "examples": [{"ar", "tl", "en", "source"}], "note"}]. Added to the ones a card
+    has (never replacing one, never the same sentence twice), one per card; an empty `examples` with a `note` says
+    why a card gets none. Cards change on the next sync."""
+    from panko import examples
+    r = examples.add(Store(), results)
+    return {"added": r["added"], "cards": r["entries"], "skipped": r["skipped"]}
+
+
+@tool()
 def panko_sync(confirm: bool = False) -> dict:
     """Without confirm: a dry run (notes to add/update, audio clips still to pay for), touching neither Anki nor any
     paid service. confirm=true only after the learner agrees: generates the audio and pushes to Anki (Anki must be

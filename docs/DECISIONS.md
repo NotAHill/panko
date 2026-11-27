@@ -2,6 +2,11 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-27 · A phrase that ends like a sentence is its own example.** Example sentences go to words and to
+phrases of up to four words, but most short phrase cards are whole sentences ("How was the trip?", "It's too
+expensive"), and giving those another sentence adds nothing. A phrase whose Arabic or gloss ends in . ? ! or ؟
+counts as a sentence, like a phrase longer than four words already did.
+
 **2026-11-27 · Without a voice filter in config, the voices page works one out from the language.** Only the
 shipped presets set `[audio.elevenlabs] library`, so a learner of Iraqi Arabic saw every voice in ElevenLabs'
 library. When `library` is empty, `lang.voice_filter` decides: for Arabic, `lang/arabic.py` maps a word in the
