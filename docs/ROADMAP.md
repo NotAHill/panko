@@ -161,7 +161,7 @@ Update the **Now** section at the end of every work session: it's what a fresh s
   Found on the server: Wikimedia (Commons, Wikidata) answered 403 to Panko's old vague User-Agent from a cloud
   address, so only Openverse was searched, silently. Panko now names itself with the project's address
   (`panko.USER_AGENT`, one for every site), and a site that fails is named in the job; its cards aren't kept, so
-  the next search tries them again ("search all again").
+  the next search tries them again ("search again").
 - **Next:** backups before inviting
   anyone (`deploy/README.md` §5). Then one invited person, then H3 (the Anki add-on). DODa stays on (free and
   invite-only fits its terms; switched off if its authors object).

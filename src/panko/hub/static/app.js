@@ -1467,12 +1467,13 @@ VIEWS.pictures = async (el, r) => {
       <p><span class="acc big">${n(d.todo)}</span> ${status} card${d.todo === 1 ? '' : 's'}${tag ? ` tagged ${tagName(tag)}` : ''} without a picture or a decision.
         ${d.none ? html`<span class="dim">${plural(d.none, 'card')} set to no picture.</span>` : ''}</p>
       ${d.todo ? html`<div class="by-hand"><div class="acts"><b>choose them yourself, free</b>
-          <button data-a="search-all" ${d.todo > d.searched && d.sources.ready.length ? '' : 'disabled'}>${d.searched >= d.todo ? 'all searched' : d.searched ? `search photos for the other ${n(d.todo - d.searched)}` : `search photos for all ${n(d.todo)}`}</button>
-          <button class="${d.searched ? 'pri' : ''}" data-a="go-through" ${d.searched ? '' : 'disabled'}>go through ${d.searched ? n(d.searched) : 'them'}</button>
-          ${d.searched ? html`<button class="link" data-a="search-again" title="search every card waiting again, such as after adding a photo site">search all again</button>` : ''}</div>
+          ${d.searched >= d.todo
+            ? html`<button data-a="search-all" data-again="1" ${d.sources.ready.length ? '' : 'disabled'} title="search every card waiting again, such as after adding a photo site">search again</button>`
+            : html`<button data-a="search-all" ${d.sources.ready.length ? '' : 'disabled'}>${d.searched ? `search the other ${n(d.todo - d.searched)}` : `search photos for all ${n(d.todo)}`}</button>`}
+          <button class="${d.searched ? 'pri' : ''}" data-a="go-through" ${d.searched ? '' : 'disabled'}>go through ${d.searched ? n(d.searched) : 'them'}</button></div>
         <p class="faint mt-s">Search finds photos for every card in the background, from ${d.sources.ready.join(', ') || 'no source yet'}; then go through the cards and click the right photo on each.
           ${d.sources.need_key.length ? html`${d.sources.need_key.join(' and ')} ${d.sources.need_key.length === 1 ? 'needs' : 'need'} a free key: <a href="#/setup">add it in setup</a>. ` : ''}Drawings need an image key.</p></div>` : ''}
-      <p class="muted-p mt">Or let a model choose: it plans a search per card, looks through contact sheets from your picture sources and picks a photo.
+      <p class="muted-p">Or let a model choose: it plans a search per card, looks through contact sheets from your picture sources and picks a photo.
         When nothing fits it writes a drawing prompt, if you allow drawings. <a href="#/design">Choose the sources</a> in card design.</p>
       <div class="acts mt"><div class="seg"><button data-a="st" data-s="active" class="${status === 'active' ? 'on' : ''}">active</button><button data-a="st" data-s="candidate" class="${status === 'candidate' ? 'on' : ''}">inbox</button></div>
         <label class="dim">at most <input id="p-lim" type="number" min="1" value="${Math.min(50, d.todo || 50)}"> cards</label>
@@ -1521,8 +1522,7 @@ VIEWS.pictures = async (el, r) => {
       const i = d.cards.findIndex(c => c.id === b.dataset.id);
       choosePhoto(row(b.dataset.id), redraw, i < 0 ? null : d.cards.slice(i + 1));
     },
-    'search-all': () => startJob('/pictures/search', { status, tag }, redraw),
-    'search-again': () => startJob('/pictures/search', { status, tag, again: true }, redraw),
+    'search-all': b => startJob('/pictures/search', { status, tag, again: !!b.dataset.again }, redraw),
     'go-through': () => { const seq = d.cards.filter(c => c.searched != null); if (seq.length) choosePhoto(seq[0], redraw, seq.slice(1)); },
     'none-all': async () => { if (await confirmIt(`no picture for ${plural(d.todo, 'card')} tagged ${tagName(tag)}?`, html`<p>They leave the picture queue. You can undo it, or ask for a picture on any one of them from its edit form.</p>`)) none(d.ids); },
     decide: () => paidAction('/pictures/decide', { status, tag, limit: +$('#p-lim').value || 0 }, 'choose pictures with the model?', { batch: false, onDone: redraw }),
