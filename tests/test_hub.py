@@ -492,7 +492,7 @@ def test_choose_a_photo_yourself(env, monkeypatch):
     monkeypatch.setattr(api, "_chosen_dir", lambda: tmp / "chosen")
     monkeypatch.setattr(pictures, "_media", lambda: tmp / "media")
     asked = []
-    monkeypatch.setattr(pictures, "candidates", lambda q, per_provider=6: asked.append(q) or [
+    monkeypatch.setattr(pictures, "candidates", lambda q, per_provider=6, errors=None: asked.append(q) or [
         {"thumb": f"https://pics.example/{i}.jpg", "title": f"pic {i}", "author": "A", "license": "CC BY 4.0",
          "provider": "commons", "page": f"https://pics.example/{i}"} for i in range(3)])
     monkeypatch.setattr(pictures, "_download", lambda cand, path: path.write_bytes(b"\xff\xd8" + cand["thumb"].encode()))
@@ -522,7 +522,7 @@ def test_search_photos_for_every_card_free(env, monkeypatch):
     monkeypatch.setattr(api, "_chosen_dir", lambda: tmp / "chosen")
     monkeypatch.setattr(api, "_photo_sources", lambda: {"ready": ["commons"], "need_key": ["pexels"]})
     asked = []
-    monkeypatch.setattr(pictures, "candidates", lambda q, per_provider=6: asked.append(q) or [
+    monkeypatch.setattr(pictures, "candidates", lambda q, per_provider=6, errors=None: asked.append(q) or [
         {"thumb": f"https://pics.example/{q}.jpg", "title": q, "provider": "commons"}])
     before = c.get("/api/pictures?status=active").json()
     assert before["searched"] == 0 and before["todo"] > 0 and before["sources"]["need_key"] == ["pexels"]
@@ -540,3 +540,35 @@ def test_search_photos_for_every_card_free(env, monkeypatch):
     monkeypatch.setattr(pictures, "_media", lambda: tmp / "media")
     monkeypatch.setattr(pictures, "_download", lambda cand, path: path.write_bytes(b"\xff\xd8"))
     assert c.post("/api/pictures/choose", json={"id": "dw-1", "dir": r["dir"], "index": 0}, headers=H).json()["image"]
+
+
+
+def test_a_photo_site_that_fails_is_named_and_its_cards_searched_again(env, monkeypatch):
+    """Wikimedia refusing (403) must not leave cards with only the other sites' photos for good."""
+    c, s, tmp = env
+    from panko.media import choose, pictures
+    monkeypatch.setattr(choose, "decisions_path", lambda: tmp / "decisions.json")
+    monkeypatch.setattr(api, "_chosen_dir", lambda: tmp / "chosen")
+    monkeypatch.setattr(api, "_photo_sources", lambda: {"ready": ["commons", "openverse"], "need_key": []})
+    down = {"on": True}
+
+    def search(q, per_provider=6, errors=None):
+        if down["on"] and errors is not None:
+            errors["commons"] = "Client error '403 Forbidden'"
+        return [{"thumb": "https://pics.example/o.jpg", "provider": "openverse"}]
+    monkeypatch.setattr(pictures, "candidates", search)
+    j = wait(c, c.post("/api/pictures/search", json={"status": "active"}, headers=H).json()["job"])
+    assert j["result"]["searched"] == 0 and j["result"]["sites_failed"] == ["commons"]
+    assert "Wikimedia Commons failed: Client error '403" in "".join(j["log"])
+    assert c.get("/api/pictures?status=active").json()["searched"] == 0
+    assert c.get("/api/pictures/candidates?id=dw-1").json()["failed"] == ["Wikimedia Commons"]
+    down["on"] = False
+    j = wait(c, c.post("/api/pictures/search", json={"status": "active", "again": True}, headers=H).json()["job"])
+    assert j["result"]["failed"] == 0 and j["result"]["searched"] >= 1
+
+
+def test_wikimedia_gets_a_name_it_accepts():
+    """Wikimedia answers 403 to a vague name from a server: Panko's carries a way to reach its authors."""
+    from panko import USER_AGENT
+    from panko.providers.images import web
+    assert "github.com/" in USER_AGENT and web.UA["User-Agent"] == USER_AGENT

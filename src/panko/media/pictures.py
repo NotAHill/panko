@@ -78,15 +78,19 @@ def _searchers(names: list[str] | None = None) -> list:
     return [p for p in providers.chain("images", names) if hasattr(p, "search")]
 
 
-def candidates(query: str, per_provider: int = 6, names: list[str] | None = None) -> list[dict]:
+def candidates(query: str, per_provider: int = 6, names: list[str] | None = None,
+               errors: dict | None = None) -> list[dict]:
     """Candidates from each search provider, taken in turn (1st of each, then 2nd of each…) so every site shows up
-    on a sheet and the most precise one (first in the chain) leads."""
+    on a sheet and the most precise one (first in the chain) leads. A site that fails is skipped (and named in
+    `errors`, {site: reason}, when given)."""
     found = []
     for p in _searchers(names):
         try:
             found.append([{**c, "provider": p.name} for c in p.search(query, per_provider) if c.get("thumb")])
         except httpx.HTTPError as e:
             print(f"  {p.name}: {e}", file=sys.stderr)
+            if errors is not None:
+                errors[p.name] = str(e)
     return [c for rnd in itertools.zip_longest(*found) for c in rnd if c]
 
 

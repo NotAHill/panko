@@ -10,7 +10,9 @@ import time
 
 import httpx
 
-UA = {"User-Agent": "panko/0.1 (personal flashcard tool)"}
+from panko import USER_AGENT
+
+UA = {"User-Agent": USER_AGENT}
 SECRET_PARAMS = ("key",)        # never part of a cache file name
 sleep = time.sleep              # tests replace this
 

@@ -999,17 +999,21 @@ def pictures_search(req: Req):
                 + (f" ({', '.join(src['need_key'])} left out: no key)" if src["need_key"] else ""))
 
         def one(ask):
+            errors: dict = {}
             try:
-                return *ask, pictures.candidates(ask[1], per_provider=6)
+                return *ask, pictures.candidates(ask[1], per_provider=6, errors=errors), errors
             except Exception as ex:  # noqa: BLE001  one card's search failing leaves it for next time, not the rest
-                return *ask, ex
-        found, empty, failed, n_done = {}, 0, 0, 0
+                return *ask, [], {"search": str(ex)}
+        found, empty, failed, n_done, sites = {}, 0, 0, 0, {}
         with ThreadPoolExecutor(4) as pool:
-            for eid, q, got in pool.map(one, asks):
+            for eid, q, got, errors in pool.map(one, asks):
                 n_done += 1
-                if isinstance(got, Exception):
+                if errors:                # a site missing from it: not kept, so the next search tries it again
                     failed += 1
-                    job.say(f"  {eid} “{q}”: {got}")
+                    for site, why in errors.items():
+                        if site not in sites:
+                            sites[site] = why
+                            job.say(f"  {PHOTO_SITE.get(site, site)} failed: {why[:200]}")
                     continue
                 found[eid] = (q, got)
                 empty += not got
@@ -1019,8 +1023,8 @@ def pictures_search(req: Req):
                     job.say(f"  {n_done}/{len(cards)}")
         _save_searches(found)
         job.say(f"searched {_cards(n_done - failed)}; nothing found for {empty}"
-                + (f"; {failed} failed (search all again to retry them)" if failed else ""))
-        return {"searched": n_done - failed, "nothing": empty, "failed": failed}
+                + (f"; {failed} not kept because a site failed (search again to retry them)" if failed else ""))
+        return {"searched": n_done - failed, "nothing": empty, "failed": failed, "sites_failed": sorted(sites)}
     return _start("picture-search", f"Search photos for {_cards(len(cards))}", run)
 
 
@@ -1048,10 +1052,11 @@ def pictures_candidates(req: Req):
             return {"id": eid, "query": queries.get(eid) or pictures.query_for(e), "dir": str(_chosen_dir()),
                     "chosen": None, "from": "searched earlier", "candidates": _cands_out(cands[eid])}
     q = q or pictures.query_for(e)
-    got = pictures.candidates(q, per_provider=6)
+    errors: dict = {}
+    got = pictures.candidates(q, per_provider=6, errors=errors)
     _save_searches({eid: (q, got)})
     return {"id": eid, "query": q, "dir": str(_chosen_dir()), "chosen": None, "from": "your search",
-            "candidates": _cands_out(got)}
+            "candidates": _cands_out(got), "failed": [PHOTO_SITE.get(s, s) for s in errors]}
 
 
 def _cands_out(cands: list[dict]) -> list[dict]:

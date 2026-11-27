@@ -23,7 +23,7 @@ import re
 from functools import cache
 from pathlib import Path
 
-from panko import lang
+from panko import USER_AGENT, lang
 from panko.config import ROOT, settings
 from panko.dedupe import Index, same_word
 from panko.store import Store
@@ -273,9 +273,6 @@ def download(force: bool = False, client=None, say=print) -> list[dict]:
         raise RuntimeError(f"couldn't download {', '.join(failed)} (the others are done): "
                            + "; ".join(x["done"] for x in report if x["name"] in failed))
     return report
-
-
-USER_AGENT = "panko (https://github.com/NotAHill/panko)"
 
 
 def _fetch(r: dict, client, say) -> str:

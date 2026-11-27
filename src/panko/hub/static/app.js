@@ -1468,7 +1468,8 @@ VIEWS.pictures = async (el, r) => {
         ${d.none ? html`<span class="dim">${plural(d.none, 'card')} set to no picture.</span>` : ''}</p>
       ${d.todo ? html`<div class="by-hand"><div class="acts"><b>choose them yourself, free</b>
           <button data-a="search-all" ${d.todo > d.searched && d.sources.ready.length ? '' : 'disabled'}>${d.searched >= d.todo ? 'all searched' : d.searched ? `search photos for the other ${n(d.todo - d.searched)}` : `search photos for all ${n(d.todo)}`}</button>
-          <button class="${d.searched ? 'pri' : ''}" data-a="go-through" ${d.searched ? '' : 'disabled'}>go through ${d.searched ? n(d.searched) : 'them'}</button></div>
+          <button class="${d.searched ? 'pri' : ''}" data-a="go-through" ${d.searched ? '' : 'disabled'}>go through ${d.searched ? n(d.searched) : 'them'}</button>
+          ${d.searched ? html`<button class="link" data-a="search-again" title="search every card waiting again, such as after adding a photo site">search all again</button>` : ''}</div>
         <p class="faint mt-s">Search finds photos for every card in the background, from ${d.sources.ready.join(', ') || 'no source yet'}; then go through the cards and click the right photo on each.
           ${d.sources.need_key.length ? html`${d.sources.need_key.join(' and ')} ${d.sources.need_key.length === 1 ? 'needs' : 'need'} a free key: <a href="#/setup">add it in setup</a>. ` : ''}Drawings need an image key.</p></div>` : ''}
       <p class="muted-p mt">Or let a model choose: it plans a search per card, looks through contact sheets from your picture sources and picks a photo.
@@ -1521,6 +1522,7 @@ VIEWS.pictures = async (el, r) => {
       choosePhoto(row(b.dataset.id), redraw, i < 0 ? null : d.cards.slice(i + 1));
     },
     'search-all': () => startJob('/pictures/search', { status, tag }, redraw),
+    'search-again': () => startJob('/pictures/search', { status, tag, again: true }, redraw),
     'go-through': () => { const seq = d.cards.filter(c => c.searched != null); if (seq.length) choosePhoto(seq[0], redraw, seq.slice(1)); },
     'none-all': async () => { if (await confirmIt(`no picture for ${plural(d.todo, 'card')} tagged ${tagName(tag)}?`, html`<p>They leave the picture queue. You can undo it, or ask for a picture on any one of them from its edit form.</p>`)) none(d.ids); },
     decide: () => paidAction('/pictures/decide', { status, tag, limit: +$('#p-lim').value || 0 }, 'choose pictures with the model?', { batch: false, onDone: redraw }),
@@ -1546,6 +1548,7 @@ async function choosePhoto(card, onDone, rest = null) {
   const show = res => {
     frame(html`<form class="acts" id="ch-f"><input id="ch-q" value="${res.query}" aria-label="search for" placeholder="search for…" style="flex:1">
         <button>search</button><span class="faint">${res.from} · free</span></form>
+      ${res.failed?.length ? html`<p class="warn mt-s">${res.failed.join(' and ')} didn't answer: these are from the other sites. Search again to retry.</p>` : ''}
       ${res.candidates.length ? html`<div class="grid-pics mt">${res.candidates.map(c => html`<button class="pic ${res.chosen === c.i ? 'on' : ''}" data-i="${c.i}" title="${c.title}">
           <img src="${c.thumb}" alt="${c.title}" loading="lazy" referrerpolicy="no-referrer" data-peek="${c.thumb}">
           <span class="lic">${c.provider} · ${c.license || 'licence unknown'}</span></button>`)}</div>

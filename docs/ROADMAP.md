@@ -158,6 +158,10 @@ Update the **Now** section at the end of every work session: it's what a fresh s
   opens on each card's photos in turn: click one, skip, or no picture). The model's button is off without a key,
   with the chat-mode request to copy instead; drawings are made from the page with the learner's image key, price
   first when `usd_per_image` is set. No automatic pick without a model: a wrong photo teaches the wrong meaning.
+  Found on the server: Wikimedia (Commons, Wikidata) answered 403 to Panko's old vague User-Agent from a cloud
+  address, so only Openverse was searched, silently. Panko now names itself with the project's address
+  (`panko.USER_AGENT`, one for every site), and a site that fails is named in the job; its cards aren't kept, so
+  the next search tries them again ("search all again").
 - **Next:** backups before inviting
   anyone (`deploy/README.md` §5). Then one invited person, then H3 (the Anki add-on). DODa stays on (free and
   invite-only fits its terms; switched off if its authors object).
