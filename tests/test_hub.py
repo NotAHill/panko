@@ -90,6 +90,12 @@ def test_entries_filter_search_and_flags(env):
     assert [x["id"] for x in c.get("/api/entries?status=all&q=برا").json()["rows"]] == ["dw-1"]   # shadda ignored
     assert c.get("/api/entries?status=active&flag=no-example").json()["total"] == 0
     assert c.get("/api/entries/nope").status_code == 404
+    # what a card has, for the filter: the opposite of what it lacks, on every card shown
+    rows = c.get("/api/entries?status=all").json()
+    for f in ("picture", "example"):
+        has = c.get(f"/api/entries?status=all&flag=has-{f}").json()["rows"]
+        assert len(has) == rows["flags"].get(f"has-{f}", 0) and all(f"no-{f}" not in x["flags"] for x in has)
+    assert rows["flags"].get("has-audio", 0) + rows["flags"].get("no-audio", 0) == rows["total"]
 
 
 def test_edit_only_editable_fields(env):

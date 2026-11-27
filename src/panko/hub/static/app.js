@@ -592,7 +592,8 @@ const STATUS = [['candidate', 'inbox'], ['active', 'active'], ['duplicate', 'dup
 const STATUS_NAME = { candidate: 'inbox', active: 'active', duplicate: 'duplicate', rejected: 'rejected' };
 const shownStatus = e => e.status !== 'retired' ? e.status : e.merged_into ? 'duplicate' : 'rejected';
 const FLAGS = [['', 'any flag'], ['doubtful', 'doubtful'], ['check', 'spelling or root note'], ['no-picture', 'no picture'],
-  ['no-example', 'no example'], ['in-anki', 'in Anki']];
+  ['no-example', 'no example'], ['no-audio', 'no audio yet'], ['in-anki', 'in Anki'],
+  ['has-picture', 'with a picture', 'has'], ['has-example', 'with an example', 'has'], ['has-audio', 'with audio', 'has']];
 const FLAG_SHOWN = new Set(['doubtful', 'check', 'drop', 'wrong', 'no-picture', 'no-example']);
 const FLAG_LABEL = { doubtful: 'doubtful', check: 'spelling note', drop: 'drop', wrong: 'wrong', 'no-picture': 'no picture', 'no-example': 'no example', 'in-anki': 'in Anki' };
 const tagName = t => t.replace(/^panko::/, '').replace(/::/g, ' / ');
@@ -673,7 +674,10 @@ async function paintSources() {
 function paintFlags(counts) {
   const sel = $('#c-flag');
   if (!sel) return;
-  put(sel, html`${FLAGS.filter(([k]) => !k || counts[k] || k === C.flag).map(([k, l]) => html`<option value="${k}" ${k === C.flag ? 'selected' : ''}>${l}${k ? ` (${n(counts[k] || 0)})` : ''}</option>`)}`);
+  const opt = ([k, l]) => html`<option value="${k}" ${k === C.flag ? 'selected' : ''}>${l}${k ? ` (${n(counts[k] || 0)})` : ''}</option>`;
+  const shown = FLAGS.filter(([k]) => !k || counts[k] || k === C.flag);
+  const has = shown.filter(f => f[2] === 'has');
+  put(sel, html`${shown.filter(f => f[2] !== 'has').map(opt)}${has.length ? html`<optgroup label="has">${has.map(opt)}</optgroup>` : ''}`);
 }
 
 function syncUrl() {
@@ -732,7 +736,7 @@ function paintRows() {
       <td title="${r.ar}"><div class="clamp">${tgt(r.ar, r.variety)}</div></td>
       <td class="dim c-tl" title="${r.tl}"><div class="clamp">${r.tl}</div></td>
       <td title="${r.gloss}"><div class="clamp">${r.gloss}</div></td>
-      <td class="flags">${r.flags.filter(f => FLAG_SHOWN.has(f)).slice(0, 1).map(f => html`<span class="flag ${f}">${FLAG_LABEL[f] || f}</span>`)}${C.status === 'all' ? html`<span class="flag ${r.status}">${STATUS_NAME[r.status]}</span>` : ''}</td>
+      <td class="flags">${r.flags.filter(f => FLAG_SHOWN.has(f)).slice(0, 2).map(f => html`<span class="flag ${f}">${FLAG_LABEL[f] || f}</span>`)}${C.status === 'all' ? html`<span class="flag ${r.status}">${STATUS_NAME[r.status]}</span>` : ''}</td>
     </tr>`) : html`<tr><td colspan="5" class="empty">${C.q || C.flag || C.tag || C.source || C.kind ? 'Nothing matches.' : C.status === 'candidate' ? 'The inbox is empty. New words from your sources land here.' : 'Nothing here.'}</td></tr>`}</tbody>`);
   const canAct = C.status === 'candidate' || C.status === 'all';
   put($('#c-bulk'), C.sel.size ? html`<span class="count">${n(C.sel.size)} selected</span>

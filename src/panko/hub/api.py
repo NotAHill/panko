@@ -423,7 +423,16 @@ def _shown_status(e: dict) -> str:
     return "duplicate" if e.get("merged_into") else "rejected"
 
 
+def _audio_ready(e: dict) -> bool:
+    """The headword's audio is made for the current voices (or a native clip has it): checked in the cache, free."""
+    from panko.anki.sync import PREFIX
+    from panko.media import audio
+    todo: list = []
+    return audio.speak(e["ar"].rstrip(".؟?"), e["variety"], PREFIX, dry=todo) is not None and not todo
+
+
 def _flags(e: dict, linked: set) -> list[str]:
+    """What a card lacks (shown on its row) and what it has (`has-…`, for the filter only)."""
     if e["status"] == "retired":      # the tab already says why it's there
         return []
     f = []
@@ -440,6 +449,11 @@ def _flags(e: dict, linked: set) -> list[str]:
         f.append("no-example")
     if e["id"] in linked:
         f.append("in-anki")
+    f.append("has-audio" if _audio_ready(e) else "no-audio")
+    if e.get("image"):
+        f.append("has-picture")
+    if e.get("examples"):
+        f.append("has-example")
     return f
 
 

@@ -304,17 +304,18 @@ def panko_audio(id: str, confirm: bool = False) -> list:
     """An entry's audio (headword and examples, every voice). Without confirm: what would be generated (clips and
     characters, nothing spent). confirm=true after the learner agrees: generates it (paid, then cached, so the
     next sync reuses it) and returns the headword clips to listen to."""
+    from panko.anki.sync import PREFIX  # the names sync uses, so it reuses what's made here
     from panko.cards import build
     from panko.media import audio
     e = Store().get(id)
     if not e:
         raise KeyError(f"no entry {id}")
-    dry = audio.DryRun()
+    dry = audio.DryRun(prefix=PREFIX)
     build.to_note(e, dry)
     if not confirm:
         return [json.dumps({"id": id, "clips_to_generate": len(dry.todo),
                             "characters": sum(len(t) for _, t in dry.todo), "note": "dry run"}, ensure_ascii=False)]
-    note = build.to_note(e, audio.Narrator())
+    note = build.to_note(e, audio.Narrator(prefix=PREFIX))
     files = re.findall(r"\[sound:([^\]]+)\]", note["fields"].get("Audio", ""))
     from panko.media import clips
     paths = [next((d / f for d in (audio.MEDIA, clips._media()) if (d / f).exists()), None) for f in files]
