@@ -333,7 +333,9 @@ a.tile:hover { text-decoration: none; border-color: color-mix(in srgb, var(--acc
 .filters { display: flex; flex-direction: column; gap: 10px; margin: 12px 0 8px; }
 .filters .line { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .filters .prompt { flex: 1; min-width: 260px; }
-.bulk { display: flex; align-items: center; gap: 10px; min-height: 34px; color: var(--dim); flex-wrap: wrap; font-size: var(--fs-s); }
+.bulk { display: flex; align-items: center; gap: 10px; min-height: 34px; color: var(--dim); flex-wrap: nowrap; overflow: hidden; font-size: var(--fs-s); }
+.bulk > * { flex-shrink: 0; white-space: nowrap; }
+.bulk > .kbd-hint { flex-shrink: 1; min-width: 0; overflow: hidden; }   /* hints give way first; never a second line */
 .bulk .count { color: var(--accent); font-weight: 700; }
 .pager { display: flex; gap: 10px; align-items: center; justify-content: flex-end; margin-top: 10px; color: var(--dim); }
 .detail { position: sticky; top: 0; max-height: calc(100vh - 140px); overflow-y: auto; overflow-x: hidden; padding: 0 4px 30px 2px; }

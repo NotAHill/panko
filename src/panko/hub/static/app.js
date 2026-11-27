@@ -315,7 +315,7 @@ function palette(initial = '') {
 function keysHelp() {
   const rows = [['/', 'commands and search'], ['g o', 'overview'], ['g i', 'inbox'], ['g c', 'cards'], ['g s', 'sources'],
     ['g k', 'checks'], ['g p', 'pictures'], ['g d', 'card design'], ['g v', 'voices'], ['g y', 'sync'], ['g u', 'usage'], ['g j', 'jobs'], ['g ,', 'setup'], ['t', 'light or dark'],
-    ['j k ↑ ↓', 'move in a list'], ['enter', 'open the card'], ['x', 'select'], ['a', 'activate'], ['r', 'reject'],
+    ['j k ↑ ↓', 'move in a list'], ['enter', 'open the card'], ['x', 'select'], ['shift click', 'select a range'], ['a', 'activate'], ['r', 'reject'],
     ['u', 'back to the inbox'], ['e', 'edit'], ['space', 'flip the card'], ['[ ]', 'other card of the note'], ['s', 'search'],
     ['n p', 'next or previous page'], ['⌘ enter', 'save an edit'], ['esc', 'close, clear']];
   ask({ title: 'keyboard', body: html`<div class="keys">${rows.map(([k, d]) => html`<div><span>${k.split(' ').map(x => html`<kbd>${x}</kbd> `)}</span><span class="dim">${d}</span></div>`)}</div>`,
@@ -757,7 +757,7 @@ function paintRows() {
         <button class="ghost" data-a="sel-all">select all ${n(C.total)}</button>` : ''}<button class="ghost" data-a="sel-none">clear</button>`
     : html`<span>${C.total ? `${n(C.offset + 1)}–${n(C.offset + C.rows.length)} of ${n(C.total)}` : ''}</span>
       ${canAct && C.total > 1 ? html`<button class="ghost" data-a="sel-all">select all ${n(C.total)}</button>` : ''}
-      ${(C.status === 'candidate' ? [['a', 'activate'], ['r', 'reject'], ['x', 'select'], ['shift', '+ click for a range']] : [['j k', 'move'], ['enter', 'open']])
+      ${(C.status === 'candidate' ? [['a', 'activate'], ['r', 'reject'], ['x', 'select']] : [['j k', 'move'], ['enter', 'open']])
         .map(([k, d]) => html`<span class="faint kbd-hint">${k.split(' ').map(x => html`<kbd>${x}</kbd> `)}${d}</span>`)}`);
   const pages = Math.ceil(C.total / PAGE);
   put($('#c-pager'), pages > 1 ? html`<button data-a="prev" ${C.offset ? '' : 'disabled'}>← prev</button><span>page ${C.offset / PAGE + 1} of ${pages}</span><button data-a="next" ${C.offset + PAGE < C.total ? '' : 'disabled'}>next →</button>` : '');
