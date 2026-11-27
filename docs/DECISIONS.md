@@ -2,6 +2,13 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-27 · Panko on your own computer is a track of its own (D), offered from the sign-in page.** For people
+who don't want an account: the same CLI, local hub and local chat mode a developer uses today, made easy to install.
+Staged so the cheap parts come first: a package and an install page, then the same Anki add-on pointed at a local
+Panko, then a Claude Desktop extension for chat mode; a signed desktop app only on demand (signing costs money and
+needs its own updater). Trade-offs accepted: chat mode works only in Claude's desktop apps there (the web and phone
+apps can't reach a computer), and each person brings their own paid keys (no shared server keys).
+
 **2026-11-27 · Monitoring: GitHub checks from outside, ntfy carries alerts, nothing new to sign up for.** A dead
 server can't report itself, so a scheduled GitHub workflow asks `/host/health` every 15 minutes and GitHub emails
 when it fails; the address is a repository secret, so the public repo doesn't name the server. What only the server

@@ -216,12 +216,13 @@ hand-written brief run by Claude agents in chat is a command (API mode) and a se
 | S9 ✅ | **Any language** (built 2026-11-25) | Nothing Arabic-specific left in code or prompts: script detection, romanisation rules, references and voices come from config; a worked setup for a second language. Built as `panko.lang` + language presets (Moroccan Darija, Spanish); Arabic rules kept in one module; Spanish tested end to end. Not yet: a real Spanish source run with the model, presets for more languages, a morphological analyser for a second language. |
 | S10 | **Panko hub** (steps 1 and 2 built 2026-11-26, `docs/SPEC-library.md`; step 3 under way, H1 built, `docs/SPEC-hosted.md`) | A web dashboard or app: search pre-built language decks, or configure your own (language, varieties, sources, card types) and have Panko build it; the same pipeline behind it. Three steps (your call, 2026-11-26): (1) a local dashboard, `panko hub`, built; (2) a shareable deck library; (3) a hosted web service, private at first. |
 
-S10 has two numbered tracks of its own, one per later step:
+S10 has numbered tracks of its own: one per later step, and D for running it on your own computer:
 
 | Track | Step | Status |
 |---|---|---|
 | **L** (S10 step 2): the deck library, `docs/SPEC-library.md` | L1 Panko packs (`panko pack build`, `panko library import`) · L2 `panko publish` · L3 the library repo, `panko library list` / `get`, the hub's library page · L4 updates (a deck's v2 over v1, your edits kept) | L1–L3 built 2026-11-26, library live; L4 waits for a deck's v2 |
-| **H** (S10 step 3): the hosted Panko, `docs/SPEC-hosted.md` | H1 hosted mode inside Panko · H2 the front door and the server · H3 the Anki add-on · H4 chat mode remotely (MCP over HTTP, OAuth) · H5 polish (jobs survive a restart, quota warnings, invite emails, monitoring) | H1–H4 deployed; H5 to do |
+| **H** (S10 step 3): the hosted Panko, `docs/SPEC-hosted.md` | H1 hosted mode inside Panko · H2 the front door and the server · H3 the Anki add-on · H4 chat mode remotely (MCP over HTTP, OAuth) · H5 polish (jobs survive a restart, quota warnings, invite emails, monitoring) | H1–H4 deployed; H5: restarts and monitoring done, quota warnings and invite emails to do |
+| **D** (after H5): Panko on your own computer, for those who don't want an account | D1 a package: `uv tool install panko`, then `panko hub` · D2 an install page, linked from the sign-in page ("or run it on your own computer") · D3 the Panko sync add-on tried end to end against a local Panko (one add-on for both) · D4 chat mode as a one-click Claude Desktop extension · D5 a signed double-click app, only if people ask | to do |
 
 Order (your call, 2026-11-23; product first from 2026-11-25): Phase 4 (lessons and recordings, built), Phase 5
 (verification, built), S9 (any language, built), S10. Card migration (Peace Corps pictures and sync, the Fusha round of Phase 6) waits until
