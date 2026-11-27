@@ -194,12 +194,12 @@ def app(data: Path | str, **opts) -> Starlette:
         return page("privacy", PRIVACY, user=door.user(req))
 
     # ---- your account
-    async def account(req: Request):
+    async def account(req: Request, fresh: str | None = None):
         u = door.user(req)
         if not u:
             return RedirectResponse("/host/login?next=/host/account", 303)
         msg = ""
-        if req.method == "POST":
+        if req.method == "POST" and fresh is None:
             if not same_site(req):
                 return page("account", '<p class="err">Use the form on this page.</p>', user=u, status=403)
             form = await req.form()
@@ -225,7 +225,28 @@ def app(data: Path | str, **opts) -> Starlette:
             {ago(g['created'])}</td><td>used {ago(g['last_used'])}</td><td><form method="post"
             action="/host/account/connection/{e(g['id'])}"><button>end</button></form></td></tr>"""
                         for g in door.oauth.grants(u["id"]))
+        devices = "".join(f"""<tr><td><b>{e(d['name'])}</b></td><td class="wide">made {ago(d['created'])}</td>
+            <td>{'synced ' + ago(d['last_used']) if d['last_used'] else '<span class="faint">not used yet</span>'}</td>
+            <td><form method="post" action="/host/account/anki/{e(d['id'])}"><button>end</button></form></td></tr>"""
+                          for d in door.store.devices(u["id"]))
+        code = f"""<p class="ok">✔ Made. Copy the code now: it isn't shown again.</p><span class="link-out">{e(fresh)}</span>""" \
+            if fresh else ""
+        anki = f"""<section class="box" id="anki"><div class="t">Anki: the Panko sync add-on</div>
+            <p>Your cards go into Anki on your computer through a small add-on: it adds and updates your Panko cards
+            and never touches your review history or your MyNotes field.</p>
+            <p>1. <a class="btn" href="/addon/panko-sync.ankiaddon">download the add-on</a> and open the file (or in
+            Anki: Tools → Add-ons → Install from file), then restart Anki.<br>
+            2. Make a device code for that computer here. In Anki, open Tools → Panko: settings… and paste this
+            address and the code:</p><span class="link-out">{e(base(req))}</span>
+            {code}
+            <form method="post" action="/host/account/anki" class="acts"><input type="text" name="name" maxlength="60"
+              placeholder="which computer, e.g. my laptop" aria-label="which computer" style="flex:1">
+              <button class="pri">make a device code</button></form>
+            <p>3. Tools → Panko: sync now. Then sync Anki as usual: your phone gets the cards through AnkiWeb.</p>
+            {f'<table><tr><th>computers</th><th class="wide"></th><th></th><th></th></tr>{devices}</table>'
+             if devices else ''}</section>"""
         return page("account", f"""<h1>account</h1><p class="muted">Signed in as <b>{e(u['name'])}</b>.</p>{msg}
+            {anki}
             <section class="box"><div class="t">chat mode: your Claude reads the sources</div>
             <p>Add Panko to your own Claude as a connector, at this address:</p><span class="link-out">{e(mcp_url)}</span>
             <p class="muted"><b>claude.ai or Claude Desktop:</b> in Settings, under Connectors, add a custom connector
@@ -243,6 +264,19 @@ def app(data: Path | str, **opts) -> Starlette:
             <label for="n1">new password</label><input id="n1" type="password" name="new" autocomplete="new-password" minlength="10" required>
             <label for="n2">the new one again</label><input id="n2" type="password" name="new2" autocomplete="new-password" minlength="10" required>
             <div class="acts"><button class="pri">change it</button></div></form>""", user=u)
+
+    async def account_device(req: Request):
+        u = door.user(req)
+        if not u or not same_site(req):
+            return RedirectResponse("/host/account", 303)
+        form = await req.form()
+        return await account(req, fresh=door.store.add_device(u["id"], str(form.get("name", ""))))
+
+    async def end_device(req: Request):
+        u = door.user(req)
+        if u and same_site(req):
+            door.store.end_device(req.path_params["did"], u["id"])
+        return RedirectResponse("/host/account#anki", 303)
 
     async def account_export(req: Request):
         u = door.user(req)
@@ -580,6 +614,23 @@ def app(data: Path | str, **opts) -> Starlette:
             door.store.seen(u["id"])
         return await forward(req, u, r, "/mcp", CORS)
 
+    async def anki(req: Request):
+        """The Anki add-on: a device code in the Authorization header, nothing else; only its three routes."""
+        path = req.path_params["path"]
+        if not (path in ("pull", "done") or (path.startswith("media/") and "/" not in path[6:])):
+            return JSONResponse({"error": "not found"}, 404)
+        h = req.headers.get("authorization", "")
+        u = door.store.device_user(h[7:].strip()) if h[:7].lower() == "bearer " else None
+        if not u:
+            return JSONResponse({"error": "the device code isn't right, or was ended"}, 401)
+        try:
+            r = await door.pankos.ensure(u["id"], u["quota_gb"])
+        except RuntimeError as ex:
+            return JSONResponse({"error": str(ex)}, 503)
+        if time.time() - (u["last_seen"] or 0) > 60:
+            door.store.seen(u["id"])
+        return await forward(req, u, r, "/anki/" + path)
+
     async def end_connection(req: Request):
         u = door.user(req)
         if not u or not same_site(req):
@@ -607,6 +658,9 @@ def app(data: Path | str, **opts) -> Starlette:
               Route("/host/admin/export/{uid}", admin_export), Route("/host/logo.svg", logo),
               Route("/host/health", health),
               Route("/host/account/connection/{gid}", end_connection, methods=["POST"]),
+              Route("/host/account/anki", account_device, methods=["POST"]),
+              Route("/host/account/anki/{did}", end_device, methods=["POST"]),
+              Route("/anki/{path:path}", anki, methods=["GET", "POST"]),
               Route("/.well-known/oauth-protected-resource", resource_meta, methods=["GET", "OPTIONS"]),
               Route("/.well-known/oauth-protected-resource/mcp", resource_meta, methods=["GET", "OPTIONS"]),
               Route("/.well-known/oauth-authorization-server", server_meta, methods=["GET", "OPTIONS"]),

@@ -1,7 +1,7 @@
 """The front door's own records (`<data>/host.db`): users, invites and sign-in sessions. No learner data lives here:
 each user's cards, sources and keys are in their own Panko folder.
 
-Invite, session and OAuth tokens (host/oauth.py) are stored only as SHA-256 hashes, so a copy of this file can't sign anyone in. Passwords
+Invite, session, OAuth (host/oauth.py) and Anki device tokens are stored only as SHA-256 hashes, so a copy of this file can't sign anyone in. Passwords
 are argon2 hashes."""
 from __future__ import annotations
 
@@ -22,6 +22,9 @@ CREATE TABLE IF NOT EXISTS invites (
 CREATE TABLE IF NOT EXISTS sessions (
     token TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, created REAL NOT NULL,
     expires REAL NOT NULL, agent TEXT NOT NULL DEFAULT '');
+CREATE TABLE IF NOT EXISTS anki_devices (
+    id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, name TEXT NOT NULL,
+    token TEXT UNIQUE NOT NULL, created REAL NOT NULL, last_used REAL);
 """
 
 NAME = re.compile(r"^[a-z0-9][a-z0-9_-]{1,31}$")
@@ -117,7 +120,40 @@ class HostStore:
     def remove_user(self, uid: str) -> None:
         with self.db:
             self.db.execute("DELETE FROM sessions WHERE user_id = ?", (uid,))
+            self.db.execute("DELETE FROM anki_devices WHERE user_id = ?", (uid,))
             self.db.execute("DELETE FROM users WHERE id = ?", (uid,))
+
+    # ---- the Anki add-on's device codes: one per computer, shown once, ended from the account page
+    def add_device(self, uid: str, name: str) -> str:
+        token = "pkd_" + secrets.token_urlsafe(32)
+        name = re.sub(r"\s+", " ", name or "").strip()[:60] or "a computer"
+        with self.db:
+            self.db.execute("INSERT INTO anki_devices VALUES (?,?,?,?,?,NULL)",
+                            (secrets.token_urlsafe(9), uid, name, _hash(token), time.time()))
+        return token
+
+    def device_user(self, token: str) -> dict | None:
+        """The user a device code belongs to (not if their account is disabled)."""
+        if not (token or "").startswith("pkd_"):
+            return None
+        r = self.db.execute("SELECT d.id AS did, d.last_used AS dlast, u.* FROM anki_devices d JOIN users u ON "
+                            "u.id = d.user_id WHERE d.token = ? AND u.disabled = 0", (_hash(token),)).fetchone()
+        if not r:
+            return None
+        d = dict(r)
+        did, last = d.pop("did"), d.pop("dlast")
+        if time.time() - (last or 0) > 60:
+            with self.db:
+                self.db.execute("UPDATE anki_devices SET last_used = ? WHERE id = ?", (time.time(), did))
+        return d
+
+    def devices(self, uid: str) -> list[dict]:
+        return [dict(r) for r in self.db.execute("SELECT id, name, created, last_used FROM anki_devices WHERE "
+                                                 "user_id = ? ORDER BY created", (uid,))]
+
+    def end_device(self, did: str, uid: str) -> None:
+        with self.db:
+            self.db.execute("DELETE FROM anki_devices WHERE id = ? AND user_id = ?", (did, uid))
 
     # ---- invites
     def invite(self, *, admin: bool = False, days: float = 7, note: str = "", by: str | None = None) -> str:

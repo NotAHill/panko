@@ -53,6 +53,11 @@ class Guard:
         if host not in LOCAL:
             return await JSONResponse({"error": "the hub only answers on this computer"}, 403)(scope, receive, send)
         path = scope["path"]
+        if path.startswith("/anki/"):        # the Anki add-on, pointed at your own Panko: the hub's key as its code
+            auth = req.headers.get("authorization", "")
+            if auth[:7].lower() == "bearer " and secrets.compare_digest(auth[7:].strip(), self.token):
+                return await self.app(scope, receive, send)
+            return await JSONResponse({"error": "the add-on's code isn't right"}, 401)(scope, receive, send)
         given = req.query_params.get("t")
         if given and secrets.compare_digest(given, self.token):
             r = RedirectResponse(path if path != "/" else "/", 303)
@@ -66,7 +71,8 @@ class Guard:
         return await self._changes(req, scope, receive, send)
 
     async def _changes(self, req, scope, receive, send):
-        if self.front and scope["path"] == "/mcp":   # chat mode: the front door let it in on a bearer token, no cookie
+        if self.front and (scope["path"] == "/mcp" or scope["path"].startswith("/anki/")):
+            # chat mode and the Anki add-on: the front door let them in on their own token, no cookie
             return await self.app(scope, receive, send)
         if scope["method"] not in ("GET", "HEAD") and req.headers.get("x-panko") != "1":
             return await JSONResponse({"error": "missing X-Panko header"}, 403)(scope, receive, send)
@@ -134,7 +140,10 @@ async def upload(request: Request):
 def app(token: str | None = None, front: str | None = None) -> Starlette:
     api.JOBS = api.JOBS or Jobs()
     routes = [Route("/", index), Route("/api/upload", upload, methods=["POST"]), *api.ROUTES,
-              Route("/media/{name}", api.media), Route("/export/file/{name}", api.export_file), Mount("/static", StaticFiles(directory=STATIC), name="static")]
+              Route("/media/{name}", api.media), Route("/export/file/{name}", api.export_file),
+              Route("/addon/panko-sync.ankiaddon", api.addon_file),
+              Route("/anki/pull", api.anki_pull, methods=["POST"]), Route("/anki/done", api.anki_done, methods=["POST"]),
+              Route("/anki/media/{name}", api.anki_media), Mount("/static", StaticFiles(directory=STATIC), name="static")]
     lifespan = None
     if front and _mcp_ready():      # behind the front door: chat mode for the learner's own Claude, at /mcp
         from panko.mcp_server import http_app

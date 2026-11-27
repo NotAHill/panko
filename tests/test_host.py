@@ -176,3 +176,46 @@ def test_each_user_gets_their_own_panko_behind_the_door(data):
         import zipfile
         assert "panko/config/panko.toml" in zipfile.ZipFile(io.BytesIO(z.content)).namelist()
     assert not door.pankos.running                                     # all stopped with the door
+
+
+def test_the_anki_add_on_reaches_its_own_panko_on_a_device_code(data):
+    """H3: a device code made on the account page lets the add-on (and only it) reach that user's Panko, at the
+    add-on's three routes, never with the cookie; ended, it stops working. Codes are kept only as hashes."""
+    import re
+    a = host_app.app(data, idle_minutes=0)
+    st = a.state.door.store
+    amina = st.add_user("amina", PW)
+    st.add_user("omar", PW)
+    with TestClient(a, base_url="http://door.test", follow_redirects=False) as c, \
+            TestClient(a, base_url="http://door.test", follow_redirects=False) as addon:
+        post(c, "/host/login", {"name": "amina", "password": PW})
+        r = c.post("/api/setup", json={"answers": {"language": "Iraqi Arabic", "varieties": ["iraqi-arabic"]}},
+                   headers={"X-Panko": "1", "Origin": "http://door.test"})
+        assert r.status_code == 200, r.text
+        page = post(c, "/host/account/anki", {"name": "my laptop"})
+        assert page.status_code == 200 and "it isn't shown again" in page.text
+        code = re.search(r"pkd_[\w-]+", page.text).group(0)
+        assert code.encode() not in (data / "host.db").read_bytes()
+        assert "pkd_" not in c.get("/host/account").text and "my laptop" in c.get("/host/account").text
+        assert post(c, "/host/account/anki", {"name": "x"}, origin="http://evil.test").status_code == 303
+        bearer = {"Authorization": f"Bearer {code}"}
+        got = addon.post("/anki/pull", json={"addon": 1, "page": 0}, headers=bearer)
+        assert got.status_code == 200, got.text
+        assert [m["name"] for m in got.json()["models"]] == ["Panko • Word (Iraqi Arabic)", "Panko • Phrase (Iraqi Arabic)"]
+        assert addon.post("/anki/pull", json={"addon": 1}, headers=bearer).json()["notes"] == []
+        # only the add-on's routes, only with a code: not the cookie, not the hub's API
+        assert c.post("/anki/pull", json={"addon": 1, "page": 0}, headers={"Origin": "http://door.test"}).status_code == 401
+        assert addon.get("/anki/setup", headers=bearer).status_code == 404
+        assert addon.get("/api/meta", headers=bearer).status_code == 401
+        assert addon.post("/anki/pull", json={"addon": 1}, headers={"Authorization": "Bearer pkd_nope"}).status_code == 401
+        # the add-on file comes from the user's own Panko
+        assert c.get("/addon/panko-sync.ankiaddon").headers["content-type"] == "application/zip"
+        (dev,) = st.devices(amina["id"])
+        assert dev["last_used"]
+        post(c, f"/host/account/anki/{dev['id']}", {})
+        assert addon.post("/anki/pull", json={"addon": 1, "page": 0}, headers=bearer).status_code == 401
+        # a disabled account's codes stop too
+        code2 = st.add_device(amina["id"], "desk")
+        st.update(amina["id"], disabled=1)
+        assert addon.post("/anki/pull", json={"addon": 1, "page": 0},
+                          headers={"Authorization": f"Bearer {code2}"}).status_code == 401

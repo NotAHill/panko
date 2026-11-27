@@ -1494,3 +1494,105 @@ async def media(request: Request):
         if p.is_file():
             return FileResponse(p)
     return JSONResponse({"error": "not found"}, 404)
+
+
+# ---- the Anki add-on ("Panko sync", anki/remote.py) ------------------------------------------------------------------
+# /anki/* is the add-on's alone: on the server the front door lets it in on a device code (never the cookie); in your
+# own Panko, on the hub's key as a bearer token.
+
+async def _body(request: Request) -> dict:
+    try:
+        raw = await request.body()
+        return json.loads(raw) if raw else {}
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return {}
+
+
+async def anki_pull(request: Request):
+    from panko.anki import remote
+    body = await _body(request)
+    try:
+        version = int(body.get("addon") or 0)
+    except (TypeError, ValueError):
+        version = 0
+    if version < remote.ADDON_MIN:
+        return _json({"error": "this Panko needs a newer add-on: download it again from Panko's sync page"}, 426)
+    have = body.get("have") if isinstance(body.get("have"), dict) else {}
+    skip = [str(x) for x in body.get("skip") or []][:20000]
+    try:
+        page = max(0, min(remote.PAGE, int(body.get("page", remote.PAGE))))
+    except (TypeError, ValueError):
+        page = remote.PAGE
+    try:
+        if page == 0:          # the note types alone (the add-on's first question)
+            return _json({"addon_min": remote.ADDON_MIN, "models": await run_in_threadpool(remote.models)})
+        return _json(await run_in_threadpool(lambda: remote.pull(have, _store(), skip, page)))
+    except EXPECTED as ex:
+        return _json({"error": str(ex)}, 400)
+
+
+async def anki_media(request: Request):
+    from panko.anki import remote
+    p = remote.media_file(request.path_params["name"])
+    return FileResponse(p) if p else _json({"error": "not found"}, 404)
+
+
+async def anki_done(request: Request):
+    from panko.anki import remote
+    body = await _body(request)
+    links = body.get("links") if isinstance(body.get("links"), dict) else {}
+    return _json(await run_in_threadpool(lambda: remote.done(links, _store())))
+
+
+async def addon_file(request: Request):
+    """The add-on itself, as an .ankiaddon file (a zip of src/panko/anki_addon) to open in Anki."""
+    import io
+    import zipfile
+    src = Path(__file__).resolve().parent.parent / "anki_addon"
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for f in sorted(src.rglob("*")):
+            if f.is_file() and "__pycache__" not in f.parts and f.suffix in (".py", ".json", ".md"):
+                z.write(f, f.relative_to(src).as_posix())
+    return Response(buf.getvalue(), media_type="application/zip",
+                    headers={"Content-Disposition": 'attachment; filename="panko-sync.ankiaddon"'})
+
+
+@api("GET", "/anki/addon")
+def anki_addon_state(req: Req):
+    """For the sync page: the add-on's last sync, and where its device code is made."""
+    from panko.anki import remote
+    from panko.config import hosted
+    return {"last": remote.last_sync(), "hosted": hosted(), "models": list(remote.model_names().values()),
+            "server": os.environ.get("PANKO_HOST_URL", "") if hosted() else ""}
+
+
+@api("POST", "/audio/make")
+def audio_make(req: Req):
+    """Make the audio your active cards still need (paid: your [audio] provider and key), so the next sync carries
+    it. Without `confirm`: how many clips and characters."""
+    from panko import providers
+    from panko.anki import sync
+    if not any(x.name != "native" for x in providers.chain("audio")):
+        raise ValueError("making audio needs a voice key (ELEVENLABS_API_KEY): add it in setup")
+    p = sync.plan(_store())
+    chars = sum(p["audio_chars"].values())
+    if not _confirmed(req):
+        return {"estimate": {"clips": p["audio_clips"], "characters": chars}}
+    if not p["audio_clips"]:
+        raise ValueError("every card's audio is made")
+
+    def run(job: Job):
+        from panko.cards import build as B
+        from panko.media import audio
+        narrator = audio.Narrator(prefix=sync.PREFIX)
+        st = _store()
+        entries = st.entries("active")
+        for i, e in enumerate(entries, 1):
+            B.to_note(e, narrator)
+            if i % 100 == 0:
+                job.say(f"  {i}/{len(entries)} cards")
+        left = sync.plan(_store())["audio_clips"]
+        job.say(f"made {p['audio_clips'] - left} clips" + (f"; {left} couldn't be made" if left else ""))
+        return {"made": p["audio_clips"] - left, "left": left}
+    return _start("audio", f"Make {p['audio_clips']} audio clips", run, paid=True)

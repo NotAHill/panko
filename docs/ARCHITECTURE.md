@@ -84,7 +84,7 @@ flowchart TB
     end
     subgraph Anki["Anki access"]
         direction LR
-        k1[MCP add-on<br/>Anki open]:::built ~~~ k2[pylib<br/>Anki closed, migrations]:::built
+        k1[MCP add-on<br/>Anki open]:::built ~~~ k2[pylib<br/>Anki closed, migrations]:::built ~~~ k3[Panko sync add-on<br/>from the server]:::built
     end
     subgraph Language["Language (panko.lang, from learner in config; presets for panko init)"]
         direction LR
@@ -198,5 +198,7 @@ reaches every card without touching review history. Panko never writes `MyNotes`
 | `src/panko/skill.py` | `panko mcp --skill DIR`: the chat workflow as a Claude skill (`SKILL.md`) |
 | `src/panko/anki/apkg.py` | `panko export` and the hub's "share as a file": active cards as an .apkg built in a scratch collection with Anki's library (no scheduling, MyNotes empty, sources and lesson clips only with `personal`; note guids and note type ids fixed so a newer package updates the old one); `package()` writes any rendered notes, and `library.publish` uses it for a deck's .apkg |
 | `src/panko/anki/sync.py` | pushes models, media and notes; updates changed notes in place; `plan()` is the dry run (`panko sync --dry-run`: notes to add/update, audio still to pay for) |
+| `src/panko/anki/remote.py` | the server's side of the Panko sync add-on: `pull` (this Panko's own note types and the notes new or changed since the add-on wrote them, in rounds), `media_file`, `done` (the store's `anki` links) |
+| `src/panko/anki_addon/` | the Anki add-on ("Panko sync", downloaded from the hub as an .ankiaddon): `core.py` writes through Anki's library (note types made or refused, notes added or updated in place, never MyNotes, one undo step), `net.py` talks to the user's Panko on a device code, `ui.py` the Tools menu and settings |
 | `src/panko/anki/migrate.py` | Phase 6 (`panko migrate [ids] [--apply]`): studied old-deck notes → Panko notes in place via the `anki` library, Anki closed; dry run by default |
 | `src/panko/sandbox/seed.py` | the 9 hand-written sandbox entries (`panko seed`) |

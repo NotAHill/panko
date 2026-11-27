@@ -1618,7 +1618,15 @@ document.addEventListener('mouseout', e => { const q = e.target.closest?.('[data
 VIEWS.sync = async el => {
   const hosted = !!S.meta.hosted;
   put(el, html`<div class="page-h"><h1>sync</h1><span class="sub">active cards → Anki, updated in place</span></div>
-    ${hosted ? html`<section class="box warn"><div class="t">to Anki from the server</div><p class="muted-p">Syncing straight into your Anki needs the Panko add-on, which is coming. Until then, make an .apkg below and open it in Anki: it adds the cards, and a newer one updates them in place.</p></section>` : html`<section class="box warn"><div class="t">before you sync</div><ul class="arrows">
+    ${hosted ? html`<section class="box"><div class="t">into Anki: the Panko sync add-on</div>
+      <p class="muted-p">A small add-on in Anki on your computer brings your cards in: it adds the new ones and updates the rest in place. It never touches your review history or your MyNotes field, and never forces a full sync.</p>
+      <ol class="steps mt"><li><span><a class="btn" href="/addon/panko-sync.ankiaddon" download>download the add-on</a> and open the file (or in Anki: <b>Tools → Add-ons → Install from file</b>), then restart Anki.</span></li>
+        <li><span><a href="/host/account#anki">Make a device code</a> on your account page, and paste it with this Panko's address in Anki: <b>Tools → Panko: settings…</b></span></li>
+        <li><span><b>Tools → Panko: sync now</b>. Your phone gets the cards when you sync Anki as usual (AnkiWeb).</span></li></ol>
+      <p id="ad-last" class="faint mt"></p></section>
+    <section class="box"><div class="t">audio</div>
+      <p class="muted-p">Each card's audio is made here, with your voices and your audio key, before the add-on brings it in. A card without its audio yet comes in without it and gets it on a later sync.</p>
+      <div class="acts mt"><button data-a="audio"><span class="paid">$</span>make the audio cards still need</button></div></section>` : html`<section class="box warn"><div class="t">before you sync</div><ul class="arrows">
       <li>Anki is open, with the MCP add-on listening on 127.0.0.1:3141.</li>
       <li>Panko writes only its own notes, decks and note types. Your review history stays, and your MyNotes field is never written.</li>
       <li>Template and CSS changes go through a normal sync; nothing here forces a full one.</li>
@@ -1641,7 +1649,12 @@ VIEWS.sync = async el => {
       ${p.add_count ? html`<details class="mt"><summary>new notes (${n(p.add_count)})</summary>${list(p.add, p.add_count)}</details>` : ''}
       ${p.update_count ? html`<details class="mt-s"><summary>notes to update (${n(p.update_count)})</summary>${list(p.update, p.update_count)}</details>` : ''}`);
   };
+  if (hosted) api('/anki/addon').then(a => {
+    const t = a.last?.last;
+    put($('#ad-last'), t ? html`Last sync from Anki: ${ago(t)} ago${a.last.written ? `, ${plural(a.last.written, 'note')} written` : ''}. Your cards use the note types ${a.models.join(' and ')}.` : html`The add-on hasn't synced yet. Your cards will use the note types ${a.models.join(' and ')}, separate from any other Panko's.`);
+  }).catch(() => {});
   actions(el, {
+    audio: () => paidAction('/audio/make', {}, 'make the audio?', { batch: false }),
     export: b => {
       const varieties = $$('[data-var]', el).filter(x => x.checked).map(x => x.dataset.var);
       if (S.meta.varieties.length > 1 && !varieties.length) return put($('#x-out'), html`<span class="warn">pick at least one</span>`);

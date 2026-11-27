@@ -79,7 +79,22 @@ Unchanged: the store, ingest, checks, pictures, the library, card design, voices
 budgets and spend (per user, since each has their own folder). Free photo sites use the server's own Pexels and
 Pixabay keys unless a user adds theirs. Speech-to-text, CAMeL Tools, poppler and ffmpeg are installed on the server.
 
-## The Anki add-on ("Panko sync")
+## The Anki add-on ("Panko sync") ✅ H3 built
+
+**How it's built (H3).** Server side: `anki/remote.py` (`pull`, `media_file`, `done`), served by each user's hub
+at `/anki/pull`, `/anki/media/<name>`, `/anki/done`; the front door's `/anki/*` takes a device code only (made and
+ended on the account page, kept as a hash in `anki_devices`, dead once the account is disabled) and passes nothing
+else. In your own Panko the same routes take the hub's key as a bearer token. The add-on: `src/panko/anki_addon/`
+(`core.py` writes through Anki's library and is tested on a scratch collection, `net.py` is urllib, `ui.py` the
+Tools menu and settings), downloaded from the hub at `/addon/panko-sync.ankiaddon`. Audio is made on the server
+from the sync page (`POST /api/audio/make`, characters shown first, the user's audio key); a pull never pays.
+
+Settled while building it (your call, 2026-11-27): **each Panko has its own note types**, named after what it
+teaches ("Panko • Word (Iraqi Arabic)"), so two Pankos feeding one Anki never overwrite each other's card design.
+Also: a note already holding a card stays in the deck you put it in (only new notes go to Panko's deck); tags are
+only added; a note imported from a Panko .apkg is found by its guid and updated where it is; a sync comes in rounds
+of 300 notes and is one step in Edit → Undo.
+
 
 The cards are rendered on the server (the same `cards.build` as today), so the add-on only writes what it's given.
 Small, and it never decides anything about a card.
@@ -198,7 +213,7 @@ everything (their folder as a zip) and how to delete it all. Recording a lesson 
 |---|---|
 | H1 ✅ | **Hosted mode inside Panko.** `PANKO_HOSTED=1`: socket listening, paths kept inside the folder, keys on the setup page, local-only buttons hidden, upload limits and quota, WAL. Tested locally with two folders side by side. |
 | H2 ✅ | **Front door and the server.** Accounts and invites, a Panko per user started and stopped on demand, the proxy, admin, export and delete. Deployed with Caddy and backups (restore tried). You use it first, then one invited person. |
-| H3 | **The Anki add-on.** The server's add-on routes and the add-on itself, tested against a scratch Anki profile. Then your own Panko moves to the server if you want it there. |
+| H3 ✅ | **The Anki add-on.** The server's add-on routes and the add-on itself, tested on a scratch collection (`tests/test_anki_addon.py`) and the door's device codes (`tests/test_host.py`). Next: tried in a scratch Anki profile; then your own Panko moves to the server if you want it there. |
 | H4 ✅ | **Chat mode remotely.** Each user's MCP server over HTTP behind the front door, with OAuth so their Claude (claude.ai, the desktop app, Claude Code) connects as a custom connector. |
 | H5 | **Polish.** Jobs that survive a restart, quota warnings, invite emails, simple monitoring. |
 

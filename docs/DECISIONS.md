@@ -585,3 +585,12 @@ for schema changes (Change Note Type migrations).
 **2026-11-21 · Build fresh note types; migrate only studied notes.**
 Unstudied shared-deck notes are mined as source material, not converted. The AR • deck is
 dropped; its audio will be re-pulled from the original Peace Corps source.
+
+## Each Panko has its own Anki note types (2026-11-27, H3)
+The Anki add-on writes the server Panko's cards into note types named after what it teaches ("Panko • Word (Iraqi
+Arabic)"), not the shared "Panko • Word (proto)" that `panko sync` uses. Your call: one Anki can take cards from two
+Pankos (Darija on the Mac, Iraqi on the server) and each keeps its own card design; with shared note types the last
+sync would have set the look of both. Cost: moving the Mac Panko to the server later means either keeping its old
+names for it or one Change Note Type (a full sync). The add-on also leaves a note in whatever deck you moved it to,
+only adds tags, and refuses (never changes) a note type whose fields or card types differ.
+
