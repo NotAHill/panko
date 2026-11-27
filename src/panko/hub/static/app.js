@@ -1175,7 +1175,7 @@ async function sourceView(el, sid, r) {
     <section class="box"><div class="t">units <span class="dim">${n(units.length)}</span></div>
       ${P.transcribe_first ? html`<p>This recording needs a transcript before it can be read (speech-to-text, paid).</p>
         <div class="acts mt"><button class="pri" data-a="transcribe"><span class="paid">$</span>transcribe it</button></div>` : html`
-      <div class="legend"><span><i></i>to read ${n(P.todo)}</span><span><i class="submitted"></i>ready to ingest ${n(P.submitted)}</span><span><i class="held"></i>held ${n(P.held)}</span><span><i class="ingested"></i>ingested ${n(P.ingested)}</span></div>
+      <div class="legend"><span><i></i>to read ${n(P.todo)}</span><span><i class="submitted"></i>ready to ingest ${n(P.submitted)}</span><span><i class="held"></i>held ${n(P.held.length)}</span><span><i class="ingested"></i>ingested ${n(P.ingested)}</span></div>
       <div class="units">${units.map(u => html`<button class="${u.state} ${r.q.unit === u.unit ? 'on' : ''}" data-u="${u.unit}" title="${[u.unit, u.page && 'page ' + u.page, u.state, u.items && u.items + ' items'].filter(Boolean).join(', ')}">${u.unit}</button>`)}</div>
       ${pack ? html`<p class="muted-p">A deck's cards are already written and checked, so there's nothing to read: they went through the same duplicate checks as any source.
         <a href="#/cards?status=all&tag=${encodeURIComponent('src::pack::' + sid)}">See its cards</a>.</p>
@@ -1203,6 +1203,39 @@ async function sourceView(el, sid, r) {
   });
   $$('.units button', el).forEach(b => { b.onclick = () => { $$('.units button', el).forEach(x => x.classList.toggle('on', x === b)); unitView(sid, b.dataset.u); }; });
   if (r.q.unit) unitView(sid, r.q.unit);
+  watchSource(el, sid, d, reload);
+}
+
+// While a source is open, what chat mode submits (or a job ingests) shows up without a refresh: ask again every few
+// seconds, paused while the tab is hidden, and patch the squares, counts and buttons in place.
+function watchSource(el, sid, d, reload) {
+  clearInterval(S.srcT);
+  const states = new Map(d.units.map(u => [u.unit, u.state]));
+  const heldN = d.pending.held.length;
+  S.srcT = setInterval(async () => {
+    const grid = $('.units', el);
+    if (!grid?.isConnected) return clearInterval(S.srcT);
+    if (document.hidden) return;
+    let nd;
+    try { nd = await api(`/sources/${encodeURIComponent(sid)}`); } catch { return; }
+    if (nd.pending.held.length !== heldN || nd.units.length !== states.size) { clearInterval(S.srcT); return reload(); }
+    const changed = nd.units.filter(u => states.get(u.unit) !== u.state);
+    if (!changed.length) return;
+    for (const u of changed) {
+      const b = grid.querySelector(`[data-u="${CSS.escape(u.unit)}"]`);
+      if (!b) continue;
+      b.classList.remove(states.get(u.unit));
+      b.classList.add(u.state);
+      b.title = [u.unit, u.page && 'page ' + u.page, u.state, u.items && u.items + ' items'].filter(Boolean).join(', ');
+      states.set(u.unit, u.state);
+      if (b.classList.contains('on')) unitView(sid, u.unit);      // the open unit: show what was read from it
+    }
+    const P = nd.pending, legend = $('.legend', el), ingest = $('[data-a="ingest"]', el), run = $('[data-a="run"]', el);
+    if (legend) put(legend, html`<span><i></i>to read ${n(P.todo)}</span><span><i class="submitted"></i>ready to ingest ${n(P.submitted)}</span><span><i class="held"></i>held ${n(P.held.length)}</span><span><i class="ingested"></i>ingested ${n(P.ingested)}</span>`);
+    if (ingest) { put(ingest, html`ingest ${plural(P.submitted, 'ready unit')}`); ingest.disabled = !P.submitted; }
+    if (run) run.disabled = !(P.todo && nd.llm_ready);
+  }, 3000);
+  S.cleanup = () => clearInterval(S.srcT);
 }
 
 async function decide(sid, unit, ar, known, distinct) {
