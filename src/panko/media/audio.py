@@ -41,6 +41,8 @@ def speak(text: str, variety: str, prefix: str = "_panko_", slot: int = 0, dry: 
         meta = out.with_suffix(".txt")
         if out.exists() and meta.exists() and out.stat().st_size:
             return Voiced(out.name, meta.read_text())
+        if out.with_suffix(".empty").exists():      # this voice gave no sound for it before: not asked (or paid) again
+            continue
         if dry is not None and p.name != "native":
             dry.append((p.name, text))
             return Voiced(out.name, "not generated yet")
@@ -48,6 +50,7 @@ def speak(text: str, variety: str, prefix: str = "_panko_", slot: int = 0, dry: 
         if got and not got.native and (not out.exists() or not out.stat().st_size):
             out.unlink(missing_ok=True)   # e.g. a one-letter word comes back as empty audio
             meta.unlink(missing_ok=True)
+            out.with_suffix(".empty").write_text(text)   # remembered, so it isn't "still to make" for ever
             continue
         if got and got.native:
             return Voiced(got.path.name, got.source)

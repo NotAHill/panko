@@ -1585,14 +1585,36 @@ def audio_make(req: Req):
     def run(job: Job):
         from panko.cards import build as B
         from panko.media import audio
+
+        class Asked(audio.DryRun):          # remembers each clip still to make with its variety and voice slot
+            def __init__(self):
+                super().__init__(prefix=sync.PREFIX)
+                self.asked: dict[str, tuple[str, int]] = {}
+
+            def say(self, text, variety, slot=0):
+                n = len(self.todo)
+                v = super().say(text, variety, slot)
+                if len(self.todo) > n:
+                    self.asked[text] = (variety, slot)
+                return v
+
+        entries = _store().entries("active")
+        before = Asked()
+        for e in entries:
+            B.to_note(e, before)
         narrator = audio.Narrator(prefix=sync.PREFIX)
-        st = _store()
-        entries = st.entries("active")
         for i, e in enumerate(entries, 1):
             B.to_note(e, narrator)
             if i % 100 == 0:
                 job.say(f"  {i}/{len(entries)} cards")
-        left = sync.plan(_store())["audio_clips"]
-        job.say(f"made {p['audio_clips'] - left} clips" + (f"; {left} couldn't be made" if left else ""))
-        return {"made": p["audio_clips"] - left, "left": left}
+        silent = sorted(t for t, (v, slot) in before.asked.items()
+                        if audio.speak(t, v, sync.PREFIX, slot, dry=[]) is None)
+        failed = sorted(t for t, (v, slot) in before.asked.items() if t not in silent and
+                        (x := audio.speak(t, v, sync.PREFIX, slot, dry=[])) and x.source == "not generated yet")
+        made = len(before.asked) - len(silent) - len(failed)
+        job.say(f"made {made} clips"
+                + (f"; the voice gave no sound for {len(silent)}: {', '.join(silent[:10])} (usually a single letter "
+                   "on its own; not tried again)" if silent else "")
+                + (f"; {len(failed)} failed (try again later): {', '.join(failed[:10])}" if failed else ""))
+        return {"made": made, "no_sound": silent, "failed": failed}
     return _start("audio", f"Make {p['audio_clips']} audio clips", run, paid=True)
