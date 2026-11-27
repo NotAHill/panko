@@ -12,6 +12,22 @@ SHADDA = "\u0651"
 OR = " \u0623\u0648 "                # أو, "or" between two forms
 
 
+# ElevenLabs' accent labels for Arabic voices, by a word in the dialect's name (only labels its library uses)
+ACCENTS = {"iraqi": "iraqi", "baghdadi": "iraqi", "gulf": "gulf", "khaleeji": "gulf", "levantine": "levantine",
+           "shami": "levantine", "egyptian": "egyptian", "masri": "egyptian", "moroccan": "moroccan",
+           "darija": "moroccan", "fusha": "modern standard", "msa": "modern standard", "quranic": "modern standard",
+           "standard": "modern standard"}
+
+
+def voice_filter(name: str) -> dict:
+    """{language, accent} for ElevenLabs' shared library from a dialect's name ("Iraqi Arabic" → iraqi); Arabic voices
+    of any accent when the name doesn't say."""
+    for w in re.findall(r"[a-z]+", (name or "").lower()):
+        if w in ACCENTS:
+            return {"language": "ar", "accent": ACCENTS[w]}
+    return {"language": "ar"}
+
+
 def fold(text: str) -> str:
     """The matching key's Arabic part: no harakat, one alef, ى as ي."""
     t = HARAKAT.sub("", text)

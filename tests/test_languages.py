@@ -26,6 +26,23 @@ def spanish(monkeypatch):
     evidence._references.cache_clear()
 
 
+def test_an_arabic_dialect_without_a_preset_gets_its_own_voices(monkeypatch):
+    from panko.media import voices
+    use(monkeypatch, {"learner": {"language": "Iraqi Arabic", "script": "Arabic", "varieties": ["iraqi-arabic"]},
+                      "audio": {"elevenlabs": {"library": {}}}})
+    monkeypatch.setattr(voices, "settings", lambda: config.settings())      # whichever config `use` set last
+    assert voices.filters("iraqi-arabic") == {"language": "ar", "accent": "iraqi"}
+    assert lang.voice_filter("fusha") == {"language": "ar", "accent": "modern standard"}   # the variety's name first
+    use(monkeypatch, {"learner": {"language": "Arabic", "script": "Arabic"}, "audio": {"elevenlabs": {}}})
+    assert voices.filters("main") == {"language": "ar"}
+    use(monkeypatch, {"learner": {"language": "Spanish", "script": "Latin"}, "audio": {"elevenlabs": {}}})
+    assert voices.filters("spanish") == {}
+    cfg = {"learner": {"language": "Iraqi Arabic", "script": "Arabic"},
+           "audio": {"elevenlabs": {"library": {"language": "ar", "accent": "gulf"}}}}
+    use(monkeypatch, cfg)
+    assert voices.filters("iraqi-arabic")["accent"] == "gulf"                             # config wins
+
+
 def test_scripts_are_read_from_unicode():
     assert lang.script_of("ñ") == "Latin" and lang.script_of("ش") == "Arabic" and lang.script_of("食") == "Han"
     assert lang.script_of("ж") == "Cyrillic" and lang.script_of("ّ") == "" and lang.script_of("3") == ""

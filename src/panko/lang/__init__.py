@@ -54,6 +54,14 @@ def scripts(text: str) -> set[str]:
     return {s for ch in text or "" if (s := script_of(ch))}
 
 
+def voice_filter(variety: str | None = None) -> dict:
+    """Which of ElevenLabs' shared voices suit a variety when config sets no `library` filter: worked out from the
+    variety's and the language's names ({} when Panko has no rule for the language, so every voice shows)."""
+    if "Arabic" in target(variety):
+        return arabic.voice_filter(f"{variety or ''} {_learner().get('language', '')}")
+    return {}
+
+
 def target(variety: str | None = None) -> list[str]:
     """The configured script(s) for a variety (all varieties when none is given); [] when not configured."""
     L = _learner()

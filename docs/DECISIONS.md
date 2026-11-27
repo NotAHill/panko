@@ -2,6 +2,12 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-27 · Without a voice filter in config, the voices page works one out from the language.** Only the
+shipped presets set `[audio.elevenlabs] library`, so a learner of Iraqi Arabic saw every voice in ElevenLabs'
+library. When `library` is empty, `lang.voice_filter` decides: for Arabic, `lang/arabic.py` maps a word in the
+variety's or language's name to ElevenLabs' accent label (Iraqi, Gulf, Levantine, Egyptian, Moroccan, Modern
+Standard), else Arabic voices of any accent; other languages still show everything. A `library` in config wins.
+
 **2026-11-27 · A language kaikki.org has no file for gets its Wiktionary reference from Wiktionary itself.**
 kaikki.org publishes per-language extracts only for languages with many entries (Moroccan and Gulf Arabic, not
 Iraqi Arabic, which has about 220 lemmas). When its file is missing (404), `panko refs --download` lists the

@@ -78,6 +78,9 @@ def filters(variety: str = "") -> dict:
     """{language, accent} the voices for a variety should have: `library` in config, with the variety's own table
     (if any) laid over it."""
     lib = _cfg().get("library", {})
+    if not lib:          # nothing in config: from the language (an Iraqi Arabic learner gets Iraqi voices)
+        from panko import lang
+        return lang.voice_filter(variety)
     out = {k: v for k, v in lib.items() if not isinstance(v, dict)}
     return {**out, **(lib.get(variety) if isinstance(lib.get(variety), dict) else {})}
 
