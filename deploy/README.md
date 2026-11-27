@@ -20,8 +20,10 @@ started when they arrive and stopped when idle. All data is in `/srv/panko` on t
    - In the instance's subnet → Security List, add ingress rules for TCP **80** and **443** from `0.0.0.0/0`.
    - On the machine (Oracle's Ubuntu images block everything but SSH):
      ```bash
-     sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 80 -j ACCEPT
-     sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 443 -j ACCEPT
+     # insert above the catch-all REJECT (its line number varies between images)
+     N=$(sudo iptables -L INPUT --line-numbers -n | awk '/REJECT/ {print $1; exit}')
+     sudo iptables -I INPUT $N -m state --state NEW -p tcp --dport 443 -j ACCEPT
+     sudo iptables -I INPUT $N -m state --state NEW -p tcp --dport 80 -j ACCEPT
      sudo netfilter-persistent save
      ```
 
@@ -37,6 +39,7 @@ sudo apt update && sudo apt install -y docker.io docker-compose-v2 git sqlite3 r
 sudo usermod -aG docker $USER    # then log out and in again
 git clone https://github.com/NotAHill/panko.git && cd panko
 cp deploy/env.example deploy/.env && nano deploy/.env    # your DuckDNS name, quotas
+# uid 1000 is the container's panko user (on Oracle's image the host calls it opc)
 sudo mkdir -p /srv/panko && sudo chown 1000:1000 /srv/panko && sudo chmod 700 /srv/panko
 docker compose -f deploy/compose.yml up -d --build
 ```
