@@ -97,7 +97,16 @@ def _jobs() -> Jobs:
     return JOBS
 
 
+# steps that add files (downloads, packages, audio, pictures, pages): stopped while the Panko is at its quota.
+# Collecting finished batches is never stopped: those answers are paid for already.
+GROWS = {"export", "library", "audio", "draw", "pictures-apply", "picture-search", "add-deck", "refs", "run",
+         "transcribe", "pictures"}
+
+
 def _start(kind: str, title: str, fn, paid: bool = False) -> dict:
+    if kind in GROWS:
+        from panko.config import not_full
+        not_full()
     return {"job": _jobs().submit(kind, title, fn, paid, replay=getattr(_asked, "replay", None)).view()}
 
 
@@ -233,6 +242,64 @@ def meta(req: Req):
             "budget": s.get("llm", {}).get("budget_usd", 5)}
 
 
+def _disk_parts() -> list[dict]:
+    """What takes room in the Panko folder, biggest first; `clear` names the parts that can be emptied for free."""
+    from panko import library
+    from panko.config import CACHE, ROOT, folder_size
+    from panko.hub import uploads_dir
+    named = [("pictures", "pictures on your cards", ROOT / "data" / "media", None),
+             ("audio", "audio (paid for: kept)", CACHE / "media", None),
+             ("sources", "your sources and uploads", ROOT / "data" / "sources", None),
+             ("pages", "pages of your sources, ready to read", CACHE / "pages", None),
+             ("refs", "reference data (downloads again for free)", CACHE / "refs", None),
+             ("exports", "Anki packages you made (make them again any time)", library.out_dir(), "exports"),
+             ("library", "decks downloaded from the library (already added)", CACHE / "library", "library"),
+             ("searches", "saved answers from the photo sites", CACHE / "images", "searches")]
+    out, counted = [], 0
+    for key, label, path, clear in named:
+        try:
+            inside = Path(path).resolve().is_relative_to(ROOT.resolve())
+        except OSError:
+            inside = False
+        if not inside or uploads_dir() == path:
+            continue
+        n = folder_size(path)
+        counted += n
+        out.append({"key": key, "label": label, "bytes": n, "clear": bool(clear and n)})
+    from panko.config import disk_use
+    out.append({"key": "other", "label": "everything else (cards, settings, the rest of the cache)",
+                "bytes": max(0, disk_use() - counted), "clear": False})
+    return sorted(out, key=lambda x: -x["bytes"])
+
+
+@api("GET", "/disk")
+def disk(req: Req):
+    """How full the Panko is (on the server, against the quota) and what takes room."""
+    from panko.config import disk_use, quota_state
+    return {"quota": quota_state(fresh=True), "used": disk_use(), "parts": _disk_parts()}
+
+
+@api("POST", "/disk/clear")
+def disk_clear(req: Req):
+    """Empty a part that costs nothing to fill again: Anki packages, library downloads, saved photo-site answers."""
+    import shutil
+
+    from panko import library
+    from panko.config import CACHE, ROOT, disk_use
+    where = {"exports": library.out_dir(), "library": CACHE / "library", "searches": CACHE / "images"}
+    part = str(req.body.get("part", ""))
+    if part not in where:
+        raise ValueError(f"only {', '.join(where)} can be emptied here")
+    path = Path(where[part])
+    if not path.resolve().is_relative_to(ROOT.resolve()):
+        raise PermissionError("that folder isn't in your Panko folder: empty it yourself")
+    before = disk_use()
+    for p in path.iterdir() if path.exists() else []:
+        shutil.rmtree(p) if p.is_dir() and not p.is_symlink() else p.unlink(missing_ok=True)
+    after = disk_use()
+    return {"freed": max(0, before - after), "used": after}
+
+
 @api("GET", "/overview")
 def overview(req: Req):
     from panko import llm, work
@@ -273,7 +340,12 @@ def overview(req: Req):
     return {"counts": counts, "sources": srcs, "spend": {"all": llm.usage()["usd"], "month": llm.usage(month)["usd"]},
             "added": [{"day": d, "n": added.get(d, 0)} for d in days], "steps": steps, "jobs": [j.view(tail=3) for j in _jobs().busy()],
             "batches": len(json.loads(llm._batches_file().read_text())) if llm._batches_file().exists() else 0,
-            "work_dir": str(work.WORK), "modes": modes.state()}
+            "work_dir": str(work.WORK), "modes": modes.state(), "quota": _quota()}
+
+
+def _quota():
+    from panko.config import quota_state
+    return quota_state()
 
 
 @api("GET", "/readiness")
@@ -1212,7 +1284,9 @@ def pictures_reuse_apply(req: Req):
 @api("POST", "/pictures/choose")
 def pictures_choose(req: Req):
     """Put the photo you chose on the card now, and keep it as the card's decision (by you)."""
+    from panko.config import not_full
     from panko.media import choose, pictures
+    not_full()
     eid, idx = str(req.body.get("id", "")), int(req.body.get("index", -1))
     d = choose.load_decisions().get(eid, {})
     allowed = {str(_chosen_dir())} | ({d["photo"]["dir"]} if d.get("photo") else set())

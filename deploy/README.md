@@ -89,7 +89,8 @@ carry on by themselves (once); paid ones wait on the jobs page with a resume but
 - `docker compose -f deploy/compose.yml logs panko`: the front door. Each user's Panko logs to
   `/srv/panko/logs/<id>.log`.
 - Deleting an account in admin moves the folder to `/srv/panko/deleted/`; `panko host purge` removes it for good.
-- Disk use per person is on the admin page; quotas are set there or in `deploy/.env`.
+- Disk use per person is on the admin page (a bar, and who is near their limit in the health box); quotas are set
+  there or in `deploy/.env`. A Panko warns its user at 80%; at 100% steps that add files wait until there's room.
 - **Health** is at the top of the admin page: the disk, the database, how long the front door has been up, jobs
   that failed in the last day, and what happened lately (a Panko that stopped by itself, with its last log lines;
   a Panko that failed to start; the disk getting low). `/host/health` answers 503 when the disk is nearly full or

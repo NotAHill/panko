@@ -307,3 +307,31 @@ def test_the_same_alert_is_sent_once_in_a_while(data, monkeypatch):
     w.alert_url = "https://alerts.example/t"
     monkeypatch.setattr(w, "_post", lambda text: None)
     assert w.alert("crash", "x", "u1") and not w.alert("crash", "x", "u1") and w.alert("crash", "x", "u2")
+
+
+def test_people_near_their_disk_limit_are_shown_and_alerted(data, monkeypatch):
+    from panko.host.pages import quota_line
+    assert quota_line(500_000_000, 5)[0] == "ok" and quota_line(4_500_000_000, 5)[0] == "near"
+    assert quota_line(5_000_000_000, 5)[0] == "full" and "nearly full" in quota_line(4_500_000_000, 5)[1]
+    a = host_app.app(data)
+    door = a.state.door
+    sent = []
+    door.watch.alert_url = "https://alerts.example/t"
+    monkeypatch.setattr(door.watch, "_post", lambda text: sent.append(text))
+    door.watch._spawn = lambda fn, *args: fn(*args)
+    w = door.watch
+    w.check_quotas([("u1", "amal", 4_100_000_000, 5)])
+    w.check_quotas([("u1", "amal", 4_200_000_000, 5)])           # still near: nothing new
+    w.check_quotas([("u1", "amal", 5_100_000_000, 5)])
+    w.check_quotas([("u1", "amal", 1_000_000_000, 5)])
+    assert [x["kind"] for x in w.events()][:3] == ["quota-ok", "quota-full", "quota-near"]
+    assert len(sent) == 2 and "82% full" in sent[0] and "full (5.10 of 5 GB)" in sent[1]
+    st = door.store
+    u = st.add_user("amal", PW)
+    st.update(u["id"], quota_gb=0.000001)                        # 1 kB, and their folder holds more
+    door.pankos.home(u["id"]).mkdir(parents=True)
+    (door.pankos.home(u["id"]) / "x.bin").write_bytes(b"x" * 2000)
+    c = client(a)
+    post(c, "/host/login", {"name": "amal", "password": PW})
+    page = c.get("/host/account").text
+    assert "full" in page and "wait until there is room" in page

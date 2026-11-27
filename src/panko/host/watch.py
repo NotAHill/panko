@@ -28,6 +28,7 @@ DISK_LOW_PCT = 90           # used: above this the disk is "low" (PANKO_DISK_LOW
 DISK_LOW_GB = 1             # or less than this free
 ALERT_EVERY = 6 * 3600      # the same kind of alert, for the same user, at most this often
 WATCH_EVERY = 300           # seconds between disk checks
+QUOTA_EVERY = 12            # everyone's disk use against their quota: every this many checks (an hour)
 
 
 def disk(path: Path) -> dict:
@@ -60,6 +61,7 @@ class Watch:
         self.started = time.time()
         self._sent: dict[tuple, float] = {}
         self._disk_low = False
+        self._quota: dict[str, str] = {}     # user → level last seen (ok | near | full)
         self._lock = threading.Lock()
         self._spawn = lambda fn, *a: threading.Thread(target=fn, args=a, daemon=True).start()   # tests: run inline
 
@@ -104,6 +106,24 @@ class Watch:
             self.note("disk-ok", f"the server's disk has room again: {c['disk']['free_gb']} GB free")
         self._disk_low = low
         return c
+
+    def check_quotas(self, rows: list[tuple]) -> None:
+        """rows: (user id, name, bytes used, quota GB). An event (and alert) when someone gets near their quota or
+        reaches it; a quieter one when they have room again."""
+        from panko.config import QUOTA_NEAR
+        for uid, name, used, quota_gb in rows:
+            frac = used / (quota_gb * 1e9) if quota_gb else 1
+            level = "full" if frac >= 1 else "near" if frac >= QUOTA_NEAR else "ok"
+            was = self._quota.get(uid, "ok")
+            self._quota[uid] = level
+            if level == was:
+                continue
+            if level == "full":
+                self.note("quota-full", f"{name}'s Panko is full ({used / 1e9:.2f} of {quota_gb:g} GB)", uid)
+            elif level == "near" and was == "ok":
+                self.note("quota-near", f"{name}'s Panko is {frac:.0%} full ({used / 1e9:.2f} of {quota_gb:g} GB)", uid)
+            elif level == "ok":
+                self.note("quota-ok", f"{name}'s Panko has room again ({frac:.0%} of {quota_gb:g} GB)", uid, alert=False)
 
     def failed_jobs(self, uids: list[str], since: float) -> dict[str, int]:
         """{user id: jobs that failed since `since`}, from each Panko's jobs file."""

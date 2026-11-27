@@ -123,6 +123,7 @@ const HINTS = {
   "what's ready": 'What this Panko folder can do right now: keys, Anki, reference data and chat mode.',
   'reference data': 'Dictionaries and word lists checks look words up in. The open ones download for free.',
   'chat mode': 'Use Panko from your own Claude, so reading sources costs nothing here.',
+  'disk': 'How much room your Panko takes, and what takes it. Only parts that cost nothing to fill again can be emptied here.',
   'how panko reads': 'Two ways to do the model’s work: chat mode (your own Claude uses Panko’s tools, on your subscription) or API mode (Panko calls the model with your key, paid and priced first). You can have both; the bar at the bottom shows which is in use.',
   'your language': 'What this Panko folder teaches. Everything about the language comes from here.',
   'this month': 'Spend on the language model this month. Each paid step is priced before it runs.',
@@ -382,19 +383,37 @@ function modeInfo(md) {
 }
 const modeBadge = () => { const i = modeInfo(S.ov?.modes); return i ? html`<a href="#/setup" class="mode ${i.cls}" data-tip="${i.tip}" aria-label="${i.tip}"><span class="dot"></span>${i.label}</a>` : ''; };
 
+const sizeShown = b => b >= 1e9 ? `${(b / 1e9).toFixed(2)} GB` : b >= 1e6 ? `${Math.round(b / 1e6)} MB` : "under 1 MB";
+/* on the server: how full your Panko is, against its quota */
+const diskBadge = () => {
+  const q = S.ov?.quota;
+  if (!q) return '';
+  const tip = `${sizeShown(q.used)} of ${sizeShown(q.quota)} used`;
+  return html`<a href="#/setup?disk=1" class="disk ${q.level}" data-tip="${tip}" aria-label="disk: ${tip}">${q.level === 'full' ? 'disk full' : `disk ${Math.round(q.pct)}%`}</a>`;
+};
+function quotaNotice() {
+  const q = S.ov?.quota;
+  if (!q || q.level === 'ok' || S.quotaSaid === q.level) return;
+  S.quotaSaid = q.level;
+  toast(q.level === 'full'
+    ? html`<span class="bad">✘</span> Your Panko is full: ${sizeShown(q.used)} of ${sizeShown(q.quota)}. Steps that add files (downloads, audio, pictures, packages) wait until there's room. <a href="#/setup?disk=1">See what takes room</a>`
+    : html`<span class="warn">!</span> Your Panko is ${Math.round(q.pct)}% full (${sizeShown(q.used)} of ${sizeShown(q.quota)}). <a href="#/setup?disk=1">See what takes room</a>`,
+    q.level === 'full' ? 'bad' : '', q.level === 'full' ? 0 : 12000);
+}
+
 function paintStatus() {
   const m = S.meta || {};
   const run = S.jobs.find(j => j.status === 'running');
   const q = S.jobs.filter(j => j.status === 'queued').length;
   put($('#status'), html`<span>${m.config ? m.language || 'set up' : 'not set up yet'}</span><span class="path">${m.hosted ? '' : tilde(m.root)}</span>
     ${run ? html`<a class="job" href="#/jobs/${run.id}"><span class="spin">✻</span> ${run.title}… ${dur(run.started)}${q ? `, ${q} queued` : ''}</a>` : ''}
-    <span class="grow"></span>${modeBadge()}${S.spend != null ? html`<a href="#/usage" class="dim">${usd(S.spend)} this month</a>` : ''}<span class="kbd-hint"><kbd>?</kbd> keys</span>`);
+    <span class="grow"></span>${diskBadge()}${modeBadge()}${S.spend != null ? html`<a href="#/usage" class="dim">${usd(S.spend)} this month</a>` : ''}<span class="kbd-hint"><kbd>?</kbd> keys</span>`);
   put($('#top-meta'), html`${m.config ? learning(m) : html`<a href="#/setup">set up</a>`}${m.hosted ? html` · <a href="/host/account" title="your account: password, download your data, sign out">account</a>` : ''}`);
 }
 
 async function refreshCounts() {
   if (!S.meta?.config) return;
-  try { S.ov = await api('/overview'); S.spend = S.ov.spend.month; paintNav(); paintStatus(); paintRows(); } catch (e) { /* shown elsewhere */ }
+  try { S.ov = await api('/overview'); S.spend = S.ov.spend.month; paintNav(); paintStatus(); paintRows(); quotaNotice(); } catch (e) { /* shown elsewhere */ }
 }
 
 async function pollJobs() {
@@ -1889,8 +1908,30 @@ VIEWS.setup = async (el, r) => {
       : html`<p class="muted-p">Let your own Claude (Desktop or Code) read sources and decide with Panko's tools, with no API spend.
       Add this to Claude's MCP config, then restart it.</p>${d.chat ? html`<div class="snippet mt"><button data-a="copy">copy</button><pre id="snip">${d.chat}</pre></div>`
         : html`<p class="warn">Needs the extra: <code>uv sync --extra mcp</code></p>`}`}</section>
+    <section class="box" id="disk"><div class="t">disk</div><div id="disk-in">${loading()}</div></section>
     <section class="box"><div class="t">look</div><div class="acts"><button data-a="theme">switch light / dark</button><button data-a="tour">show me around</button><span class="dim kbd-hint">or press <kbd>t</kbd> to switch</span></div></section>`);
+  const diskPaint = async () => {
+    try {
+      const k = await api('/disk');
+      const q = k.quota;
+      put($('#disk-in'), html`${q ? html`<p>${bar(q.used / q.quota, 30, q.level === 'ok' ? 'ok' : q.level === 'near' ? 'warn' : 'bad')}
+          <b class="${q.level === 'ok' ? '' : q.level === 'near' ? 'warn' : 'bad'}">${sizeShown(q.used)}</b> of ${sizeShown(q.quota)} used${q.level === 'full' ? ': full. Steps that add files wait until there is room.' : q.level === 'near' ? ': nearly full.' : '.'}</p>
+          <p class="faint mt-s">The admin sets how much room each Panko has. Free up room below, or remove a source you've finished with.</p>`
+        : html`<p>This Panko folder holds <b>${sizeShown(k.used)}</b>.</p>`}
+        <table class="t mt"><tbody>${k.parts.filter(x => x.bytes > 0).map(x => html`<tr><td>${x.label}</td><td class="r nw">${sizeShown(x.bytes)}</td>
+          <td class="r">${x.clear ? html`<button data-a="disk-clear" data-part="${x.key}" data-label="${x.label}">empty</button>` : ''}</td></tr>`)}</tbody></table>`);
+    } catch (e) { put($('#disk-in'), errorBox(e)); }
+  };
+  diskPaint().then(() => { if (r?.q?.disk) $('#disk')?.scrollIntoView({ behavior: 'smooth' }); });
   actions(el, {
+    'disk-clear': async b => {
+      if (!await confirmIt(`empty “${b.dataset.label}”?`, html`<p>These files can be made or downloaded again for free; your cards don't change.</p>`, 'Empty')) return;
+      try {
+        const x = await api('/disk/clear', { body: { part: b.dataset.part } });
+        toast(html`<span class="ok">✔</span> freed ${sizeShown(x.freed)}`, 'ok');
+        S.quotaSaid = null; diskPaint(); refreshCounts();
+      } catch (e) { toast(html`<span class="bad">✘</span> ${e.message}`, 'bad', 0); }
+    },
     refs: () => startJob('/refs/download', {}, () => VIEWS.setup(el)),
     'open-config': () => api('/open', { body: { what: 'config' } }).catch(e => toast(e.message, 'bad')),
     'open-folder': () => api('/open', { body: { what: 'folder' } }).catch(e => toast(e.message, 'bad')),

@@ -36,6 +36,8 @@ button.bad { color:var(--bad); }
 .acts { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:14px; }
 .muted { color:var(--dim); } .faint { color:var(--faint); } .ok { color:var(--ok); } .warn { color:var(--warn); }
 .bad-t { color:var(--bad); } .nw { white-space:nowrap; }
+.meter { display:inline-block; width:160px; height:8px; border-radius:4px; background:var(--field); border:1px solid var(--line); vertical-align:middle; overflow:hidden; margin-right:8px; }
+.meter > i { display:block; height:100%; background:var(--ok); } .meter.near > i { background:var(--warn); } .meter.full > i { background:var(--bad); }
 pre.log { white-space:pre-wrap; word-break:break-all; font-size:12px; max-height:240px; overflow:auto; background:var(--field); border:1px solid var(--line); border-radius:4px; padding:8px; margin:6px 0 0; }
 .err { color:var(--bad); border:1px solid color-mix(in srgb, var(--bad) 40%, transparent); border-radius:5px;
   padding:8px 10px; margin:12px 0; }
@@ -86,6 +88,16 @@ def ago(t: float | None) -> str:
             k = int(s // n)
             return f"{k} {unit}{'s' if k != 1 else ''} ago"
     return "just now"
+
+
+def quota_line(used: int, quota_gb: float) -> tuple[str, str]:
+    """(level, HTML) for a Panko's disk use against its quota: a small bar, the numbers, a word when near or full."""
+    from panko.config import QUOTA_NEAR
+    frac = used / (quota_gb * 1e9) if quota_gb else 1
+    level = "full" if frac >= 1 else "near" if frac >= QUOTA_NEAR else "ok"
+    word = {"full": ' <span class="bad-t">full</span>', "near": ' <span class="warn">nearly full</span>'}.get(level, "")
+    return level, (f'<span class="meter {level}" role="img" aria-label="{min(frac, 1):.0%}"><i style="width:{min(frac, 1) * 100:.1f}%"></i></span>'
+                   f'{size(used)} of {quota_gb:g} GB{word}')
 
 
 def size(n: int) -> str:

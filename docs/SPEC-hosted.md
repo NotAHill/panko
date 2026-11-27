@@ -215,7 +215,7 @@ everything (their folder as a zip) and how to delete it all. Recording a lesson 
 | H2 ✅ | **Front door and the server.** Accounts and invites, a Panko per user started and stopped on demand, the proxy, admin, export and delete. Deployed with Caddy and backups (restore tried). You use it first, then one invited person. |
 | H3 ✅ | **The Anki add-on.** The server's add-on routes and the add-on itself, tested on a scratch collection (`tests/test_anki_addon.py`) and the door's device codes (`tests/test_host.py`). Next: tried in a scratch Anki profile; then your own Panko moves to the server if you want it there. |
 | H4 ✅ | **Chat mode remotely.** Each user's MCP server over HTTP behind the front door, with OAuth so their Claude (claude.ai, the desktop app, Claude Code) connects as a custom connector. |
-| H5 | **Polish.** Jobs that survive a restart (✅ 2026-11-27), simple monitoring (✅ 2026-11-27: health on the admin page, alerts, an outside check), quota warnings, invite emails. |
+| H5 | **Polish.** Jobs that survive a restart (✅ 2026-11-27), simple monitoring (✅ 2026-11-27: health on the admin page, alerts, an outside check), quota warnings (✅ 2026-11-27), invite emails. |
 
 ## Open
 - **Your own domain** (later): which name, on Cloudflare with a Tunnel. Until then DuckDNS.

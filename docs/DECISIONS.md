@@ -2,6 +2,12 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-27 · A full Panko stops adding files, never stops working.** At its quota a hosted Panko still opens,
+reads, edits and syncs; only steps that add files wait (downloads, audio, pictures, Anki packages, reading pages),
+with a message saying what takes room. Collecting finished batches never waits, since those answers are paid for.
+Setup → disk empties only what costs nothing to fill again; audio (paid for) and your pictures and sources are never
+offered for emptying.
+
 **2026-11-27 · A picture belongs to a meaning, is reused only when confirmed, and never between synonyms.**
 Pictures you already have are offered for cards with the same meaning (the gloss's main sense and part of speech),
 first in every search and as a list on the pictures page, but always confirmed (by you, or the model picking from a

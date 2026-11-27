@@ -187,7 +187,12 @@ Update the **Now** section at the end of every work session: it's what a fresh s
   to use them), and the chooser offers the photos already found for the matching card. A reused picture shares the
   file. Pictures now record where they came from and the meaning they were chosen for. Stage 2 (later): a pool on the
   server shared between people, for openly licensed photos, drawings only if their owner opts in.
-- **Next:** the rest of H5 (quota warnings, invite emails); backups before inviting anyone
+- **H5: quota warnings (2026-11-27).** The hub shows how full a hosted Panko is (status bar, a toast at 80% and when
+  full) and setup → disk shows what takes room, emptying only what costs nothing to fill again (Anki packages,
+  library downloads, saved photo-site answers). At the quota, steps that add files (downloads, audio, pictures,
+  packages, reading pages) wait with a clear message; collecting finished batches never does. The account page has a
+  bar; the admin page shows everyone's use and who is near their limit, and alerts when someone gets near or full.
+- **Next:** the last of H5 (invite emails, when inviting more than a couple of people); backups before inviting anyone
   (`deploy/README.md` §5, skipped for now). DODa stays on
   (free and invite-only fits its terms; switched off if its authors object).
 - The learner's own state (deck sizes, what's waiting on whom, plans) is in `data/STATUS.md` (git-ignored).

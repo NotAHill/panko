@@ -29,7 +29,7 @@ from starlette.routing import Route
 
 from panko.host import oauth
 from panko.host.oauth import OAuth, OAuthError
-from panko.host.pages import ago, e, page, size
+from panko.host.pages import ago, e, page, quota_line
 from panko.host.pankos import Pankos
 from panko.host.store import HostStore
 from panko.host.watch import Watch, checks
@@ -258,7 +258,8 @@ def app(data: Path | str, **opts) -> Starlette:
             <p class="faint">Your Claude does the reading on your own plan; Panko spends nothing for it.</p>
             {f'<table><tr><th>connected apps</th><th class="wide"></th><th></th><th></th></tr>{conns}</table>'
              if conns else '<p class="faint">Nothing connected yet.</p>'}</section>
-            <section class="box"><div class="t">your data</div><p>{size(used)} of {quota:g} GB used.</p>
+            <section class="box"><div class="t">your data</div><p>{quota_line(used, quota)[1]}</p>
+            {'<p class="muted">Steps that add files (downloads, audio, pictures, Anki packages) wait until there is room. In your Panko, setup → disk shows what takes room and empties what can be made again for free; the admin can give you more.</p>' if quota_line(used, quota)[0] == 'full' else '<p class="muted">In your Panko, setup → disk shows what takes room.</p>' if quota_line(used, quota)[0] == 'near' else ''}
             <div class="acts"><a class="btn" href="/host/account/export">download everything (zip)</a></div>
             <p class="faint">Your config, keys, cards, sources and media, as a folder you can open with Panko on your own
             computer (<code>PANKO_HOME</code>). To delete your account, ask the admin.</p></section>
@@ -297,12 +298,14 @@ def app(data: Path | str, **opts) -> Starlette:
         u = door.user(req)
         return u if u and u["admin"] else None
 
-    async def health_box(users: list[dict]) -> str:
+    async def health_box(users: list[dict], disk: dict[str, int]) -> str:
         w = door.watch
         c = await asyncio.to_thread(checks, door.data, door.store.db)
         d = c["disk"]
         names = {x["id"]: x["name"] for x in users}
         failed = await asyncio.to_thread(w.failed_jobs, list(names), time.time() - 86400)
+        tight = [(x["name"], lvl) for x in users if not x["disabled"]
+                 for lvl in [quota_line(disk[x["id"]], x["quota_gb"] or door.pankos.quota_gb)[0]] if lvl != "ok"]
         disk_line = ("<span class=\"bad-t\">nearly full</span>" if d.get("low") else "<span class=\"ok\">fine</span>") + (
             f" · {d['free_gb']:g} GB free of {d['total_gb']:g} GB ({d['used_pct']:g}% used)" if "free_gb" in d else "")
         evs = "".join(f"""<tr><td class="nw faint">{ago(x['at'])}</td><td>{e(names.get(x['user_id'] or '', ''))}</td>
@@ -311,7 +314,8 @@ def app(data: Path | str, **opts) -> Starlette:
         return f"""<section class="box"><div class="t">health</div>
             <p>disk: {disk_line}<br>database: {'<span class="ok">fine</span>' if c['db'] else '<span class="bad-t">not answering</span>'}
             <br>front door started {ago(w.started)} · {len(door.pankos.running)} Panko{'s' if len(door.pankos.running) != 1 else ''} running
-            {'<br>jobs failed in the last day: ' + ', '.join(f'{e(names.get(u, u))} {k}' for u, k in failed.items()) if failed else ''}</p>
+            {'<br>jobs failed in the last day: ' + ', '.join(f'{e(names.get(u, u))} {k}' for u, k in failed.items()) if failed else ''}
+            {'<br>near their disk limit: ' + ', '.join(f'{e(n)} ({"full" if lvl == "full" else "nearly full"})' for n, lvl in tight) if tight else ''}</p>
             <p class="muted">{'Alerts go to the address in <code>PANKO_ALERT_URL</code>.' if w.alert_url else 'Alerts are off: set <code>PANKO_ALERT_URL</code> in <code>deploy/.env</code> (an ntfy.sh topic works) to hear about these on your phone.'}
             An outside check of <code>/host/health</code> tells you when the whole server is down: see <code>deploy/README.md</code>.</p>
             {f'<table><tr><th class="nw">when</th><th>who</th><th>what happened</th></tr>{evs}</table>' if evs else '<p class="faint">Nothing has happened yet.</p>'}</section>"""
@@ -324,7 +328,7 @@ def app(data: Path | str, **opts) -> Starlette:
         disk = await asyncio.to_thread(lambda: {x["id"]: _du(door.pankos.home(x["id"])) for x in users})
         rows = "".join(f"""<tr><td><b>{e(x['name'])}</b>{' <span class="faint">admin</span>' if x['admin'] else ''}
             {' <span class="warn">disabled</span>' if x['disabled'] else ''}</td>
-            <td>{size(disk[x['id']])} <span class="faint">of {x['quota_gb'] or door.pankos.quota_gb:g} GB</span></td>
+            <td class="nw">{quota_line(disk[x['id']], x['quota_gb'] or door.pankos.quota_gb)[1]}</td>
             <td class="wide">{ago(x['last_seen'])}{' <span class="ok">· running</span>' if door.pankos.alive(x['id']) else ''}</td>
             <td><a class="btn" style="padding:3px 8px;font-size:12px" href="/host/admin/user/{x['id']}">manage</a></td></tr>"""
                        for x in users)
@@ -333,7 +337,7 @@ def app(data: Path | str, **opts) -> Starlette:
             ('<span class="faint">expired</span>' if i['expires'] < time.time() else 'open, until ' + time.strftime('%d %b', time.localtime(i['expires'])))}</td>
             <td>{'' if i['used_by'] or i['expires'] < time.time() else f'<form method="post" action="/host/admin/withdraw/{i["n"]}"><button>withdraw</button></form>'}</td></tr>"""
                           for i in door.store.invites()[:30])
-        return page("admin", f"""<h1>admin</h1>{note}{await health_box(users)}
+        return page("admin", f"""<h1>admin</h1>{note}{await health_box(users, disk)}
             <section class="box"><div class="t">people</div><table><tr><th>name</th><th>disk</th><th class="wide">last seen</th><th></th></tr>{rows}</table></section>
             <form method="post" action="/host/admin/invite" class="box"><div class="t">invite someone</div>
             <p class="muted">Makes a link that works once, for 7 days. Send it to them yourself.</p>
@@ -665,13 +669,22 @@ def app(data: Path | str, **opts) -> Starlette:
         door.oauth.end_grant(req.path_params["gid"], u["id"])
         return RedirectResponse("/host/account", 303)
 
+    def check_quotas():
+        users = [u for u in door.store.users() if not u["disabled"]]
+        door.watch.check_quotas([(u["id"], u["name"], _du(door.pankos.home(u["id"])), u["quota_gb"] or door.pankos.quota_gb)
+                                 for u in users])
+
     async def watch_disk():
-        from panko.host.watch import WATCH_EVERY
+        from panko.host.watch import QUOTA_EVERY, WATCH_EVERY
+        n = 0
         while True:
             try:
                 await asyncio.to_thread(door.watch.check_disk)
+                if n % QUOTA_EVERY == 0:
+                    await asyncio.to_thread(check_quotas)
             except Exception as ex:  # noqa: BLE001  the watch must keep going
                 print(f"watch: {ex}", file=sys.stderr)
+            n += 1
             await asyncio.sleep(WATCH_EVERY)
 
     @contextlib.asynccontextmanager

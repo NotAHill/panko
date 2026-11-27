@@ -686,3 +686,31 @@ def test_pictures_you_already_have(env, monkeypatch):
     r = c.post("/api/pictures/choose", json={"id": "fs-8", "dir": str(tmp / "chosen"), "index": 0}, headers=H).json()
     assert r["image"]["file"] == "door.jpg" and r["image"]["reused_from"] == "dw-9"
     assert c.get("/api/pictures?status=active").json()["reuse"] == 0
+
+
+def test_a_full_panko_says_so_and_stops_steps_that_add_files(env, cfg, monkeypatch):
+    c, _, _ = env
+    from panko import config
+    monkeypatch.setenv("PANKO_HOSTED", "1")
+    monkeypatch.setattr(config, "CACHE", cfg / "cache")
+    (cfg / "cache" / "images" / "commons").mkdir(parents=True)
+    (cfg / "cache" / "images" / "commons" / "a.json").write_text("x" * 1200)
+    c.get("/api/overview")                                         # the store writes its working files once
+    quota = int(config.folder_size(cfg) / 0.9)                     # 90% full
+    monkeypatch.setenv("PANKO_QUOTA_GB", str(quota / 1e9))
+    config._USE[:] = [0, 0]
+    q = c.get("/api/overview").json()["quota"]
+    assert q["level"] == "near" and round(q["quota"]) == quota
+    (cfg / "big.bin").write_bytes(b"x" * quota)
+    config._USE[:] = [0, 0]
+    assert c.get("/api/overview").json()["quota"]["level"] == "full"
+    r = c.post("/api/export/apkg", json={"varieties": ["darija"]}, headers=H)
+    assert r.status_code == 400 and "your Panko is full" in r.json()["error"]
+    d = c.get("/api/disk").json()
+    parts = {x["key"]: x for x in d["parts"]}
+    assert parts["searches"]["bytes"] == 1200 and parts["searches"]["clear"] and not parts["other"]["clear"]
+    assert c.post("/api/disk/clear", json={"part": "pictures"}, headers=H).status_code == 400   # never your pictures
+    freed = c.post("/api/disk/clear", json={"part": "searches"}, headers=H).json()
+    assert freed["freed"] == 1200 and not list((cfg / "cache" / "images").iterdir())
+    monkeypatch.delenv("PANKO_HOSTED")
+    assert c.get("/api/overview").json()["quota"] is None                # on your own computer there's no quota

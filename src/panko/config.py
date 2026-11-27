@@ -49,16 +49,41 @@ def host_limits() -> dict:
     return {"upload_mb": num("PANKO_UPLOAD_MB", 500), "quota_gb": num("PANKO_QUOTA_GB", 5)}
 
 
-def disk_use() -> int:
-    """Bytes the Panko folder holds (what the quota counts)."""
+def folder_size(path) -> int:
     total = 0
-    for d, _, files in os.walk(ROOT):
+    for d, _, files in os.walk(path):
         for f in files:
             try:
                 total += os.lstat(os.path.join(d, f)).st_size
             except OSError:
                 pass
     return total
+
+
+_USE: list = [0.0, 0]          # [when measured, bytes]: walking a big folder takes a moment, so it's reused briefly
+USE_FOR = 30                   # seconds
+
+
+def disk_use(fresh: bool = True) -> int:
+    """Bytes the Panko folder holds (what the quota counts). `fresh=False` may answer from the last half minute."""
+    import time
+    if fresh or time.time() - _USE[0] > USE_FOR:
+        _USE[:] = [time.time(), folder_size(ROOT)]
+    return _USE[1]
+
+
+QUOTA_NEAR = 0.8               # a warning from here; at 1.0 steps that add data stop
+
+
+def quota_state(fresh: bool = False) -> dict | None:
+    """On the server: {used, quota (bytes), pct, level: ok | near | full}; None on your own computer."""
+    if not hosted():
+        return None
+    quota = host_limits()["quota_gb"] * 1e9
+    used = disk_use(fresh)
+    frac = used / quota if quota else 1
+    return {"used": used, "quota": quota, "pct": round(100 * frac, 1),
+            "level": "full" if frac >= 1 else "near" if frac >= QUOTA_NEAR else "ok"}
 
 
 def room_for(n: int) -> None:
@@ -69,7 +94,15 @@ def room_for(n: int) -> None:
     used = disk_use()
     if used + n > quota:
         raise ValueError(f"that needs {n / 1e6:,.0f} MB and your Panko has {max(quota - used, 0) / 1e6:,.0f} MB left "
-                         f"of {quota / 1e9:g} GB: remove a source or old exports first")
+                         f"of {quota / 1e9:g} GB: see what takes room in setup, or remove a source")
+
+
+def not_full() -> None:
+    """On the server, refuse a step that adds data when the Panko folder is already at its quota."""
+    q = quota_state(fresh=True)
+    if q and q["level"] == "full":
+        raise ValueError(f"your Panko is full ({q['used'] / 1e9:.2f} of {q['quota'] / 1e9:g} GB), so this step would "
+                         "go over: free up room first (setup → disk shows what takes room)")
 
 
 def public_url(u: str) -> str:
