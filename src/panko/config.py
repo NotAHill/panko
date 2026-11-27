@@ -1,8 +1,9 @@
 """Loads config/panko.toml and .env from the Panko folder.
 
 The Panko folder holds a learner's config, data and cache: `PANKO_HOME` if set, else the nearest folder up from
-where Panko runs that has `config/panko.toml`, else this source checkout when Panko runs from one, else the current
-folder (where `panko init` then writes the config)."""
+where Panko runs that has `config/panko.toml`, else this source checkout when Panko runs from one, else `~/Panko`
+(an installed Panko, `uv tool install`: one folder of your own, wherever you run it from; `panko init --here` makes
+one in the current folder instead)."""
 from __future__ import annotations
 
 import os
@@ -14,6 +15,7 @@ from dotenv import load_dotenv
 
 CHECKOUT = Path(__file__).resolve().parents[2]
 IS_CHECKOUT = (CHECKOUT / "pyproject.toml").exists() and (CHECKOUT / "src" / "panko").is_dir()
+HOME_DEFAULT = Path.home() / "Panko"     # an installed Panko's folder when nothing else names one
 
 
 def find_root() -> Path:
@@ -23,7 +25,7 @@ def find_root() -> Path:
     for d in (cwd, *cwd.parents):
         if (d / "config" / "panko.toml").exists():
             return d
-    return CHECKOUT if IS_CHECKOUT else cwd
+    return CHECKOUT if IS_CHECKOUT else HOME_DEFAULT
 
 
 ROOT = find_root()

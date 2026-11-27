@@ -22,13 +22,13 @@ def settings(*_args) -> bool:
     d = QDialog(mw)
     d.setWindowTitle("Panko sync")
     box = QVBoxLayout(d)
-    info = QLabel("In Panko, open your account page and make a device code for this computer. "
-                  "Paste your Panko's address and the code here.")
+    info = QLabel("In Panko, make a code for this computer: on a server, on your account page; on your own "
+                  "computer (panko hub), on the sync page. Paste your Panko's address and the code here.")
     info.setWordWrap(True)
     box.addWidget(info)
     form = QFormLayout()
     server = QLineEdit(c.get("server", ""))
-    server.setPlaceholderText("https://your-panko.example")
+    server.setPlaceholderText("https://your-panko.example, or 127.0.0.1:8770 for panko hub")
     code = QLineEdit(c.get("code", ""))
     code.setEchoMode(QLineEdit.EchoMode.Password)
     form.addRow("Panko address", server)
@@ -101,7 +101,9 @@ def sync_now(quiet: bool = False) -> None:
     def failed(e: Exception) -> None:
         global _busy
         _busy = False
-        if isinstance(e, (core.Refused, net.PankoError)):
+        if quiet and isinstance(e, net.PankoError) and e.unreachable:     # Anki opened while Panko wasn't running
+            tooltip(f"Panko: {e}", period=6000)
+        elif isinstance(e, (core.Refused, net.PankoError)):
             showWarning(str(e), title="Panko sync")
         else:
             showWarning(f"Panko sync stopped: {e!r}", title="Panko sync")

@@ -23,6 +23,7 @@ header img { width:32px; height:32px; } header b { font-size:17px; } header .gro
 header a, header button.link { color:var(--dim); text-decoration:none; font:inherit; background:none; border:0; cursor:pointer; padding:0; }
 header a:hover, header button.link:hover { color:var(--fg); }
 h1 { font-size:20px; margin:0 0 6px; font-weight:600; }
+p a, li a { color:var(--accent); }
 .box { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:18px; margin:16px 0; }
 .box > .t { color:var(--dim); font-size:12px; text-transform:lowercase; margin:-4px 0 12px; }
 label { display:block; margin:12px 0 4px; color:var(--dim); font-size:12.5px; }

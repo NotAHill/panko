@@ -854,8 +854,13 @@ source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
     { name = "httpx" },
+    { name = "jsonschema" },
+    { name = "mcp" },
     { name = "pillow" },
     { name = "python-dotenv" },
+    { name = "python-multipart" },
+    { name = "starlette" },
+    { name = "uvicorn" },
 ]
 
 [package.optional-dependencies]
@@ -864,18 +869,6 @@ apkg = [
 ]
 host = [
     { name = "argon2-cffi" },
-    { name = "python-multipart" },
-    { name = "starlette" },
-    { name = "uvicorn" },
-]
-hub = [
-    { name = "python-multipart" },
-    { name = "starlette" },
-    { name = "uvicorn" },
-]
-mcp = [
-    { name = "jsonschema" },
-    { name = "mcp" },
 ]
 migrate = [
     { name = "anki" },
@@ -895,16 +888,13 @@ requires-dist = [
     { name = "anthropic", specifier = ">=2.12.0" },
     { name = "argon2-cffi", marker = "extra == 'host'", specifier = ">=23.1" },
     { name = "httpx", specifier = ">=0.27" },
-    { name = "jsonschema", marker = "extra == 'mcp'", specifier = ">=4" },
-    { name = "mcp", marker = "extra == 'mcp'", specifier = ">=1.20" },
+    { name = "jsonschema", specifier = ">=4" },
+    { name = "mcp", specifier = ">=1.20" },
     { name = "pillow", specifier = ">=11" },
     { name = "python-dotenv", specifier = ">=1.0" },
-    { name = "python-multipart", marker = "extra == 'host'", specifier = ">=0.0.18" },
-    { name = "python-multipart", marker = "extra == 'hub'", specifier = ">=0.0.18" },
-    { name = "starlette", marker = "extra == 'host'", specifier = ">=0.40" },
-    { name = "starlette", marker = "extra == 'hub'", specifier = ">=0.40" },
-    { name = "uvicorn", marker = "extra == 'host'", specifier = ">=0.30" },
-    { name = "uvicorn", marker = "extra == 'hub'", specifier = ">=0.30" },
+    { name = "python-multipart", specifier = ">=0.0.18" },
+    { name = "starlette", specifier = ">=0.40" },
+    { name = "uvicorn", specifier = ">=0.30" },
 ]
 provides-extras = ["images", "migrate", "apkg", "hub", "host", "mcp"]
 

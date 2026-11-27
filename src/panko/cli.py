@@ -16,6 +16,7 @@ def main(argv=None):
 
 def _main(argv=None):
     ap = argparse.ArgumentParser(prog="panko")
+    ap.add_argument("--version", action="version", version=f"panko {_version()}")
     sub = ap.add_subparsers(dest="cmd")
     sub.add_parser("providers", help="which providers are ready")
     v = sub.add_parser("voices", help="audition ElevenLabs library voices for your language ([audio.elevenlabs] library, audition)")
@@ -108,6 +109,8 @@ def _main(argv=None):
     it.add_argument("--yes", action="store_true", help="take the defaults without asking")
     it.add_argument("--force", action="store_true", help="replace an existing config (kept as .bak)")
     it.add_argument("--check", action="store_true", help="only check what's ready")
+    it.add_argument("--here", action="store_true", help="make the Panko folder in the current folder (an installed "
+                    "Panko otherwise uses ~/Panko, or PANKO_HOME)")
     it.add_argument("--language", default="", help="the language your cards teach; a preset fills in the rest "
                     "(moroccan-darija, spanish), any other name starts neutral")
     rf = sub.add_parser("refs", help="the reference corpora and dictionaries: show them, download the open ones")
@@ -118,7 +121,7 @@ def _main(argv=None):
     mc.add_argument("--skill", metavar="DIR", help="write the chat workflow as a Claude skill: DIR/panko/SKILL.md "
                     "(e.g. ~/.claude/skills for Claude Code)")
     hb = sub.add_parser("hub", help="the local dashboard in your browser: sources, inbox, card previews, checks, "
-                        "pictures, sync and spend (needs: uv sync --extra hub)")
+                        "pictures, sync and spend")
     hb.add_argument("--port", type=int, default=8770)
     hb.add_argument("--no-open", action="store_true", help="print the link without opening a browser")
     hb.add_argument("--token", default="", help=argparse.SUPPRESS)
@@ -208,6 +211,9 @@ def _main(argv=None):
     m.add_argument("--apply", action="store_true", help="really convert (Anki must be closed); default is a dry run")
     m.add_argument("--report", help="write the dry-run list to this Markdown file")
     args = ap.parse_args(argv)
+    if args.cmd == "init" and args.here:     # before anything reads the Panko folder
+        from pathlib import Path
+        os.environ["PANKO_HOME"] = str(Path.cwd())
 
     if args.cmd == "providers":
         from panko import providers
@@ -324,8 +330,9 @@ def _main(argv=None):
     elif args.cmd == "mcp":
         try:
             from panko import mcp_server
-        except ImportError:
-            ap.error("the MCP server needs the extra: uv sync --extra mcp")
+        except ImportError as e:
+            ap.error(f"chat mode couldn't start ({e}): install Panko again (uv tool install --reinstall …, or "
+                     "uv sync in a checkout)")
         if args.config:
             print(mcp_server.config_snippet())
         else:
@@ -333,11 +340,13 @@ def _main(argv=None):
     elif args.cmd == "hub":
         try:
             from panko import hub
-        except ImportError:
-            ap.error("the hub needs the extra: uv sync --extra hub")
+        except ImportError as e:
+            ap.error(f"the hub couldn't start ({e}): install Panko again (uv tool install --reinstall …, or "
+                     "uv sync in a checkout)")
         if args.socket:
             hub.serve_socket(args.socket)
         else:
+            _folder_note()
             hub.serve(args.port, not args.no_open, args.token or os.environ.get("PANKO_HUB_TOKEN") or None)
     elif args.cmd == "host":
         from panko.host import cli as host_cli
@@ -434,6 +443,23 @@ def _main(argv=None):
         _pictures(args, pic)
     else:
         ap.print_help()
+
+
+def _version() -> str:
+    from importlib.metadata import PackageNotFoundError, version
+    try:
+        return version("panko")
+    except PackageNotFoundError:
+        return "unknown"
+
+
+def _folder_note() -> None:
+    """An installed Panko keeps everything in one folder: make it on first use, and say where it is."""
+    from panko.config import IS_CHECKOUT, ROOT
+    new = not ROOT.exists()
+    ROOT.mkdir(parents=True, exist_ok=True)
+    if new or not IS_CHECKOUT:
+        print(f"✻ Your Panko folder: {ROOT}" + (" (new)" if new else ""), flush=True)
 
 
 def _init(args):

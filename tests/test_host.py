@@ -69,6 +69,21 @@ def test_names_and_passwords_are_checked(data):
 
 # ---- the pages
 
+def test_without_an_account_the_sign_in_page_offers_panko_on_your_own_computer(data):
+    import io
+    import zipfile
+
+    from panko import INSTALL
+    c = client(host_app.app(data))
+    assert 'href="/host/install"' in c.get("/host/login").text
+    r = c.get("/host/install")                                   # no account needed
+    assert r.status_code == 200 and INSTALL in r.text and "panko hub" in r.text and "panko mcp --config" in r.text
+    z = c.get("/host/panko-sync.ankiaddon")
+    assert z.status_code == 200 and "attachment" in z.headers["content-disposition"]
+    names = zipfile.ZipFile(io.BytesIO(z.content)).namelist()
+    assert "manifest.json" in names and "net.py" in names and not any("__pycache__" in n for n in names)
+
+
 def test_sign_in_needs_an_account_and_this_sites_own_form(data):
     a = host_app.app(data)
     c = client(a)

@@ -53,9 +53,13 @@ class Guard:
         if host not in LOCAL:
             return await JSONResponse({"error": "the hub only answers on this computer"}, 403)(scope, receive, send)
         path = scope["path"]
-        if path.startswith("/anki/"):        # the Anki add-on, pointed at your own Panko: the hub's key as its code
+        if path.startswith("/anki/"):
+            # the Anki add-on, pointed at your own Panko: its lasting code (made on the sync page), or the hub's key
+            # while this hub runs
+            from panko.anki import remote
             auth = req.headers.get("authorization", "")
-            if auth[:7].lower() == "bearer " and secrets.compare_digest(auth[7:].strip(), self.token):
+            given = auth[7:].strip() if auth[:7].lower() == "bearer " else ""
+            if given and any(c and secrets.compare_digest(given, c) for c in (self.token, remote.local_code())):
                 return await self.app(scope, receive, send)
             return await JSONResponse({"error": "the add-on's code isn't right"}, 401)(scope, receive, send)
         given = req.query_params.get("t")

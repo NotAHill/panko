@@ -1746,7 +1746,14 @@ VIEWS.sync = async el => {
       <p id="ad-last" class="faint mt"></p></section>
     <section class="box"><div class="t">audio</div>
       <p class="muted-p">Each card's audio is made here, with your voices and your audio key, before the add-on brings it in. A card without its audio yet comes in without it and gets it on a later sync.</p>
-      <div class="acts mt"><button data-a="audio"><span class="paid">$</span>make the audio cards still need</button></div></section>` : html`<section class="box warn"><div class="t">before you sync</div><ul class="arrows">
+      <div class="acts mt"><button data-a="audio"><span class="paid">$</span>make the audio cards still need</button></div></section>` : html`<section class="box" id="addon"><div class="t">into Anki: the Panko sync add-on <span class="dim">the simple way</span></div>
+      <p class="muted-p">A small add-on in Anki brings your cards in from this Panko: it adds the new ones and updates the rest in place, never touches your review history or MyNotes, and never forces a full sync. It's the same add-on as for a Panko on a server. Anki pulls only while <code>panko hub</code> is running.</p>
+      <ol class="steps mt"><li><span><a class="btn" href="/addon/panko-sync.ankiaddon" download>download the add-on</a> and open the file (or in Anki: <b>Tools → Add-ons → Install from file</b>), then restart Anki.</span></li>
+        <li><span>In Anki, <b>Tools → Panko: settings…</b>: paste this Panko's address and its code.<div id="ad-code" class="mt-s">${loading()}</div></span></li>
+        <li><span><b>Tools → Panko: sync now</b>. Your phone gets the cards when you sync Anki as usual (AnkiWeb).</span></li></ol>
+      <p id="ad-last" class="faint mt"></p></section>
+    <h4 class="sub-h mt">or push from here, with the MCP add-on <span class="dim">(for developers: Panko writes straight into a running Anki)</span></h4>
+    <section class="box warn"><div class="t">before you sync</div><ul class="arrows">
       <li>Anki is open, with the MCP add-on listening on 127.0.0.1:3141.</li>
       <li>Panko writes only its own notes, decks and note types. Your review history stays, and your MyNotes field is never written.</li>
       <li>Template and CSS changes go through a normal sync; nothing here forces a full one.</li>
@@ -1769,12 +1776,25 @@ VIEWS.sync = async el => {
       ${p.add_count ? html`<details class="mt"><summary>new notes (${n(p.add_count)})</summary>${list(p.add, p.add_count)}</details>` : ''}
       ${p.update_count ? html`<details class="mt-s"><summary>notes to update (${n(p.update_count)})</summary>${list(p.update, p.update_count)}</details>` : ''}`);
   };
-  if (hosted) api('/anki/addon').then(a => {
+  const codePaint = a => put($('#ad-code'), a.code
+    ? html`<div class="kv"><span class="k">address</span><span class="v"><code>${location.origin}</code> <button data-a="copy" data-v="${location.origin}">copy</button></span>
+        <span class="k">code</span><span class="v"><code>${a.code}</code> <button data-a="copy" data-v="${a.code}">copy</button> <button data-a="new-code">make a new code</button></span></div>
+      <p class="faint mt-s">The address stays the same as long as you start the hub on port ${location.port || '80'}${location.port === '8770' ? ' (the usual one)' : ''}. A new code ends the old one.</p>`
+    : html`<button class="pri" data-a="new-code">make a code for the add-on</button>`);
+  if (!hosted) api('/anki/addon').then(codePaint).catch(e => put($('#ad-code'), errorBox(e)));
+  api('/anki/addon').then(a => {
     const t = a.last?.last;
     put($('#ad-last'), t ? html`Last sync from Anki: ${ago(t)} ago${a.last.written ? `, ${plural(a.last.written, 'note')} written` : ''}. Your cards use the note types ${a.models.join(' and ')}.` : html`The add-on hasn't synced yet. Your cards will use the note types ${a.models.join(' and ')}, separate from any other Panko's.`);
   }).catch(() => {});
   actions(el, {
     audio: () => paidAction('/audio/make', {}, 'make the audio?', { batch: false }),
+    copy: async b => { try { await navigator.clipboard.writeText(b.dataset.v); toast('copied'); } catch { toast('select the text and copy it', 'bad'); } },
+    'new-code': async () => {
+      const had = !!$('#ad-code code');
+      if (had && !await confirmIt('make a new code?', html`<p>The add-on stops syncing until you paste the new code in Anki (<b>Tools → Panko: settings…</b>).</p>`, 'Make it')) return;
+      try { const x = await api('/anki/code', { body: {} }); codePaint({ code: x.code }); toast(html`<span class="ok">✔</span> paste it in Anki: Tools → Panko: settings…`, 'ok'); }
+      catch (e) { toast(html`<span class="bad">✘</span> ${e.message}`, 'bad', 0); }
+    },
     export: b => {
       const varieties = $$('[data-var]', el).filter(x => x.checked).map(x => x.dataset.var);
       if (S.meta.varieties.length > 1 && !varieties.length) return put($('#x-out'), html`<span class="warn">pick at least one</span>`);

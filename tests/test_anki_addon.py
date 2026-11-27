@@ -188,3 +188,82 @@ def test_audio_is_made_on_the_server_price_first(env):
         assert r.status_code == 400 and "ELEVENLABS_API_KEY" in r.json()["error"]
     else:
         assert set(r.json()["estimate"]) == {"clips", "characters"}
+
+
+def _signed_in(c):
+    c.get(f"/?t={TOKEN}")            # the launch link: the hub's cookie, as in the browser
+    return {"X-Panko": "1"}
+
+
+def test_on_your_own_computer_the_add_on_has_a_lasting_code(env, tmp_path, monkeypatch):
+    c, s, col = env
+    monkeypatch.setattr(remote, "_code_file", lambda: tmp_path / "anki-code")
+    h = _signed_in(c)
+    assert c.get("/api/anki/addon").json()["code"] == ""
+    code = c.post("/api/anki/code", json={}, headers=h).json()["code"]
+    assert len(code) >= 20 and (tmp_path / "anki-code").stat().st_mode & 0o077 == 0     # only you can read it
+    assert c.get("/api/anki/addon").json()["code"] == code
+    r = core.run(col, Via(c, code))                             # it outlives this hub's own key
+    assert r["added"] == 2
+    new = c.post("/api/anki/code", json={}, headers=h).json()["code"]
+    assert c.post("/anki/pull", json={"addon": 1}, headers={"Authorization": f"Bearer {code}"}).status_code == 401
+    assert core.run(col, Via(c, new))["failed"] == []
+
+
+def test_on_the_server_codes_come_from_the_account_page(env, tmp_path, monkeypatch):
+    c, s, col = env
+    monkeypatch.setattr(remote, "_code_file", lambda: tmp_path / "anki-code")
+    monkeypatch.setenv("PANKO_HOSTED", "1")
+    h = _signed_in(c)
+    r = c.post("/api/anki/code", json={}, headers=h)
+    assert r.status_code >= 400 and "account page" in r.json()["error"]
+    assert not (tmp_path / "anki-code").exists()
+
+
+def test_the_add_on_reaches_a_panko_on_this_computer_over_http(env, tmp_path, monkeypatch):
+    """The add-on's own network code against a real hub on 127.0.0.1, as `panko hub` serves it (track D3)."""
+    import socket
+    import threading
+    import time
+
+    import uvicorn
+
+    from panko.anki_addon import net
+    c, s, col = env
+    monkeypatch.setattr(remote, "_code_file", lambda: tmp_path / "anki-code")
+    code = remote.new_local_code()
+    so = socket.socket()                                          # bound here and handed over: no port race
+    so.bind(("127.0.0.1", 0))
+    so.listen(16)
+    port = so.getsockname()[1]
+    server = uvicorn.Server(uvicorn.Config(hub.app(TOKEN), fd=so.fileno(), log_level="warning"))
+    t = threading.Thread(target=server.run, daemon=True)
+    t.start()
+    try:
+        for _ in range(400):
+            if server.started:
+                break
+            time.sleep(0.025)
+        assert server.started
+        panko = net.Panko(f"127.0.0.1:{port}", code)             # typed without http://, as people will
+        assert panko.base == f"http://127.0.0.1:{port}"
+        r = core.run(col, panko)
+        assert (r["added"], r["failed"]) == (2, []) and col.media.have(PIC)
+        with pytest.raises(net.PankoError) as e:
+            core.run(col, net.Panko(f"127.0.0.1:{port}", "wrong"))
+        assert "sync page" in str(e.value) and not e.value.unreachable
+    finally:
+        server.should_exit = True
+        t.join(5)
+        so.close()
+    with pytest.raises(net.PankoError) as e:                       # the hub stopped: said plainly, quiet on start
+        net.Panko(f"127.0.0.1:{port}", code).call("/anki/pull", {"addon": 1})
+    assert e.value.unreachable and "panko hub" in str(e.value)
+
+
+def test_an_address_without_a_scheme():
+    from panko.anki_addon import net
+    assert net.Panko("panko.example.org", "x").base == "https://panko.example.org"
+    assert net.Panko("localhost:8770/", "x").base == "http://localhost:8770"
+    assert net.Panko("[::1]:8770", "x").base == "http://[::1]:8770"
+    assert net.Panko("http://192.168.1.5:8770", "x").base == "http://192.168.1.5:8770"

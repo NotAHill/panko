@@ -117,6 +117,33 @@ def done(links: dict[str, dict], store: Store | None = None) -> dict:
     return {"kept": kept}
 
 
+def _code_file() -> Path:
+    from panko.config import ROOT
+    return ROOT / "data" / "work" / "anki-code"
+
+
+def local_code() -> str:
+    """The add-on's code for a Panko on your own computer ('' until one is made). On a server the front door's
+    device codes stand in for it."""
+    try:
+        return _code_file().read_text().strip()
+    except OSError:
+        return ""
+
+
+def new_local_code() -> str:
+    """A new code for the add-on (the old one stops working), readable only by you."""
+    import os
+    import secrets
+    p = _code_file()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    code = secrets.token_urlsafe(18)
+    fd = os.open(p, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        f.write(code)
+    return code
+
+
 def _state_file() -> Path:
     from panko.config import ROOT
     return ROOT / "data" / "work" / "anki-addon.json"

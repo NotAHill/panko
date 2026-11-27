@@ -144,7 +144,9 @@ def app(data: Path | str, **opts) -> Starlette:
             <label for="n">name</label><input id="n" type="text" name="name" value="{e(name)}" autocomplete="username"
             autocapitalize="none" required autofocus>
             <label for="p">password</label><input id="p" type="password" name="password" autocomplete="current-password" required>
-            <div class="acts"><button class="pri">sign in</button></div></form>""", narrow=True, status=status)
+            <div class="acts"><button class="pri">sign in</button></div></form>
+            <p class="faint">No account? <a href="/host/install">Run Panko on your own computer</a> instead: free, no
+            sign-up, your cards stay with you.</p>""", narrow=True, status=status)
 
     async def logout(req: Request):
         if not same_site(req):
@@ -195,6 +197,18 @@ def app(data: Path | str, **opts) -> Starlette:
 
     async def privacy(req: Request):
         return page("privacy", PRIVACY, user=door.user(req))
+
+    async def install(req: Request):
+        """For people without an account (or who'd rather not have one): Panko on their own computer."""
+        from panko import INSTALL, SOURCE, UPGRADE
+        return page("on your own computer", INSTALL_PAGE.format(install=e(INSTALL), upgrade=e(UPGRADE),
+                                                                source=e(SOURCE)), user=door.user(req))
+
+    async def addon(req: Request):
+        """The Panko sync add-on, for anyone: it does nothing until it's given a Panko's address and code."""
+        from panko.anki.addon import NAME, addon_zip
+        return Response(await asyncio.to_thread(addon_zip), media_type="application/zip",
+                        headers={"Content-Disposition": f'attachment; filename="{NAME}"', "Cache-Control": "no-store"})
 
     # ---- your account
     async def account(req: Request, fresh: str | None = None):
@@ -705,6 +719,7 @@ def app(data: Path | str, **opts) -> Starlette:
 
     routes = [Route("/host/login", login, methods=["GET", "POST"]), Route("/host/logout", logout, methods=["POST"]),
               Route("/host/invite/{token}", invite, methods=["GET", "POST"]), Route("/host/privacy", privacy),
+              Route("/host/install", install), Route("/host/panko-sync.ankiaddon", addon),
               Route("/host/account", account, methods=["GET", "POST"]), Route("/host/account/export", account_export),
               Route("/host/admin", admin), Route("/host/admin/invite", admin_invite, methods=["POST"]),
               Route("/host/admin/withdraw/{n:int}", admin_withdraw, methods=["POST"]),
@@ -728,6 +743,42 @@ def app(data: Path | str, **opts) -> Starlette:
     a.state.door = door
     return a
 
+
+INSTALL_PAGE = """<h1>Panko on your own computer</h1>
+<p class="muted">No account, no sign-up: Panko runs on your computer and keeps your cards in a folder of your own
+(<code>Panko</code> in your home folder). It's the same Panko: sources, checks, pictures, your card design, and the
+Anki add-on.</p>
+<section class="box"><div class="t">what's different from an account here</div>
+<p>· The paid steps (audio, reading sources by API, drawings) use your own keys, added in Panko's setup. Chat mode,
+where your Claude does the reading, costs nothing beyond your Claude plan.</p>
+<p>· Chat mode works from Claude's desktop app or Claude Code. Claude on the web and on your phone can't reach a
+program on your computer.</p>
+<p>· Panko runs while its terminal window is open, and Anki gets new cards while it runs.</p>
+<p>· Backing up the folder is up to you (Time Machine or any backup covers it).</p></section>
+<section class="box"><div class="t">1. install it</div>
+<p>Panko installs with <a href="https://docs.astral.sh/uv/">uv</a>, which brings its own Python. Open a terminal
+and paste this (macOS or Linux):</p>
+<code class="link-out">curl -LsSf https://astral.sh/uv/install.sh | sh</code>
+<p class="faint">On Windows, in PowerShell: <code>powershell -ExecutionPolicy ByPass -c "irm
+https://astral.sh/uv/install.ps1 | iex"</code> (Panko hasn't been tried on Windows yet).</p>
+<p>Then open a new terminal window and install Panko:</p>
+<code class="link-out">{install}</code></section>
+<section class="box"><div class="t">2. start it</div>
+<code class="link-out">panko hub</code>
+<p>It opens in your browser and asks which language you're learning. Ctrl-C in the terminal stops it; run it again
+to come back to where you were.</p></section>
+<section class="box"><div class="t">3. into Anki</div>
+<p><a class="btn" href="/host/panko-sync.ankiaddon">download the Panko sync add-on</a> and open the file (or in
+Anki: Tools → Add-ons → Install from file), then restart Anki. On Panko's sync page, make a code and paste it with
+the address shown there into Anki: Tools → Panko: settings…. Your review history and your own notes are never
+touched.</p></section>
+<section class="box"><div class="t">4. chat mode (optional)</div>
+<code class="link-out">panko mcp --config</code>
+<p>It prints what to add to Claude's desktop app (Settings → Developer → Edit Config) and the line for Claude
+Code. Restart Claude, then ask it to read a source with Panko.</p></section>
+<section class="box"><div class="t">later</div>
+<p>Update Panko: <code>{upgrade}</code>. Panko is free software (AGPL): <a href="{source}">its source</a>.</p>
+</section>"""
 
 PRIVACY = """<h1>privacy</h1><section class="box">
 <p><b>What's kept.</b> Your account (a name and a password hash), and your own Panko folder: your config, the keys you

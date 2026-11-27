@@ -29,19 +29,21 @@ already have are recognised, so a second book only adds what's new.
   photo fits.
 
 ## Quickstart
-Install, then make a Panko folder. Your settings, store, pictures and audio live there, never in the code.
+Install it with [uv](https://docs.astral.sh/uv/) (which brings its own Python), then start the hub. Your settings,
+store, pictures and audio live in one folder, `~/Panko`, never in the code.
 
 ```bash
-uv tool install "panko[mcp,hub] @ git+https://github.com/<you>/panko"   # or: uv sync --all-extras in a checkout
+uv tool install git+https://github.com/NotAHill/panko     # or: uv sync --all-extras in a checkout
 ```
 
 ```bash
-mkdir ~/panko && cd ~/panko
+panko hub           # opens in your browser; the setup asks your language and writes the config
 ```
 
-```bash
-panko init          # a few questions: language, script, varieties, gloss language, deck names, Anki profile
-```
+Or from the terminal, `panko init` asks the same questions (language, script, varieties, gloss language, deck
+names, Anki profile). `panko init --here`, or `PANKO_HOME=DIR`, keeps the folder somewhere else. Update with
+`uv tool upgrade panko`. Cards reach Anki through the Panko sync add-on: download it from the hub's sync page, which
+also makes the code to paste into it.
 
 Panko works for any language. Two languages come as presets, which fill in the script, how the prompts describe
 the language (spelling, verb forms, where loanwords come from), the reference dictionaries, the speech-to-text

@@ -1716,7 +1716,7 @@ async def media(request: Request):
 
 # ---- the Anki add-on ("Panko sync", anki/remote.py) ------------------------------------------------------------------
 # /anki/* is the add-on's alone: on the server the front door lets it in on a device code (never the cookie); in your
-# own Panko, on the hub's key as a bearer token.
+# own Panko, on its lasting code (`remote.local_code`, made on the sync page) as a bearer token.
 
 async def _body(request: Request) -> dict:
     try:
@@ -1764,16 +1764,9 @@ async def anki_done(request: Request):
 
 async def addon_file(request: Request):
     """The add-on itself, as an .ankiaddon file (a zip of src/panko/anki_addon) to open in Anki."""
-    import io
-    import zipfile
-    src = Path(__file__).resolve().parent.parent / "anki_addon"
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-        for f in sorted(src.rglob("*")):
-            if f.is_file() and "__pycache__" not in f.parts and f.suffix in (".py", ".json", ".md"):
-                z.write(f, f.relative_to(src).as_posix())
-    return Response(buf.getvalue(), media_type="application/zip",
-                    headers={"Content-Disposition": 'attachment; filename="panko-sync.ankiaddon"'})
+    from panko.anki.addon import NAME, addon_zip
+    return Response(addon_zip(), media_type="application/zip",
+                    headers={"Content-Disposition": f'attachment; filename="{NAME}"'})
 
 
 @api("GET", "/anki/addon")
@@ -1782,7 +1775,19 @@ def anki_addon_state(req: Req):
     from panko.anki import remote
     from panko.config import hosted
     return {"last": remote.last_sync(), "hosted": hosted(), "models": list(remote.model_names().values()),
-            "server": os.environ.get("PANKO_HOST_URL", "") if hosted() else ""}
+            "server": os.environ.get("PANKO_HOST_URL", "") if hosted() else "",
+            "code": "" if hosted() else remote.local_code()}
+
+
+@api("POST", "/anki/code")
+def anki_code(req: Req):
+    """On your own computer: a new code for the add-on (the old one stops working). On a server, device codes are
+    made on the account page."""
+    from panko.anki import remote
+    from panko.config import hosted
+    if hosted():
+        raise ValueError("on the server, make a device code on your account page")
+    return {"code": remote.new_local_code()}
 
 
 @api("POST", "/audio/make")
