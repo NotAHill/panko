@@ -822,12 +822,10 @@ def _picture_cards(status: str, tag: str = "") -> list[dict]:
 
 @api("GET", "/pictures")
 def pictures_state(req: Req):
-    from panko.config import ROOT
     from panko.media import choose
     status = req.query.get("status", "active")
     cards = _picture_cards(status, req.query.get("tag", ""))
     decisions = choose.load_decisions()
-    draws = ROOT / "data" / "pictures" / "drawings.json"
     st = _store()
     sheets: dict[str, dict] = {}
 
@@ -857,9 +855,61 @@ def pictures_state(req: Req):
         for t in (st.get(c["id"]) or {}).get("tags", []):
             tags[t] = tags.get(t, 0) + 1
     none = sum(1 for e in st.entries(status) if e.get("picture_pref") == "none" and not e.get("image"))
+    from panko import providers
+    try:
+        llm_ready = bool(providers.chain("llm"))
+    except Exception:  # noqa: BLE001  a provider that can't load: not ready
+        llm_ready = False
+    from panko.providers.imagegen import Generate
     return {"todo": len(cards), "cards": cards, "ids": [c["id"] for c in cards], "decisions": rows[::-1],
             "tags": sorted(tags.items(), key=lambda x: (-x[1], x[0]))[:80], "none": none,
-            "drawings_waiting": len(json.loads(draws.read_text())) if draws.exists() else 0}
+            "drawings_waiting": len(_drawings_todo(st)), "draw_ready": Generate({}).ready(), "llm_ready": llm_ready}
+
+
+def _drawings_file() -> Path:
+    from panko.config import ROOT
+    return ROOT / "data" / "pictures" / "drawings.json"
+
+
+def _drawings_todo(st) -> dict[str, str]:
+    """The drawing prompts waiting (data/pictures/drawings.json) for cards that still have no picture."""
+    from panko.media import pictures
+    p = _drawings_file()
+    try:
+        prompts = json.loads(p.read_text()) if p.exists() else {}
+    except ValueError:
+        prompts = {}
+    return pictures._todo(st, prompts, False)
+
+
+@api("POST", "/pictures/draw")
+def pictures_draw(req: Req):
+    """Make the drawings that are waiting (paid, the [images.generate] provider with your key). Without `confirm`:
+    how many, and the price if `usd_per_image` is set in [images.generate]."""
+    from panko.config import settings
+    from panko.media import pictures
+    from panko.providers.imagegen import Generate
+    st = _store()
+    todo = _drawings_todo(st)
+    gen = settings().get("images", {}).get("generate", {})
+    if todo and not Generate({}).ready():
+        from panko.providers.imagegen import BACKENDS
+        raise ValueError(f"drawings need {BACKENDS.get(gen.get('provider', 'openai'), 'a key')}: add it in setup")
+    each = gen.get("usd_per_image")
+    if not _confirmed(req):
+        est = {"cards": len(todo), "model": gen.get("model", ""), "quality": gen.get("quality", "")}
+        return {"estimate": est | ({"usd": round(len(todo) * float(each), 2)} if each else
+                                   {"price": "not set: add usd_per_image to [images.generate] to see it"})}
+    budget = _budget(req)
+    if each and budget:                           # never more drawings than the budget pays for
+        todo = dict(list(todo.items())[:int(budget // float(each))])
+
+    def run(job: Job):
+        r = pictures.draw(todo, store=_store())
+        bad = {k: v for k, v in r.items() if str(v).startswith("error")}
+        job.say(f"drew {len(r) - len(bad)}, failed {len(bad)}" + (f": {next(iter(bad.values()))}" if bad else ""))
+        return {"drawn": len(r) - len(bad), "failed": bad}
+    return _start("draw", f"Make {len(todo)} drawings", run, paid=True)
 
 
 def _chosen_dir() -> Path:

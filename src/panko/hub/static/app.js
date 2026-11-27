@@ -1471,12 +1471,18 @@ VIEWS.pictures = async (el, r) => {
         <a href="#/design">Choose the sources</a> in card design.</p>
       <div class="acts mt"><div class="seg"><button data-a="st" data-s="active" class="${status === 'active' ? 'on' : ''}">active</button><button data-a="st" data-s="candidate" class="${status === 'candidate' ? 'on' : ''}">inbox</button></div>
         <label class="dim">at most <input id="p-lim" type="number" min="1" value="${Math.min(50, d.todo || 50)}"> cards</label>
-        <button class="pri" data-a="decide" ${d.todo ? '' : 'disabled'}><span class="paid">$</span>choose pictures</button></div>
+        <button class="${d.llm_ready ? 'pri' : ''}" data-a="decide" ${d.todo && d.llm_ready ? '' : 'disabled'}><span class="paid">$</span>choose pictures with the model</button></div>
+      ${d.llm_ready ? '' : html`<p class="faint mt-s">Choosing with the model here needs an API key: <a href="#/setup">add <code>ANTHROPIC_API_KEY</code> in setup</a>.</p>`}
+      ${d.todo ? html`<details class="mt-s" ${d.llm_ready ? '' : 'open'}><summary>or choose them in chat, free</summary>
+        <p class="muted-p mt-s">With Panko connected to your own Claude (<a href="#/setup">setup → chat mode</a>), ask it:</p>
+        <div class="snippet mt-s"><button data-a="copy-ask">copy</button><pre id="p-ask">Use Panko to choose pictures for my ${status === 'active' ? 'active cards' : 'inbox cards'}${tag ? ` tagged ${tagName(tag)}` : ''}.</pre></div>
+        <p class="faint mt-s">It searches your picture sources, looks at the photos and picks one per card; they show up below as decisions. Photos are free. When none fits it writes a drawing prompt, which you make here (paid).</p></details>` : ''}
     </section>
     <details class="box" data-fold="pictures-decisions"><summary class="t">decisions <span class="dim">${n(d.decisions.length)}</span></summary>
       ${d.decisions.length ? html`<div class="acts"><button data-a="apply" ${d.decisions.some(x => x.photo && !x.applied) ? '' : 'disabled'} title="download each photo the model chose and put it on its card">download the chosen photos</button>
         ${d.decisions.some(x => x.photo && !x.applied) ? '' : html`<span class="faint">every chosen photo is on its card</span>`}
-        ${d.drawings_waiting ? html`<span class="dim">${plural(d.drawings_waiting, 'drawing')} waiting: <code>uv run panko draw data/pictures/drawings.json --batch</code></span>` : ''}</div>` : ''}
+        ${d.drawings_waiting ? html`<button data-a="draw" ${d.draw_ready ? '' : 'disabled'}><span class="paid">$</span>make ${plural(d.drawings_waiting, 'drawing')}</button>
+          ${d.draw_ready ? '' : html`<span class="faint">drawings need an image key: <a href="#/setup">add <code>OPENAI_API_KEY</code> in setup</a></span>`}` : ''}</div>` : ''}
       ${d.decisions.length ? paged(d.decisions, 'decisions', x => html`<tr>
         <td class="nw"><a href="#/cards?status=all&id=${x.id}">${x.id}</a></td>
         <td>${peek(x) ? html`<span class="peekable" data-peek="${peek(x)}">${tgt(x.ar, '')}</span>` : tgt(x.ar, '')}</td><td class="cut" style="max-width:240px">${x.gloss}</td>
@@ -1510,6 +1516,8 @@ VIEWS.pictures = async (el, r) => {
     'none-all': async () => { if (await confirmIt(`no picture for ${plural(d.todo, 'card')} tagged ${tagName(tag)}?`, html`<p>They leave the picture queue. You can undo it, or ask for a picture on any one of them from its edit form.</p>`)) none(d.ids); },
     decide: () => paidAction('/pictures/decide', { status, tag, limit: +$('#p-lim').value || 0 }, 'choose pictures with the model?', { batch: false, onDone: redraw }),
     apply: () => startJob('/pictures/apply', {}, redraw),
+    draw: () => paidAction('/pictures/draw', {}, `make ${plural(d.drawings_waiting, 'drawing')}?`, { batch: false, onDone: redraw }),
+    'copy-ask': async () => { try { await navigator.clipboard.writeText($('#p-ask').textContent); toast('copied'); } catch { toast('select the text and copy it', 'bad'); } },
   });
 };
 

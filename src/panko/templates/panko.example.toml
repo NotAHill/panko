@@ -44,6 +44,8 @@ chain = ["source", "wikidata", "commons", "openverse", "pexels", "pixabay", "gen
 provider = "openai"
 model = "gpt-image-2"
 quality = "low"
+# usd_per_image = 0.0                 # what one drawing costs at this model and quality (the provider's price list):
+#                                       the hub then shows the price before drawing and keeps to your budget
 # The house style added to every drawing prompt. Write your own rules for people, clothing and setting here.
 style = """Simple hand-drawn picture-dictionary illustration: ink lines with soft watercolour, warm muted colours, \
 plain off-white paper background, simple uncluttered composition with only the props the idea needs, \

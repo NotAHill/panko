@@ -65,7 +65,8 @@ check as for pages. At ingest, each item the recording says gets a clip of the r
 2. Photos first: `panko_photo_search({id: plain English query})`, up to 12 cards per call (also for drawing-planned
    cards: a photo is free, a drawing isn't). Look at each sheet and pick as `pictures-pick` says.
 3. `panko_pictures_save({id: {"photo": {"dir", "index"}} | {"prompt": scene} | {"skip": reason}})`, a batch at a
-   time; then `panko_pictures_apply()` downloads the photos. Drawings wait in a file for the learner (paid).
+   time; then `panko_pictures_apply()` downloads the photos. Drawings wait for the learner, who makes them from
+   the hub's pictures page (paid, their image key).
 
 ## Gloss clashes and examples
 - `panko_clashes()` lists production cards whose glosses would be ambiguous. Decide as `panko_prompt("clashes")`

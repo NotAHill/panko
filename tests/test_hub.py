@@ -117,8 +117,12 @@ def test_activate_reject_restore(env):
     assert s.get("dw-4")["status"] == "candidate"
 
 
-def test_preview_is_sandboxed_and_media_inline(env):
+def test_preview_is_sandboxed_and_media_inline(env, monkeypatch):
     c, s, tmp = env
+    from panko.media import audio  # one voice whose audio isn't made yet, whatever keys this machine has
+    monkeypatch.setattr(audio, "voice_count", lambda variety: 1)
+    monkeypatch.setattr(audio, "speak", lambda text, variety, prefix="_panko_", slot=0, dry=None:
+                        audio.Voiced(f"{prefix}test_{slot}.mp3", "not generated yet"))
     (tmp / "media" / "pic.jpg").write_bytes(b"\xff\xd8jpeg")
     s.put({**s.get("dw-1"), "image": {"file": "pic.jpg", "credit": "test"}})
     p = c.get("/api/entries/dw-1/preview").json()
@@ -291,6 +295,33 @@ def test_no_picture_leaves_the_queue_and_can_be_undone(env, monkeypatch):
     assert "no-picture" not in c.get("/api/entries?status=active").json()["rows"][0]["flags"]
     c.post("/api/pictures/none", json={"ids": ["dw-1"], "undo": True}, headers=H)
     assert "dw-1" in c.get("/api/pictures?status=active").json()["ids"]
+
+
+def test_drawings_are_made_from_the_hub_price_first(env, monkeypatch):
+    c, s, tmp = env
+    import json
+
+    from panko.media import pictures
+    from panko.providers import imagegen
+    monkeypatch.setattr(api, "_drawings_file", lambda: tmp / "drawings.json")
+    (tmp / "drawings.json").write_text(json.dumps({"dw-2": "a glass of tea", "dw-3": "a spinning top", "gone": "x"}))
+    monkeypatch.setattr(imagegen.Generate, "ready", lambda self: False)
+    st = c.get("/api/pictures?status=candidate").json()
+    assert st["drawings_waiting"] == 2 and st["draw_ready"] is False and "llm_ready" in st
+    r = c.post("/api/pictures/draw", json={}, headers=H)
+    assert r.status_code == 400 and "OPENAI_API_KEY" in r.json()["error"]            # no key: says which one
+    monkeypatch.setattr(imagegen.Generate, "ready", lambda self: True)
+    est = c.post("/api/pictures/draw", json={}, headers=H).json()["estimate"]
+    assert est["cards"] == 2 and "usd" not in est and "usd_per_image" in est["price"]  # no price set: none invented
+    drawn = []
+    monkeypatch.setattr(pictures, "draw", lambda todo, store=None: drawn.append(dict(todo)) or {k: "f.jpg" for k in todo})
+    from panko import config
+    real = config.settings
+    monkeypatch.setattr(config, "settings", lambda: {**real(), "images": {**real().get("images", {}), "generate": {
+        **real().get("images", {}).get("generate", {}), "usd_per_image": 0.05}}})
+    assert c.post("/api/pictures/draw", json={}, headers=H).json()["estimate"]["usd"] == 0.1
+    j = c.post("/api/pictures/draw", json={"confirm": True, "budget": 0.07}, headers=H).json()["job"]
+    assert wait(c, j)["status"] == "done" and len(drawn[0]) == 1                       # the budget pays for one
 
 
 def test_sources_from_before_the_queue_are_listed_with_their_cards(env):
