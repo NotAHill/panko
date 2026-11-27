@@ -651,3 +651,38 @@ def test_a_free_job_cut_off_by_a_restart_carries_on_by_itself_once(env, monkeypa
     assert jobs.get("a4").status == "done" and jobs.get("a4").log == ["fine"]
     again = _restart(path)                                            # and all of it is still there after another
     assert again.get("a1").resumed_as == started[0] and again.get(started[0]).status == "done"
+
+
+def test_pictures_you_already_have(env, monkeypatch):
+    """A card that means the same as one with a picture can take it (free); the chooser offers the photos found for
+    that card, with its picture first."""
+    c, s, tmp = env
+    from panko.media import choose, pictures, reuse
+    media = tmp / "media"
+    monkeypatch.setattr(reuse, "_media", lambda: media)
+    monkeypatch.setattr(pictures, "_media", lambda: media)
+    monkeypatch.setattr(choose, "decisions_path", lambda: tmp / "decisions.json")
+    monkeypatch.setattr(api, "_chosen_dir", lambda: tmp / "chosen")
+    (media / "door.jpg").write_bytes(b"jpg")
+    s.put({"id": "dw-9", "kind": "word", "variety": "darija", "ar": "باب", "gloss": "door", "pos": "noun",
+           "image": {"file": "door.jpg", "credit": "Commons · CC BY"}}, status="active")
+    s.put({"id": "fs-9", "kind": "word", "variety": "fusha", "ar": "باب", "gloss": "door", "pos": "noun"}, status="active")
+    s.put({"id": "fs-8", "kind": "word", "variety": "fusha", "ar": "مدخل", "gloss": "door", "pos": "noun"}, status="active")
+    s.put({"id": "dw-8", "kind": "word", "variety": "darija", "ar": "باب", "gloss": "door", "pos": "noun"}, status="active")
+    st = c.get("/api/pictures?status=active").json()
+    assert st["reuse"] == 2 and st["reuse_sure"] == 2              # not dw-8: a Darija door from a Darija card and st["sources"]["ready"][0] == "your own pictures"
+    r = c.get("/api/pictures/reuse?status=active").json()
+    assert {x["id"] for x in r["cards"]} == {"fs-9", "fs-8"} and r["cards"][0]["sources"][0]["file"] == "door.jpg"
+    # the photos found for the door earlier come up for the other door, with its picture first
+    api._save_searches({"dw-9": ("door", [{"thumb": "https://pics.example/d.jpg", "title": "a door", "provider": "commons"}])})
+    got = c.get("/api/pictures/candidates?id=fs-8").json()
+    assert got["from"] == "found for باب (darija)" and [x["provider"] for x in got["candidates"]] == ["yours", "commons"]
+    assert got["candidates"][0]["thumb"] == "/media/door.jpg"
+    done = c.post("/api/pictures/reuse", json={"pairs": [{"id": "fs-9", "source": "dw-9"}, {"id": "fs-8", "source": "nope"}]},
+                  headers=H).json()
+    assert done["done"] == ["fs-9"] and "fs-8" in done["failed"]
+    assert s.get("fs-9")["image"]["file"] == "door.jpg"
+    # choosing your own picture in the chooser shares the file too
+    r = c.post("/api/pictures/choose", json={"id": "fs-8", "dir": str(tmp / "chosen"), "index": 0}, headers=H).json()
+    assert r["image"]["file"] == "door.jpg" and r["image"]["reused_from"] == "dw-9"
+    assert c.get("/api/pictures?status=active").json()["reuse"] == 0

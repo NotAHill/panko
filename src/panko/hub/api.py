@@ -967,14 +967,17 @@ def pictures_state(req: Req):
         llm_ready = bool(providers.chain("llm"))
     except Exception:  # noqa: BLE001  a provider that can't load: not ready
         llm_ready = False
+    from panko.media import reuse
     from panko.providers.imagegen import Generate
     saved = _searches()[0]
+    reusable = reuse.matches(st, cards)
     for c in cards:
         c["searched"] = len(saved[c["id"]]) if c["id"] in saved else None
     return {"todo": len(cards), "cards": cards, "ids": [c["id"] for c in cards], "decisions": rows[::-1],
             "tags": sorted(tags.items(), key=lambda x: (-x[1], x[0]))[:80], "none": none,
             "drawings_waiting": len(_drawings_todo(st)), "draw_ready": Generate({}).ready(), "llm_ready": llm_ready,
-            "searched": sum(1 for c in cards if c["searched"] is not None), "sources": _photo_sources()}
+            "searched": sum(1 for c in cards if c["searched"] is not None), "sources": _photo_sources(),
+            "reuse": len(reusable), "reuse_sure": sum(1 for x in reusable if x["sure"])}
 
 
 def _photo_sources() -> dict:
@@ -982,6 +985,8 @@ def _photo_sources() -> dict:
     from panko import providers
     from panko.config import settings
     out: dict[str, list] = {"ready": [], "need_key": []}
+    if settings().get("images", {}).get("reuse", True):
+        out["ready"].append(PHOTO_SITE["yours"])
     for name in settings().get("images", {}).get("chain", []):
         p = providers.get("images", name)
         if p is None or not hasattr(p, "search"):
@@ -990,7 +995,7 @@ def _photo_sources() -> dict:
     return out
 
 
-PHOTO_SITE = {"source": "the source's own pages", "wikidata": "Wikidata", "commons": "Wikimedia Commons",
+PHOTO_SITE = {"yours": "your own pictures", "source": "the source's own pages", "wikidata": "Wikidata", "commons": "Wikimedia Commons",
               "openverse": "Openverse", "pexels": "Pexels", "pixabay": "Pixabay", "inaturalist": "iNaturalist",
               "arasaac": "ARASAAC"}
 
@@ -1157,6 +1162,16 @@ def pictures_candidates(req: Req):
         if eid in cands:
             return {"id": eid, "query": queries.get(eid) or pictures.query_for(e), "dir": str(_chosen_dir()),
                     "chosen": None, "from": "searched earlier", "candidates": _cands_out(cands[eid])}
+        # a card with the same meaning was searched: its photos, and its picture
+        from panko.media import reuse
+        for m in reuse.matches(_store(), [{**e, "id": eid}]):
+            src = next((s for s in m["sources"] if s["id"] in cands), None)
+            if src:
+                query = queries.get(src["id"]) or pictures.query_for(e)
+                got = reuse.search(query, store=_store()) + [c for c in cands[src["id"]] if not c.get("file")]
+                _save_searches({eid: (query, got)})
+                return {"id": eid, "query": query, "dir": str(_chosen_dir()), "chosen": None,
+                        "from": f"found for {src['ar']} ({src['variety']})", "candidates": _cands_out(got)}
     q = q or pictures.query_for(e)
     errors: dict = {}
     got = pictures.candidates(q, per_provider=6, errors=errors)
@@ -1169,6 +1184,29 @@ def _cands_out(cands: list[dict]) -> list[dict]:
     return [{"i": i, "thumb": c.get("thumb", ""), "title": c.get("title", ""), "author": c.get("author", ""),
              "license": c.get("license", ""), "provider": c.get("provider", ""), "page": c.get("page", "")}
             for i, c in enumerate(cands)]
+
+
+@api("GET", "/pictures/reuse")
+def pictures_reuse(req: Req):
+    """Cards waiting for a picture that could use one you already have (same meaning), sure ones marked."""
+    from panko.media import reuse
+    cards = _picture_cards(req.query.get("status", "active"), req.query.get("tag", ""))
+    found = reuse.matches(_store(), cards)
+    return {"cards": found, "sure": sum(1 for x in found if x["sure"])}
+
+
+@api("POST", "/pictures/reuse")
+def pictures_reuse_apply(req: Req):
+    """Use these pictures: {"pairs": [{"id": card, "source": card whose picture it takes}]}. Free, nothing fetched."""
+    from panko.media import reuse
+    st, done, failed = _store(), [], {}
+    for p in req.body.get("pairs") or []:
+        try:
+            reuse.use(st, str(p["id"]), str(p["source"]))
+            done.append(p["id"])
+        except (KeyError, ValueError, TypeError) as ex:
+            failed[str(p.get("id"))] = str(ex.args[0] if ex.args else ex)
+    return {"done": done, "failed": failed}
 
 
 @api("POST", "/pictures/choose")

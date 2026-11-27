@@ -641,3 +641,11 @@ table.keys tr.grp td { color: var(--faint); font-size: 12px; padding-top: 14px; 
 form.key-f { display: flex; gap: 6px; }
 form.key-f input { flex: 1; min-width: 140px; }
 textarea.cfg-text { width: 100%; min-height: 360px; font: 13px/1.5 ui-monospace, Menlo, monospace; background: var(--field); color: var(--fg); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 10px; box-sizing: border-box; }
+
+/* pictures you already have: the source pictures a card could take */
+.reuse-srcs { display: flex; flex-wrap: wrap; gap: 6px; }
+.reuse-pic { display: flex; align-items: center; gap: 8px; max-width: 240px; padding: 3px 8px 3px 3px; border: 1px solid var(--line); border-radius: var(--r-xs); background: transparent; text-align: left; }
+.reuse-pic img { width: 44px; height: 44px; object-fit: cover; border-radius: 3px; display: block; }
+.reuse-pic.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.reuse-pic img { flex: none; }
+.reuse-pic span { white-space: normal; overflow-wrap: anywhere; }

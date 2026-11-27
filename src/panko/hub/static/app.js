@@ -1485,6 +1485,7 @@ VIEWS.pictures = async (el, r) => {
     <section class="box"><div class="t">to do</div>
       <p><span class="acc big">${n(d.todo)}</span> ${status} card${d.todo === 1 ? '' : 's'}${tag ? ` tagged ${tagName(tag)}` : ''} without a picture or a decision.
         ${d.none ? html`<span class="dim">${plural(d.none, 'card')} set to no picture.</span>` : ''}</p>
+      ${d.reuse ? html`<p class="mt-s"><span class="ok">✻</span> ${plural(d.reuse, 'card')} can use a picture you already have, free: <a href="#" data-a="to-reuse">see them below</a>.</p>` : ''}
       ${d.todo ? html`<div class="by-hand"><div class="acts"><b>choose them yourself, free</b>
           ${d.searched >= d.todo
             ? html`<button data-a="search-all" data-again="1" ${d.sources.ready.length ? '' : 'disabled'} title="search every card waiting again, such as after adding a photo site">search again</button>`
@@ -1503,6 +1504,8 @@ VIEWS.pictures = async (el, r) => {
         <div class="snippet mt-s"><button data-a="copy-ask">copy</button><pre id="p-ask">Use Panko to choose pictures for my ${status === 'active' ? 'active cards' : 'inbox cards'}${tag ? ` tagged ${tagName(tag)}` : ''}.</pre></div>
         <p class="faint mt-s">It searches your picture sources, looks at the photos and picks one per card; they show up below as decisions. Photos are free. When none fits it writes a drawing prompt, which you make here (paid).</p></details>` : ''}
     </section>
+    ${d.reuse ? html`<details class="box" data-fold="pictures-reuse" id="reuse-box"><summary class="t">pictures you already have <span class="dim">${n(d.reuse)}</span></summary>
+      <div id="reuse-list">${loading()}</div></details>` : ''}
     <details class="box" data-fold="pictures-decisions"><summary class="t">decisions <span class="dim">${n(d.decisions.length)}</span></summary>
       ${d.decisions.length ? html`<div class="acts"><button data-a="apply" ${d.decisions.some(x => x.photo && !x.applied) ? '' : 'disabled'} title="download each photo the model chose and put it on its card">download the chosen photos</button>
         ${d.decisions.some(x => x.photo && !x.applied) ? '' : html`<span class="faint">every chosen photo is on its card</span>`}
@@ -1524,6 +1527,24 @@ VIEWS.pictures = async (el, r) => {
         html`<thead><tr><th>card</th><th>word</th><th>transliteration</th><th>gloss</th><th></th></tr></thead>`) : html`<p class="empty mt">Nothing waiting.</p>`}</details>`);
   $('#p-tag').onchange = e => go('#/pictures?' + new URLSearchParams({ status, tag: e.target.value }));
   const redraw = () => VIEWS.pictures(el, r);
+  let reuse = { cards: [] };
+  const pick = {};                               // card → the source card whose picture it takes
+  const boxes = () => [...document.querySelectorAll('#reuse-list input[type=checkbox]')];
+  const reusePaint = () => {
+    const was = new Map(boxes().map(i => [i.dataset.id, i.checked]));
+    put($('#reuse-list'), html`<p class="muted-p">These cards mean the same as cards that have a picture. Ticked ones are clear matches (one picture, same gloss);
+        check the others, since a gloss like “glass” can mean a cup or the material.</p>
+      <p class="faint mt-s">Studying both varieties? The same picture on two cards can bring the other one's word to mind on picture and production cards. For those, choose another photo of the same thing: the photos already found for the first card come up, free.</p>
+      <table class="t mt"><thead><tr><th></th><th>card</th><th>gloss</th><th>picture from</th><th></th></tr></thead><tbody>${reuse.cards.map(x => html`<tr>
+        <td><input type="checkbox" data-id="${x.id}" ${(was.has(x.id) ? was.get(x.id) : x.sure) ? 'checked' : ''} aria-label="use it"></td>
+        <td class="nw">${tgt(x.ar, '')} <span class="faint">${x.variety}</span></td><td>${x.gloss}${x.pos ? html` <span class="faint">${x.pos}</span>` : ''}</td>
+        <td><div class="reuse-srcs">${x.sources.map(s => html`<button class="reuse-pic ${(pick[x.id] || x.sources[0].id) === s.id ? 'on' : ''}" data-a="ru-src" data-id="${x.id}" data-src="${s.id}" title="${s.ar} · ${s.gloss} (${s.variety})">
+          <img src="/media/${encodeURIComponent(s.file)}" alt="${s.gloss}" loading="lazy" data-peek="/media/${encodeURIComponent(s.file)}"><span>${tgt(s.ar, '')} <span class="faint">${s.variety}${s.gloss !== x.gloss ? ' · ' + s.gloss : ''}</span></span></button>`)}</div></td>
+        <td class="r"><button class="nopic" data-a="choose" data-id="${x.id}">choose another</button></td></tr>`)}</tbody></table>
+      <div class="acts mt"><button class="pri" data-a="ru-use">use the ticked pictures</button><button data-a="ru-all">tick all</button><button data-a="ru-none">untick all</button>
+        <span class="faint">free: nothing is downloaded</span></div>`);
+  };
+  if (d.reuse) api('/pictures/reuse?' + new URLSearchParams({ status, tag })).then(x => { reuse = x; reusePaint(); }).catch(e => put($('#reuse-list'), errorBox(e)));
   const none = async (ids, undo = false) => {
     try {
       const x = await api('/pictures/none', { body: { ids, undo } });
@@ -1532,10 +1553,32 @@ VIEWS.pictures = async (el, r) => {
     } catch (e) { toast(html`<span class="bad">✘</span> ${e.message}`, 'bad', 0); }
   };
   S.undoNone = ids => none(ids, true);
-  const row = id => d.decisions.find(x => x.id === id) || d.cards.find(x => x.id === id) || { id };
+  const row = id => d.decisions.find(x => x.id === id) || d.cards.find(x => x.id === id) || reuse.cards.find(x => x.id === id) || { id };
   actions(el, {
     st: b => go('#/pictures?' + new URLSearchParams({ status: b.dataset.s, tag })),
     page: b => { PIC.page[b.dataset.w] = +b.dataset.p; redraw(); },
+    'to-reuse': () => { const b = $('#reuse-box'); if (!b) return; FOLD['pictures-reuse'] = b.open = true; b.scrollIntoView({ behavior: 'smooth' }); },
+    'ru-src': b => {
+      pick[b.dataset.id] = b.dataset.src;
+      reusePaint();
+      const box = boxes().find(i => i.dataset.id === b.dataset.id);
+      if (box) box.checked = true;                 // choosing a picture means you want it
+    },
+    'ru-all': () => boxes().forEach(i => { i.checked = true; }),
+    'ru-none': () => boxes().forEach(i => { i.checked = false; }),
+    'ru-use': async () => {
+      const pairs = boxes().filter(i => i.checked).map(i => {
+        const x = reuse.cards.find(c => c.id === i.dataset.id);
+        return { id: x.id, source: pick[x.id] || x.sources[0].id };
+      });
+      if (!pairs.length) return toast('Tick the cards first.');
+      try {
+        const res = await api('/pictures/reuse', { body: { pairs } });
+        const bad = Object.keys(res.failed);
+        toast(html`<span class="ok">✔</span> ${plural(res.done.length, 'card')} now ${res.done.length === 1 ? 'has' : 'have'} a picture${bad.length ? html`; <span class="bad">${bad.length} couldn't</span> (${Object.values(res.failed)[0]})` : ''}`, 'ok', 6000);
+        redraw();
+      } catch (e) { toast(html`<span class="bad">✘</span> ${e.message}`, 'bad', 0); }
+    },
     none: b => none([b.dataset.id]),
     choose: b => {
       const i = d.cards.findIndex(c => c.id === b.dataset.id);
@@ -1570,7 +1613,7 @@ async function choosePhoto(card, onDone, rest = null) {
       ${res.failed?.length ? html`<p class="warn mt-s">${res.failed.join(' and ')} didn't answer: these are from the other sites. Search again to retry.</p>` : ''}
       ${res.candidates.length ? html`<div class="grid-pics mt">${res.candidates.map(c => html`<button class="pic ${res.chosen === c.i ? 'on' : ''}" data-i="${c.i}" title="${c.title}">
           <img src="${c.thumb}" alt="${c.title}" loading="lazy" referrerpolicy="no-referrer" data-peek="${c.thumb}">
-          <span class="lic">${c.provider} · ${c.license || 'licence unknown'}</span></button>`)}</div>
+          <span class="lic">${c.provider === 'yours' ? `yours · ${c.author}${c.license ? ' · ' + c.license : ''}` : `${c.provider} · ${c.license || 'licence unknown'}`}</span></button>`)}</div>
         <p class="faint mt-s">Click one to put it on the card. ${res.chosen != null ? 'The outlined one is what the model chose.' : ''}</p>`
         : html`<p class="empty mt">Nothing found for “${res.query}”. Try other words.</p>`}
       ${rest ? html`<div class="acts mt"><button data-ch="none" title="this card is better without a picture">no picture</button>

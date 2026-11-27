@@ -181,6 +181,12 @@ Update the **Now** section at the end of every work session: it's what a fresh s
   doesn't answer; the admin page shows health and what happened lately (a Panko that stopped by itself, with its
   last log lines; a failed start; low disk); alerts go to `PANKO_ALERT_URL` (an ntfy.sh topic) when set; a GitHub
   workflow (`uptime.yml`) checks `/host/health` from outside every 15 minutes, its address a repository secret.
+- **Pictures you already have (2026-11-27, stage 1 of reuse).** A card that means the same as a card with a picture
+  can take it, free: "your own pictures" come first in every photo search (the model's contact sheets tag them `yo`),
+  the pictures page lists the cards of one variety that match pictures from another (clear matches ticked, one click
+  to use them), and the chooser offers the photos already found for the matching card. A reused picture shares the
+  file. Pictures now record where they came from and the meaning they were chosen for. Stage 2 (later): a pool on the
+  server shared between people, for openly licensed photos, drawings only if their owner opts in.
 - **Next:** the rest of H5 (quota warnings, invite emails); backups before inviting anyone
   (`deploy/README.md` §5, skipped for now). DODa stays on
   (free and invite-only fits its terms; switched off if its authors object).

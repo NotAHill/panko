@@ -75,7 +75,14 @@ def drawings_allowed() -> bool:
 # 2. search ------------------------------------------------------------------------------------------------------
 
 def _searchers(names: list[str] | None = None) -> list:
-    return [p for p in providers.chain("images", names) if hasattr(p, "search")]
+    """The photo sites in the [images] chain, after your own pictures (unless `[images] reuse = false`)."""
+    from panko.config import settings
+    found = [p for p in providers.chain("images", names) if hasattr(p, "search")]
+    if names is None and settings().get("images", {}).get("reuse", True) and not any(p.name == "yours" for p in found):
+        mine = providers.get("images", "yours")
+        if mine is not None:
+            found.insert(0, mine)
+    return found
 
 
 def candidates(query: str, per_provider: int = 6, names: list[str] | None = None,
@@ -117,6 +124,13 @@ def _to_jpeg(src: Path | bytes, dst: Path, longest: int, quality: int) -> None:
 
 def _fetch(c: dict):
     from PIL import Image
+    if c.get("file"):                                  # one of your own pictures: already here
+        try:
+            with Image.open(_media() / c["file"]) as im:
+                im.load()
+                return _on_white(im)
+        except OSError:
+            return None
     for attempt in range(2):                          # image hosts throttle bursts of parallel fetches
         try:
             r = httpx.get(c["thumb"], headers=UA, timeout=30, follow_redirects=True)
@@ -131,7 +145,7 @@ def _fetch(c: dict):
 
 
 # provider → short tag printed next to each candidate's number on a sheet
-TAGS = {"wikidata": "wd", "commons": "cm", "openverse": "ov", "pexels": "px", "pixabay": "pb", "inaturalist": "in",
+TAGS = {"yours": "yo", "wikidata": "wd", "commons": "cm", "openverse": "ov", "pexels": "px", "pixabay": "pb", "inaturalist": "in",
         "arasaac": "as", "source": "src"}
 
 
@@ -173,6 +187,8 @@ def search(queries: dict[str, str], outdir: Path, per_slug: int = 10, names: lis
 # 3. apply -------------------------------------------------------------------------------------------------------
 
 def _credit(c: dict) -> str:
+    if c.get("file"):                                  # your own picture keeps the credit it came with
+        return c.get("credit", "")
     p = providers.get("images", c.get("provider", ""))
     site = getattr(p, "label", "") or "Openverse"     # older cands.json files: anything not Commons was Openverse
     return f'<a href="{c.get("page", "")}">{site}</a>, {c.get("author", "")}, {c.get("license", "")}'
@@ -185,6 +201,26 @@ def _download(c: dict, path: Path):
     r = httpx.get(c["thumb"], headers=UA, follow_redirects=True, timeout=60)
     r.raise_for_status()
     _to_jpeg(r.content, path, 800, 85)                  # pictograms are transparent PNGs: flattened onto white
+
+
+def _record(c: dict, entry: dict, name: str) -> dict:
+    """The card's picture, with where it came from and the meaning it was chosen for (so it can be reused)."""
+    im = {"file": name, "credit": _credit(c), "provider": c.get("provider", ""),
+          "meaning": {"gloss": entry.get("gloss", ""), "pos": entry.get("pos", "")}}
+    for k, out in (("page", "page"), ("license", "license"), ("item", "item"), ("source_id", "reused_from")):
+        if c.get(k):
+            im[out] = c[k]
+    return im
+
+
+def _place(c: dict, eid: str, out: Path, name: str, download) -> str:
+    """The file for this candidate: your own picture is shared as it is (Anki stores it once); a site's is fetched."""
+    if c.get("file"):
+        if not (out / c["file"]).exists():
+            raise FileNotFoundError(c["file"])
+        return c["file"]
+    download(c, out / name)
+    return name
 
 
 def apply(decisions: dict[str, dict], store=None, out: Path | None = None, download=_download) -> dict:
@@ -213,14 +249,14 @@ def apply(decisions: dict[str, dict], store=None, out: Path | None = None, downl
             continue
         try:
             c = json.loads((inside(d["photo"]["dir"]) / "cands.json").read_text())[eid][d["photo"]["index"]]
-            name = f"{PHOTO_PREFIX}{eid}.jpg"
-            download(c, out / name)
+            name = _place(c, eid, out, f"{PHOTO_PREFIX}{eid}.jpg", download)
         except Exception as ex:  # noqa: BLE001
             print("photo failed", eid, ex, file=sys.stderr)
             res["failed"].append(eid)
             continue
-        credits[name] = {k: c.get(k, "") for k in ("provider", "title", "author", "license", "page")}
-        e["image"] = {"file": name, "credit": _credit(c)}
+        if not c.get("file"):
+            credits[name] = {k: c.get(k, "") for k in ("provider", "title", "author", "license", "page")}
+        e["image"] = _record(c, e, name)
         st.put(e)
         res["photo"] += 1
     cp.write_text(json.dumps(credits, indent=1, ensure_ascii=False))
@@ -241,12 +277,13 @@ def use(eid: str, c: dict, store=None, out: Path | None = None, download=None) -
     name = f"{PHOTO_PREFIX}{eid}.jpg"
     if e.get("image") or (out / name).exists():
         name = f"{PHOTO_PREFIX}{eid}-{hashlib.sha1(c['thumb'].encode()).hexdigest()[:8]}.jpg"
-    (download or _download)(c, out / name)
-    cp = out / "credits.json"
-    credits = json.loads(cp.read_text()) if cp.exists() else {}
-    credits[name] = {k: c.get(k, "") for k in ("provider", "title", "author", "license", "page")}
-    cp.write_text(json.dumps(credits, indent=1, ensure_ascii=False))
-    e["image"] = {"file": name, "credit": _credit(c)}
+    name = _place(c, eid, out, name, download or _download)
+    if not c.get("file"):
+        cp = out / "credits.json"
+        credits = json.loads(cp.read_text()) if cp.exists() else {}
+        credits[name] = {k: c.get(k, "") for k in ("provider", "title", "author", "license", "page")}
+        cp.write_text(json.dumps(credits, indent=1, ensure_ascii=False))
+    e["image"] = _record(c, e, name)
     if e.get("picture_pref") == "none":       # you chose one after all
         e.pop("picture_pref")
     st.put(e)
@@ -274,7 +311,8 @@ def _save_drawing(st, out: Path, eid: str, png: Path, prompt: str, model: str) -
     _to_jpeg(png, out / name, 640, 80)
     png.unlink()
     e = st.get(eid)
-    e["image"] = {"file": name, "credit": f"Illustration generated ({model})", "prompt": prompt}
+    e["image"] = {"file": name, "credit": f"Illustration generated ({model})", "prompt": prompt, "provider": "generate",
+                  "meaning": {"gloss": e.get("gloss", ""), "pos": e.get("pos", "")}}
     st.put(e)
     return name
 

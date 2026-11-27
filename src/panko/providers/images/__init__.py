@@ -7,4 +7,5 @@ from panko.providers.images import (  # noqa: F401
     pixabay,
     source,
     wikidata,
+    yours,
 )

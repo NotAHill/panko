@@ -2,6 +2,15 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-27 · A picture belongs to a meaning, is reused only when confirmed, and never between synonyms.**
+Pictures you already have are offered for cards with the same meaning (the gloss's main sense and part of speech),
+first in every search and as a list on the pictures page, but always confirmed (by you, or the model picking from a
+sheet): "glass" can be a cup or the material. The list only offers pictures from another variety: two words of one
+variety with one meaning are synonyms, and the same picture would make their production cards look alike; a file
+already shown on a card of the card's own variety isn't offered either. For varieties studied side by side the page
+suggests another photo of the same thing (the photos found for the first card come up, free), since the same
+picture on both cards can bring the other variety's word to mind.
+
 **2026-11-27 · Panko on your own computer is a track of its own (D), offered from the sign-in page.** For people
 who don't want an account: the same CLI, local hub and local chat mode a developer uses today, made easy to install.
 Staged so the cheap parts come first: a package and an install page, then the same Anki add-on pointed at a local

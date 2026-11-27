@@ -39,6 +39,8 @@ dbs = {{morph_dbs}}                  # {variety = database}, e.g. {fusha = "cali
 # source = a picture cropped from the material; then free photo sites (pexels/pixabay need free keys); the paid
 # drawing last. Off by default: "inaturalist" (animals, plants), "arasaac" (pictograms, CC BY-NC-SA).
 chain = ["source", "wikidata", "commons", "openverse", "pexels", "pixabay", "generate"]
+# your own pictures (on cards of another variety with the same meaning) come first in every photo search
+reuse = true
 
 [images.generate]
 provider = "openai"
