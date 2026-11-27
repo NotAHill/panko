@@ -143,11 +143,8 @@ def _meta(pack_id: str, version: int, title: str, description: str, cards: list[
 
 
 def _panko_version() -> str:
-    from importlib.metadata import PackageNotFoundError, version
-    try:
-        return version("panko")
-    except PackageNotFoundError:
-        return ""
+    from panko import version
+    return version()
 
 
 def _write(out: Path, meta: dict, cards: list[dict], pics: dict[str, Path], sounds: dict[str, Path]) -> None:

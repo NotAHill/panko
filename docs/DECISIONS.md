@@ -17,12 +17,18 @@ already shown on a card of the card's own variety isn't offered either. For vari
 suggests another photo of the same thing (the photos found for the first card come up, free), since the same
 picture on both cards can bring the other variety's word to mind.
 
+**2026-11-27 · A server update runs detached from the terminal that started it.** A dropped SSH connection once
+stopped `deploy/update.sh` between creating the new container and starting it, and the site was down until someone
+noticed. Now the update runs on its own on the server (nohup, its own session, from a copy of the script so
+`git pull` can't change it mid-run) with a lock and a log; the terminal only follows the log. After switching it
+waits for the container's health check and starts it once more if it didn't start.
+
 **2026-11-27 · An installed Panko is complete and keeps one folder, `~/Panko`.** The hub and chat mode became core
 dependencies (a few small libraries), so `uv tool install` needs no extras and `panko hub` just works; the extras
 stay as empty names so old commands still run. An installed copy no longer falls back to the current folder, which
 scattered `config/` and `data/` wherever someone happened to run it; a checkout still uses itself, and a folder with
-`config/panko.toml` above the current one still wins. Installs come from GitHub until Panko has a PyPI name of its
-own ("panko" is taken). The add-on gets a lasting code on a local Panko (made on the sync page, a file only you can
+`config/panko.toml` above the current one still wins. On PyPI it's `pankohub` ("panko" is taken by another project); the
+command and the module stay `panko`, and installs come from GitHub until the first release is published. The add-on gets a lasting code on a local Panko (made on the sync page, a file only you can
 read), because the hub's launch key changes on every start; it's checked only on 127.0.0.1, like the rest of the hub.
 
 **2026-11-27 · Panko on your own computer is a track of its own (D), offered from the sign-in page.** For people

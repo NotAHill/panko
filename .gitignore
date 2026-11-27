@@ -22,3 +22,6 @@ config/hub.toml
 *.swo
 .env.*
 !.env.example
+deploy/update.log
+deploy/update.status
+deploy/.update.lock

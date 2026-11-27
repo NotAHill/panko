@@ -200,8 +200,11 @@ Update the **Now** section at the end of every work session: it's what a fresh s
   serves the add-on there too. The same add-on syncs from a local Panko: the sync page makes a lasting code (the old
   launch key changed on every start), the add-on takes `127.0.0.1:8770` as an http address and stays quiet when Anki
   opens while the hub isn't running. Tested with the add-on's own network code against a real local hub into a
-  scratch collection. Not on PyPI: the name `panko` there belongs to another project, so publishing needs a name of
-  our own (your call). Windows not tried.
+  scratch collection. On PyPI it will be `pankohub` (`panko` there is another project; the command stays `panko`):
+  not published yet. Windows not tried.
+- **Deploys survive a dropped connection (2026-11-27).** `deploy/update.sh` runs detached on the server with a lock
+  and a log, and checks the new container answers. `.github/workflows/publish.yml` publishes `pankohub` to PyPI on a
+  `v*` tag through trusted publishing (no token in the repo); setting up the trusted publisher on pypi.org is yours.
 - **Next:** D4 (chat mode as a one-click Claude Desktop extension); the last of H5 (invite emails, when inviting more
   than a couple of people); backups before inviting anyone (`deploy/README.md` §5, skipped for now). DODa stays on
   (free and invite-only fits its terms; switched off if its authors object).
@@ -243,7 +246,7 @@ S10 has numbered tracks of its own: one per later step, and D for running it on 
 |---|---|---|
 | **L** (S10 step 2): the deck library, `docs/SPEC-library.md` | L1 Panko packs (`panko pack build`, `panko library import`) · L2 `panko publish` · L3 the library repo, `panko library list` / `get`, the hub's library page · L4 updates (a deck's v2 over v1, your edits kept) | L1–L3 built 2026-11-26, library live; L4 waits for a deck's v2 |
 | **H** (S10 step 3): the hosted Panko, `docs/SPEC-hosted.md` | H1 hosted mode inside Panko · H2 the front door and the server · H3 the Anki add-on · H4 chat mode remotely (MCP over HTTP, OAuth) · H5 polish (jobs survive a restart, quota warnings, invite emails, monitoring) | H1–H4 deployed; H5: restarts and monitoring done, quota warnings and invite emails to do |
-| **D** (after H5): Panko on your own computer, for those who don't want an account | D1 a package: `uv tool install panko`, then `panko hub` · D2 an install page, linked from the sign-in page ("or run it on your own computer") · D3 the Panko sync add-on tried end to end against a local Panko (one add-on for both) · D4 chat mode as a one-click Claude Desktop extension · D5 a signed double-click app, only if people ask | D1–D3 built (install from GitHub; PyPI needs a name); D4–D5 to do |
+| **D** (after H5): Panko on your own computer, for those who don't want an account | D1 a package: `uv tool install pankohub` (from GitHub until the first PyPI release), then `panko hub` · D2 an install page, linked from the sign-in page ("or run it on your own computer") · D3 the Panko sync add-on tried end to end against a local Panko (one add-on for both) · D4 chat mode as a one-click Claude Desktop extension · D5 a signed double-click app, only if people ask | D1–D3 built (install from GitHub; PyPI as `pankohub` once published); D4–D5 to do |
 
 Order (your call, 2026-11-23; product first from 2026-11-25): Phase 4 (lessons and recordings, built), Phase 5
 (verification, built), S9 (any language, built), S10. Card migration (Peace Corps pictures and sync, the Fusha round of Phase 6) waits until

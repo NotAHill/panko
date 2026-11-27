@@ -1,5 +1,5 @@
 [project]
-name = "panko"
+name = "pankohub"            # on PyPI ("panko" there is another project); the command and the module are `panko`
 version = "0.1.0"
 description = "Turns language-learning material (textbooks, teacher sheets, transcripts) into checked Anki cards with pictures, examples and audio."
 readme = "README.md"
@@ -59,6 +59,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/panko"]
+
+[tool.hatch.build.targets.sdist]       # the code and its tests: not the repo's config, deploy files or docs
+include = ["/src/panko", "/tests", "/README.md", "/LICENSE", "/pyproject.toml"]
 
 [tool.ruff]
 line-length = 120

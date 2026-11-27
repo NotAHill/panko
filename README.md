@@ -42,7 +42,7 @@ panko hub           # opens in your browser; the setup asks your language and wr
 
 Or from the terminal, `panko init` asks the same questions (language, script, varieties, gloss language, deck
 names, Anki profile). `panko init --here`, or `PANKO_HOME=DIR`, keeps the folder somewhere else. Update with
-`uv tool upgrade panko`. Cards reach Anki through the Panko sync add-on: download it from the hub's sync page, which
+`uv tool upgrade pankohub`. Cards reach Anki through the Panko sync add-on: download it from the hub's sync page, which
 also makes the code to paste into it.
 
 Panko works for any language. Two languages come as presets, which fill in the script, how the prompts describe

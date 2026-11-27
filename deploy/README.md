@@ -84,6 +84,11 @@ without waiting. Everyone's Panko stops with the old container. A job cut off an
 its jobs in `data/work/jobs.json`, the front door starts the Pankos that had one when it comes back, and free jobs
 carry on by themselves (once); paid ones wait on the jobs page with a resume button that prices what's left.
 
+The update runs on its own on the server and your terminal only follows its log, so a dropped SSH connection
+doesn't stop it halfway: `tail -f deploy/update.log` picks it up again, and `deploy/update.status` holds its exit
+code when it ends. Only one update runs at a time. After switching it waits until the new container answers its
+health check, and starts it once more if it didn't start.
+
 ## Looking after it
 
 - `docker compose -f deploy/compose.yml logs panko`: the front door. Each user's Panko logs to

@@ -1,0 +1,26 @@
+# Publish Panko to PyPI as `pankohub` when a release tag is pushed (git tag v0.1.0 && git push origin v0.1.0). It
+# uses PyPI's trusted publishing, so no token is kept here: on pypi.org, add a trusted publisher for the project
+# `pankohub` with this repository, the workflow `publish.yml` and the environment `pypi` (once, before the first tag).
+name: publish
+on:
+  push:
+    tags: ["v*"]
+permissions: {}
+jobs:
+  pypi:
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write          # trusted publishing: PyPI checks this workflow's identity
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: The tag matches the version
+        run: |
+          v=$(grep -m1 '^version' pyproject.toml | cut -d'"' -f2)
+          [ "v$v" = "$GITHUB_REF_NAME" ] || { echo "::error::tag $GITHUB_REF_NAME but pyproject says $v"; exit 1; }
+      - run: uv build
+      - name: The package installs and runs
+        run: uv tool install dist/*.whl && panko --version
+      - run: uv publish --trusted-publishing always

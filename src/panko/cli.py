@@ -446,11 +446,8 @@ def _main(argv=None):
 
 
 def _version() -> str:
-    from importlib.metadata import PackageNotFoundError, version
-    try:
-        return version("panko")
-    except PackageNotFoundError:
-        return "unknown"
+    from panko import version
+    return version() or "unknown"
 
 
 def _folder_note() -> None:
