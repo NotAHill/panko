@@ -117,7 +117,7 @@ entry the pack dropped is not removed; it is listed for you.
 |---|---|
 | L1 ✅ | Pack format, `panko pack build` and `panko library import FILE`. Round trip tested: a pack from one store into an empty store, then into a store with overlaps (sightings, holds, rejected stays rejected). Built 2026-11-26 (`panko.library`); tried on 210 real food cards (39 MB): all imported, and a dry-run sync in the new Panko found every clip but the 4 never made. |
 | L2 ✅ | `panko publish`: the checks above, the `.apkg` from the pack, the index entry and the report. Built 2026-11-26; tried on the 728 Peace Corps cards (112 MB each for the pack and the .apkg; the .apkg imports into a fresh Anki as 728 notes). |
-| L3 ✅ | Library repo with `index.json`; `panko library list|get`; the hub's library page. Built 2026-11-26; the repo is [NotAHill/panko-decks](https://github.com/NotAHill/panko-decks), with the Peace Corps deck as its first release. |
+| L3 ✅ | Library repo with `index.json`; `panko library list\|get`; the hub's library page. Built 2026-11-26; the repo is [NotAHill/panko-decks](https://github.com/NotAHill/panko-decks), with the Peace Corps deck as its first release. |
 | L4 | Updates: v2 over v1, your edits kept, dropped entries listed. |
 
 **First deck (published 2026-11-26):** the Peace Corps *Moroccan Arabic* words, `darija-peace-corps` v1 (the source

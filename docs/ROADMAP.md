@@ -163,8 +163,8 @@ Update the **Now** section at the end of every work session: it's what a fresh s
 
 ## Standalone track (from 2026-11-23)
 Goal: someone else learning a language this way installs Panko, points it at their sources and Anki, and gets the
-same checked cards, without a Claude Code session doing the thinking. Today the LLM steps (extract, check, region,
-sentences, clashes, picture decisions) are briefs in `data/` (git-ignored) run by Claude agents in chat.
+same checked cards, without a Claude Code session doing the thinking. Since S8 every step that used to be a
+hand-written brief run by Claude agents in chat is a command (API mode) and a set of chat-mode tools.
 
 | # | Step | What "done" means |
 |---|---|---|
@@ -175,10 +175,16 @@ sentences, clashes, picture decisions) are briefs in `data/` (git-ignored) run b
 | S5 ✅ | **Evidence and settings for anyone** (built 2026-11-23: `panko init`, `panko refs`, `[anki]` decks/profile/card map) | `panko init` writes the config: Anki profile, deck names, varieties, voices, keys. Nothing hard-coded (profile "User 1", "Panko Sandbox", the old-deck card map: detect which side shows Arabic from the templates, with an override file). Open evidence downloads itself (DODa); private dictionaries are a path in config. |
 | S6 ✅ | **Packaging and docs** (built 2026-11-23; AGPL-3.0-or-later; publishing is your call) | README quickstart for a new learner, licence, a worked example on a free source (Peace Corps), tests with a fake Anki and fake LLM. Publish when you decide. |
 | S7 ✅ | **Check it matches** (done 2026-11-23 on a teacher sheet and 25 deck rows; the Fusha round waits for your call) | Re-run one teacher sheet and one old-deck batch through the commands and compare with what the agents produced. Fix the prompts until they agree. Then the Fusha round (Phase 6, second round) runs on the commands too. |
-
 | S8 ✅ | **The steps still done by agents** (built 2026-11-23) | Picture choice from the contact sheets as a command (`pictures-pick` prompt, API) and as chat tools; example sentences (`examples` prompt) and gloss clashes as commands; an audio tool and a packaged skill file for chat mode. Then the Peace Corps pictures run on the chat-mode picture step. |
 | S9 ✅ | **Any language** (built 2026-11-25) | Nothing Arabic-specific left in code or prompts: script detection, romanisation rules, references and voices come from config; a worked setup for a second language. Built as `panko.lang` + language presets (Moroccan Darija, Spanish); Arabic rules kept in one module; Spanish tested end to end. Not yet: a real Spanish source run with the model, presets for more languages, a morphological analyser for a second language. |
 | S10 | **Panko hub** (steps 1 and 2 built 2026-11-26, `docs/SPEC-library.md`; step 3 under way, H1 built, `docs/SPEC-hosted.md`) | A web dashboard or app: search pre-built language decks, or configure your own (language, varieties, sources, card types) and have Panko build it; the same pipeline behind it. Three steps (your call, 2026-11-26): (1) a local dashboard, `panko hub`, built; (2) a shareable deck library; (3) a hosted web service, private at first. |
+
+S10 has two numbered tracks of its own, one per later step:
+
+| Track | Step | Status |
+|---|---|---|
+| **L** (S10 step 2): the deck library, `docs/SPEC-library.md` | L1 Panko packs (`panko pack build`, `panko library import`) · L2 `panko publish` · L3 the library repo, `panko library list` / `get`, the hub's library page · L4 updates (a deck's v2 over v1, your edits kept) | L1–L3 built 2026-11-26, library live; L4 waits for a deck's v2 |
+| **H** (S10 step 3): the hosted Panko, `docs/SPEC-hosted.md` | H1 hosted mode inside Panko · H2 the front door and the server · H3 the Anki add-on · H4 chat mode remotely (MCP over HTTP, OAuth) · H5 polish (jobs survive a restart, quota warnings, invite emails, monitoring) | H1 built; H2 built, not deployed; H3–H5 to do |
 
 Order (your call, 2026-11-23; product first from 2026-11-25): Phase 4 (lessons and recordings, built), Phase 5
 (verification, built), S9 (any language, built), S10. Card migration (Peace Corps pictures and sync, the Fusha round of Phase 6) waits until
