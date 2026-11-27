@@ -219,3 +219,33 @@ def test_the_anki_add_on_reaches_its_own_panko_on_a_device_code(data):
         st.update(amina["id"], disabled=1)
         assert addon.post("/anki/pull", json={"addon": 1, "page": 0},
                           headers={"Authorization": f"Bearer {code2}"}).status_code == 401
+
+
+def test_jobs_a_restart_cut_off_wake_their_panko_and_hold_a_deploy(data, monkeypatch):
+    import asyncio
+    import json
+    import socket
+
+    from panko.host.pankos import Pankos
+    st = HostStore(data / "host.db")
+    a, b, off = (st.add_user(n, PW) for n in ("amal", "badr", "off"))
+    st.update(off["id"], disabled=1)
+    p = Pankos(data)
+    for u, status in ((a, "running"), (b, "done"), (off, "queued")):
+        f = p.home(u["id"]) / "data" / "work" / "jobs.json"
+        f.parent.mkdir(parents=True)
+        f.write_text(json.dumps([{"id": "j1", "kind": "picture-search", "title": "Search photos", "status": status}]))
+    started = []
+
+    async def ensure(uid, quota=None):
+        started.append(uid)
+    monkeypatch.setattr(p, "ensure", ensure)
+    assert asyncio.run(p.wake(st)) == [a["id"]] and started == [a["id"]]   # not the finished one, not a disabled one
+    assert p.working() == {}                         # a file that says running, but no Panko answers: not working
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    s.bind(str(p.sock(a["id"])))
+    s.listen(1)
+    try:
+        assert list(p.working()) == [a["id"]]        # its Panko answers: a deploy waits for it
+    finally:
+        s.close()

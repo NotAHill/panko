@@ -29,11 +29,30 @@ EXPECTED = (ValueError, KeyError, FileNotFoundError, FileExistsError, Permission
 
 
 class Req:
-    def __init__(self, request: Request, body: dict):
-        self.path = request.path_params
-        self.query = dict(request.query_params)
+    def __init__(self, request: Request | None, body: dict):
+        self.path = dict(request.path_params) if request else {}
+        self.query = dict(request.query_params) if request else {}
         self.body = body
-        self.base = str(request.base_url)
+        self.base = str(request.base_url) if request else ""
+
+    @classmethod
+    def again(cls, replay: dict) -> Req:
+        """The request that started a job, to start it again after a restart."""
+        r = cls(None, dict(replay.get("body") or {}))
+        r.path, r.query, r.base = dict(replay.get("path") or {}), dict(replay.get("query") or {}), replay.get("base", "")
+        return r
+
+
+HANDLERS: dict[str, object] = {}
+_asked = threading.local()          # the request a handler is answering, so a job it starts can be started again
+
+
+def _answer(fn, req: Req, replay: dict):
+    _asked.replay = replay
+    try:
+        return fn(req)
+    finally:
+        _asked.replay = None
 
 
 def _json(data, status: int = 200) -> Response:
@@ -55,8 +74,10 @@ def api(method: str, path: str):
                     body = json.loads(raw) if raw else {}
                 except json.JSONDecodeError:
                     return _json({"error": "the request body isn't JSON"}, 400)
+            req = Req(request, body)
+            replay = {"handler": fn.__name__, "path": req.path, "query": req.query, "body": body, "base": req.base}
             try:
-                res = await run_in_threadpool(fn, Req(request, body))
+                res = await run_in_threadpool(_answer, fn, req, replay)
             except KeyError as e:
                 return _json({"error": str(e.args[0]) if e.args else "not found"}, 404)
             except PermissionError as e:
@@ -65,6 +86,8 @@ def api(method: str, path: str):
                 return _json({"error": str(e)}, 400)
             return res if isinstance(res, Response) else _json(res)
         ROUTES.append(Route("/api" + path, endpoint, methods=[method]))
+        assert fn.__name__ not in HANDLERS, f"two hub handlers named {fn.__name__}"
+        HANDLERS[fn.__name__] = fn
         return fn
     return deco
 
@@ -75,7 +98,57 @@ def _jobs() -> Jobs:
 
 
 def _start(kind: str, title: str, fn, paid: bool = False) -> dict:
-    return {"job": _jobs().submit(kind, title, fn, paid).view()}
+    return {"job": _jobs().submit(kind, title, fn, paid, replay=getattr(_asked, "replay", None)).view()}
+
+
+def resume(jid: str, answer: dict | None = None) -> dict:
+    """Start an interrupted job again with the request that started it. The steps keep what they finished (answers
+    in the model cache, audio, saved searches, ingested units), so only what's left is done. A paid one is priced
+    again first, like any paid step: without `answer` {"confirm": true, "budget", "batch"} it returns the estimate."""
+    old = _jobs().get(jid)
+    if not old:
+        raise KeyError(f"no job {jid}")
+    if not old.resumable():
+        raise ValueError("only a job a restart interrupted can be resumed" if not old.resumed_as
+                         else f"already resumed as job {old.resumed_as}")
+    fn = HANDLERS.get(old.replay["handler"])
+    if fn is None:
+        raise ValueError("this kind of job can't be started again: start it from its page")
+    body = dict(old.replay.get("body") or {})
+    if old.paid:
+        body.pop("confirm", None)
+        body.update({k: v for k, v in (answer or {}).items() if k in ("confirm", "budget", "batch")})
+    replay = {**old.replay, "body": body, "resumed": old.replay.get("resumed", 0) + 1}
+    res = _answer(fn, Req.again(replay), replay)
+    if isinstance(res, dict) and "estimate" in res:
+        return res
+    new = (res or {}).get("job") if isinstance(res, dict) else None
+    if not new:
+        old.resumed_as = "-"            # nothing left to do (it finished what it could before the restart)
+        _jobs().save()
+        return {"job": None, "note": "nothing left to do"}
+    old.resumed_as = new["id"]
+    _jobs().save()
+    return res
+
+
+AUTO_RESUMES = 1      # a free job is started again by itself once; if it is cut off again, it waits for you
+
+
+def resume_interrupted() -> list[str]:
+    """After a restart: start again the free jobs it cut off. Paid ones wait for you (a button on the jobs page)."""
+    started = []
+    for j in _jobs().interrupted():
+        if j.paid or j.replay.get("resumed", 0) >= AUTO_RESUMES:
+            continue
+        try:
+            r = resume(j.id)
+            if r.get("job"):
+                started.append(r["job"]["id"])
+        except Exception as e:  # noqa: BLE001  one that can't start again stays interrupted, with the reason
+            j.say(f"— couldn't start it again: {e}")
+            _jobs().save()
+    return started
 
 
 def _store():
@@ -245,6 +318,11 @@ def job(req: Req):
 @api("POST", "/jobs/{jid}/cancel")
 def cancel(req: Req):
     return {"cancelled": _jobs().cancel(req.path["jid"])}
+
+
+@api("POST", "/jobs/{jid}/resume")
+def resume_job(req: Req):
+    return resume(req.path["jid"], req.body)
 
 
 # ---- sources -------------------------------------------------------------------------------------------------------

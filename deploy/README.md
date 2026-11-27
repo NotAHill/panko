@@ -75,11 +75,14 @@ front door (a link that works once, for 7 days; send it yourself). `panko host u
 ## Updating
 
 ```bash
-git pull && docker compose -f deploy/compose.yml up -d --build
+sh deploy/update.sh
 ```
 
-Everyone's Panko stops with the old container and starts on the new code when they next open it. Jobs running at
-that moment are lost, so update when no one's in the middle of a read.
+It pulls, builds the new image while the old one keeps serving, waits until no one's Panko is running a job
+(`panko host busy`, up to `WAIT_MINUTES`, 30 by default), then switches. `FORCE=1 sh deploy/update.sh` switches
+without waiting. Everyone's Panko stops with the old container. A job cut off anyway isn't lost: each Panko keeps
+its jobs in `data/work/jobs.json`, the front door starts the Pankos that had one when it comes back, and free jobs
+carry on by themselves (once); paid ones wait on the jobs page with a resume button that prices what's left.
 
 ## Looking after it
 

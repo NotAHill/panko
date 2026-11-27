@@ -1762,17 +1762,29 @@ VIEWS.jobs = async (el, r) => {
   if (r.args[0]) return jobView(el, r.args[0]);
   const paint = async () => {
     const { jobs } = await api('/jobs');
-    put(el, html`<div class="page-h"><h1>jobs</h1><span class="sub">steps run one at a time, in this session of the hub</span></div>
+    put(el, html`<div class="page-h"><h1>jobs</h1><span class="sub">steps run one at a time, and are kept when the server restarts</span></div>
       <section class="box"><div class="t">recent</div>${jobs.length ? html`<table class="t"><thead><tr><th>job</th><th>state</th><th>started</th><th class="r">took</th><th></th></tr></thead><tbody>${jobs.map(j => html`<tr class="row" data-href="#/jobs/${j.id}">
         <td>${j.paid ? html`<span class="paid-mark">$</span>` : ''}${j.title}<div class="faint">${j.log[j.log.length - 1] || ''}</div></td><td><span class="state ${j.status}">${j.status === 'running' ? html`<span class="spin">✻</span> ` : ''}${j.status}</span></td>
-        <td class="nw dim">${j.started ? ago(j.started) + ' ago' : ''}</td><td class="r nw dim">${dur(j.started, j.finished)}</td><td>${j.status === 'queued' ? html`<button class="ghost" data-a="cancel" data-id="${j.id}">cancel</button>` : ''}</td></tr>`)}</tbody></table>`
+        <td class="nw dim">${j.started ? ago(j.started) + ' ago' : ''}</td><td class="r nw dim">${dur(j.started, j.finished)}</td><td class="r nw">${j.status === 'queued' ? html`<button class="ghost" data-a="cancel" data-id="${j.id}">cancel</button>` : ''}${resumeBtn(j)}</td></tr>`)}</tbody></table>`
         : html`<p class="empty">No jobs yet. Long or paid steps (reading units, checks, pictures, sync) run here.</p>`}</section>`);
-    actions(el, { cancel: async b => { await api(`/jobs/${b.dataset.id}/cancel`, { body: {} }); paint(); } });
+    actions(el, { cancel: async b => { await api(`/jobs/${b.dataset.id}/cancel`, { body: {} }); paint(); },
+      resume: b => resumeJob(jobs.find(j => j.id === b.dataset.id), paint) });
   };
   await paint();
   const t = setInterval(() => { if (!$('#layer').childElementCount) paint().catch(() => {}); }, 2000);
   S.cleanup = () => clearInterval(t);
 };
+
+const resumeBtn = j => j.resumable ? html`<button data-a="resume" data-id="${j.id}" title="start it again: what it finished before the restart is kept">${j.paid ? html`<span class="paid">$</span>` : ''}resume</button>` : '';
+/* An interrupted job, started again from the request that started it; a paid one is priced again first. */
+async function resumeJob(j, onDone) {
+  if (!j) return;
+  if (j.paid) return paidAction(`/jobs/${j.id}/resume`, {}, `resume ${j.title}?`, { onDone });
+  try {
+    const r = await api(`/jobs/${j.id}/resume`, { body: {} });
+    if (r.job) { watch(r.job, onDone); go('#/jobs/' + r.job.id); } else { toast(r.note || 'nothing left to do'); onDone?.(); }
+  } catch (e) { toast(html`<span class="bad">✘</span> ${e.message}`, 'bad', 0); }
+}
 
 async function jobView(el, id) {
   let t;
@@ -1783,11 +1795,15 @@ async function jobView(el, id) {
     put(el, html`<div class="page-h"><a href="#/jobs" class="dim">jobs /</a><h1>${j.title}</h1><span class="state ${j.status}">${j.status === 'running' ? html`<span class="spin">✻</span> ` : ''}${j.status}</span>
         <span class="sub">${[j.paid && 'paid', j.started ? 'started ' + when(j.started) : 'waiting', j.started && dur(j.started, j.finished)].filter(Boolean).join(', ')}</span></div>
       ${j.error ? html`<p class="err">${j.error}</p>` : ''}
+      ${j.status === 'interrupted' ? html`<p class="warn">A restart of the server cut this job off.
+        ${j.resumed_as && j.resumed_as !== '-' ? html`It carried on as <a href="#/jobs/${j.resumed_as}">a new job</a>.`
+          : j.resumed_as ? 'Nothing was left to do.' : j.resumable ? html`What it finished is kept, so resuming does only the rest. ${resumeBtn(j)}` : 'Start it again from its page.'}</p>` : ''}
       <section class="box"><div class="t">log <span class="dim">${n(j.lines)} lines</span></div><pre class="log">${j.log.length ? j.log.map((l, i) => html`<span class="ln">${j.lines - j.log.length + i + 1}</span>${l}\n`) : html`<span class="faint">nothing printed yet</span>`}</pre></section>
       ${j.result && typeof j.result === 'object' ? html`<details class="box"><summary>result</summary><pre class="mt">${JSON.stringify(j.result, null, 1).slice(0, 20000)}</pre></details>` : ''}`);
     const p2 = $('.log', el);
     if (atEnd) p2.scrollTop = p2.scrollHeight;
-    if (['done', 'failed', 'cancelled'].includes(j.status)) clearInterval(t);
+    if (['done', 'failed', 'cancelled', 'interrupted'].includes(j.status)) clearInterval(t);
+    actions(el, { resume: () => resumeJob(j, () => {}) });
   };
   await paint();
   t = setInterval(() => paint().catch(() => clearInterval(t)), 1000);

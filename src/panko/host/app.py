@@ -641,10 +641,12 @@ def app(data: Path | str, **opts) -> Starlette:
     @contextlib.asynccontextmanager
     async def lifespan(a):
         task = asyncio.create_task(door.pankos.reaper())
+        wake = asyncio.create_task(door.pankos.wake(door.store))     # jobs the restart cut off carry on
         try:
             yield
         finally:
             task.cancel()
+            wake.cancel()
             door.pankos.stop_all()
             for c in door.clients.values():
                 await c.aclose()

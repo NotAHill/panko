@@ -389,7 +389,7 @@ a.tile:hover { text-decoration: none; border-color: color-mix(in srgb, var(--acc
 .log .ln { color: var(--faint); user-select: none; display: inline-block; width: 5ch; text-align: right; margin-right: 1.5ch; }
 .state { white-space: nowrap; font-size: var(--fs-s); padding: 0 7px; border-radius: var(--r-xs); background: color-mix(in srgb, currentColor 13%, transparent); }
 .state.running { color: var(--accent); } .state.done { color: var(--ok); } .state.failed { color: var(--bad); }
-.state.queued { color: var(--info); } .state.cancelled { color: var(--faint); }
+.state.queued { color: var(--info); } .state.cancelled { color: var(--faint); } .state.interrupted { color: var(--warn); }
 .check-row { display: grid; grid-template-columns: 2ch minmax(18ch, 34ch) 1fr; gap: 4px 14px; padding: 5px 0; }
 .check-row + .check-row { border-top: 1px solid var(--soft); }
 .snippet { position: relative; }

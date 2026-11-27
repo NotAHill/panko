@@ -10,6 +10,7 @@ shared settings (`PASS_ENV`, `PANKO_DEFAULT_*`)."""
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import secrets
 import signal
@@ -145,6 +146,36 @@ class Pankos:
     def stop_all(self) -> None:
         for uid in list(self.running):
             self.stop(uid)
+
+    # ---- jobs across restarts (each Panko keeps its jobs in data/work/jobs.json)
+    def jobs_on(self, uid: str) -> list[dict]:
+        """The user's queued or running jobs as their Panko last saved them."""
+        try:
+            rows = json.loads((self.home(uid) / "data" / "work" / "jobs.json").read_text())
+        except (OSError, ValueError):
+            return []
+        return [j for j in rows if isinstance(j, dict) and j.get("status") in ("queued", "running")]
+
+    def working(self) -> dict[str, list[dict]]:
+        """{user id: jobs} for the Pankos running a job right now (their socket answers: a Panko that stopped
+        without saving isn't working, whatever its file says)."""
+        users = self.data / "users"
+        return {d.name: js for d in sorted(users.iterdir()) if d.is_dir()
+                and (js := self.jobs_on(d.name)) and _answers(self.sock(d.name))} if users.exists() else {}
+
+    async def wake(self, store) -> list[str]:
+        """At start: start the Pankos whose jobs a restart cut off, so the free ones carry on without waiting for
+        their user to come back (paid ones wait for a click on the jobs page)."""
+        woken = []
+        for u in store.users():
+            if u["disabled"] or not self.jobs_on(u["id"]) or self.alive(u["id"]):
+                continue
+            try:
+                await self.ensure(u["id"], u["quota_gb"])
+                woken.append(u["id"])
+            except Exception as e:  # noqa: BLE001  one that can't start doesn't stop the others
+                print(f"wake {u['id']}: {e}", file=sys.stderr)
+        return woken
 
 
 def _answers(sock: Path) -> bool:

@@ -34,6 +34,8 @@ def add_parser(sub) -> None:
     iv.add_argument("--note", default="")
     iv.add_argument("--url", default=os.environ.get("PANKO_HOST_URL", ""))
     hs.add_parser("users", help="the accounts, their disk use and when they were last seen")
+    bz = hs.add_parser("busy", help="whose Panko is running a job now (exit 1 if any); deploy/update.sh waits on it")
+    bz.add_argument("--wait", type=float, default=0, help="wait up to this many minutes for them to finish")
     pg = hs.add_parser("purge", help="remove deleted accounts' folders for good")
     pg.add_argument("--days", type=float, default=0, help="only those deleted at least this many days ago")
 
@@ -72,6 +74,26 @@ def run(args, ap) -> None:
             flags = ", ".join(f for f, on in (("admin", u["admin"]), ("disabled", u["disabled"])) if on)
             print(f"{u['name']:<20} {size(_du(data / 'users' / u['id'])):>8}  last seen {ago(u['last_seen'])}"
                   + (f"  ({flags})" if flags else ""))
+    elif args.hcmd == "busy":
+        import sys
+
+        from panko.host.pankos import Pankos
+        p, st = Pankos(data), HostStore(data / "host.db")
+        deadline, said = time.time() + args.wait * 60, ""
+        while True:
+            work = p.working()
+            if not work:
+                print("no jobs running")
+                return
+            names = {u["id"]: u["name"] for u in st.users()}
+            line = "; ".join(f"{names.get(uid, uid)}: " + ", ".join(j.get("title", j.get("kind", "?")) for j in js)
+                             for uid, js in work.items())
+            if line != said:
+                print(f"running: {line}", flush=True)
+                said = line
+            if time.time() >= deadline:
+                sys.exit(1)
+            time.sleep(10)
     elif args.hcmd == "purge":
         d = data / "deleted"
         gone = 0

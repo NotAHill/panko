@@ -219,6 +219,16 @@ def bind_socket(path: str | Path):
     return s
 
 
+def keep_jobs() -> None:
+    """Jobs kept in the Panko folder across restarts; the free ones a restart cut off start again by themselves."""
+    import threading
+
+    from panko.config import ROOT
+    api.JOBS = Jobs(ROOT / "data" / "work" / "jobs.json")
+    if api.JOBS.interrupted():
+        threading.Timer(2, api.resume_interrupted).start()      # once the hub answers
+
+
 def serve_socket(path: str | Path):
     """On the server: behind the front door, on a Unix socket, with its secret from PANKO_FRONT_SECRET."""
     import uvicorn
@@ -227,6 +237,7 @@ def serve_socket(path: str | Path):
         raise SystemExit("serving on a socket needs PANKO_FRONT_SECRET (16 characters or more), which the front door "
                          "sends with every request")
     sock = bind_socket(path)
+    keep_jobs()
     a = app(front=front)
     print(f"✻ Panko hub on {path}" + (" (hosted)" if os.environ.get("PANKO_HOSTED") else ""), flush=True)
     try:
@@ -240,6 +251,7 @@ def serve(port: int = 8770, open_browser: bool = True, token: str | None = None)
     if not port_free(port):      # before printing a link that would lead nowhere
         raise SystemExit(f"Port {port} is already in use, probably by a Panko hub that's still running: stop it with "
                          f"Ctrl-C in its terminal, or start this one with --port {port + 1}.")
+    keep_jobs()
     a = app(token)
     url = f"http://127.0.0.1:{port}/?t={a.state.token}"
     print(f"✻ Panko hub on {url}\n  (only this computer can open it; Ctrl-C stops it)", flush=True)

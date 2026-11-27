@@ -1,4 +1,5 @@
 """The hub: its guard (host, key, header), the JSON API over a scratch store and work folder, jobs, and previews."""
+import json
 import re
 import time
 
@@ -594,3 +595,59 @@ def test_examples_page_lists_what_needs_one(env):
     r = c.post("/api/examples", json={"status": "candidate", "ids": ["dw-2"]}, headers=H)
     assert r.status_code in (200, 400)                         # an estimate, or why the model isn't ready; nothing spent
     assert not s.get("dw-2").get("examples")
+
+
+# ---- jobs across restarts
+
+def _restart(path):
+    """What a restart leaves: the file, read by a new hub."""
+    api.JOBS = Jobs(path)
+    return api.JOBS
+
+
+def test_a_paid_job_cut_off_by_a_restart_is_priced_again_before_it_resumes(env, monkeypatch):
+    c, _, tmp = env
+    path = tmp / "jobs.json"
+    api.JOBS = Jobs(path)
+    t = tmp / "l.txt"
+    t.write_text("x")
+    sid = c.post("/api/sources", json={"path": str(t), "title": "L"}, headers=H).json()["id"]
+    ran = []
+    monkeypatch.setattr(pipeline, "estimate", lambda sid, units, n: {"units": ["c001"], "usd": 0.4, "usd_batch": 0.2})
+    monkeypatch.setattr(pipeline, "run", lambda sid, units, n, **kw: ran.append(kw) or
+                        {"done": ["c001"], "waiting": [], "failed": [], "spent": 0.3})
+    j = wait(c, c.post(f"/api/sources/{sid}/run", json={"n": 1, "confirm": True, "budget": 0.6}, headers=H).json()["job"])
+    rows = json.loads(path.read_text())
+    assert rows[0]["id"] == j["id"] and rows[0]["replay"]["handler"] == "run_source" and rows[0]["replay"]["path"] == {"sid": sid}
+    rows[0]["status"] = "running"                                   # the server stopped halfway through
+    path.write_text(json.dumps(rows))
+    _restart(path)
+    old = c.get(f"/api/jobs/{j['id']}").json()
+    assert old["status"] == "interrupted" and old["resumable"] and "restart" in old["log"][-1]
+    assert api.resume_interrupted() == []                           # paid: never by itself
+    r = c.post(f"/api/jobs/{j['id']}/resume", json={}, headers=H).json()
+    assert "estimate" in r and len(ran) == 1                        # the old yes isn't reused
+    new = wait(c, c.post(f"/api/jobs/{j['id']}/resume", json={"confirm": True, "budget": 0.5}, headers=H).json()["job"])
+    assert new["status"] == "done" and ran[-1]["budget"] == 0.5
+    assert c.get(f"/api/jobs/{j['id']}").json()["resumed_as"] == new["id"]
+    assert c.post(f"/api/jobs/{j['id']}/resume", json={}, headers=H).status_code == 400
+
+
+def test_a_free_job_cut_off_by_a_restart_carries_on_by_itself_once(env, monkeypatch):
+    c, _, tmp = env
+    path = tmp / "jobs.json"
+    monkeypatch.setitem(api.HANDLERS, "fake_free", lambda req: api._start("fake", "Fake", lambda job: req.body["x"]))
+    replay = {"handler": "fake_free", "path": {}, "query": {}, "body": {"x": 7}}
+    path.write_text(json.dumps([
+        {"id": "a1", "kind": "fake", "title": "Fake", "status": "running", "started": 1.0, "created": 1.0, "replay": replay},
+        {"id": "a2", "kind": "fake", "title": "Fake", "status": "queued", "created": 2.0, "replay": {**replay, "resumed": 1}},
+        {"id": "a3", "kind": "fake", "title": "Paid", "status": "running", "created": 3.0, "paid": True, "replay": replay},
+        {"id": "a4", "kind": "fake", "title": "Old", "status": "done", "created": 0.5, "log": ["fine"]}]))
+    jobs = _restart(path)
+    started = api.resume_interrupted()
+    assert len(started) == 1 and jobs.get("a1").resumed_as == started[0]
+    assert wait(c, {"id": started[0]})["result"] == 7
+    assert jobs.get("a2").resumable() and jobs.get("a3").resumable()   # cut off twice / paid: they wait for you
+    assert jobs.get("a4").status == "done" and jobs.get("a4").log == ["fine"]
+    again = _restart(path)                                            # and all of it is still there after another
+    assert again.get("a1").resumed_as == started[0] and again.get(started[0]).status == "done"

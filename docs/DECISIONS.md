@@ -2,6 +2,12 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-27 · A job a restart cuts off is replayed from its request; a paid one asks again.** Every job keeps the
+request that started it, and the steps already keep what they finished (model answers in the cache, audio files,
+saved photo searches, ingested units), so starting the same request again does only what's left. Free jobs start
+again by themselves, once (a job that is cut off twice may be what stops the server). A paid job never reuses its old
+yes: resuming it prices what's left and asks, like any paid step.
+
 **2026-11-27 · A phrase that ends like a sentence is its own example.** Example sentences go to words and to
 phrases of up to four words, but most short phrase cards are whole sentences ("How was the trip?", "It's too
 expensive"), and giving those another sentence adds nothing. A phrase whose Arabic or gloss ends in . ? ! or ؟

@@ -172,7 +172,13 @@ Update the **Now** section at the end of every work session: it's what a fresh s
   request to copy into chat (free: `panko_examples_todo` / `panko_examples_save`, which add without replacing) and
   the model button (API key, priced first). A short phrase that is a whole sentence ("How was the trip?") is its own
   example, so it no longer counts as missing one.
-- **Next:** backups before inviting anyone (`deploy/README.md` §5). Then one invited person, then H5. DODa stays on
+- **H5 started (2026-11-27): jobs survive a restart.** Each Panko keeps its jobs and their logs in
+  `data/work/jobs.json` with the request that started each. A job a restart cut off comes back as interrupted: the
+  front door starts that user's Panko when it comes back, free jobs carry on by themselves (once), paid ones wait
+  with a resume button that prices what's left first (the old yes isn't reused). `deploy/update.sh` builds first and
+  waits for running jobs before switching (`panko host busy`).
+- **Next:** the rest of H5 (simple monitoring, quota warnings, invite emails); backups before inviting anyone
+  (`deploy/README.md` §5, skipped for now). DODa stays on
   (free and invite-only fits its terms; switched off if its authors object).
 - The learner's own state (deck sizes, what's waiting on whom, plans) is in `data/STATUS.md` (git-ignored).
 
