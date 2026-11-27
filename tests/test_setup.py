@@ -1,4 +1,5 @@
 """Setup for another learner: the starter config, reference downloads, decks and the migration card map."""
+import json
 import tomllib
 
 import httpx
@@ -53,6 +54,37 @@ def test_download_open_references(tmp_path, monkeypatch):
     got = evidence.download(client=httpx.Client(transport=httpx.MockTransport(handler)), say=lambda *a: None)
     assert [r["done"] for r in got] == ["downloaded 1 files", "downloaded 0 KB", "missing: add this file yourself"]
     assert [f.name for f in (tmp_path / "doda").iterdir()] == ["food.csv"] and (tmp_path / "w.jsonl").exists()
+
+
+def test_a_language_kaikki_lacks_is_read_from_wiktionary_and_one_failure_spares_the_rest(tmp_path, monkeypatch):
+    refs = [{"name": "Wiktionary, Iraqi Arabic entries", "path": str(tmp_path / "iq.jsonl"), "present": False,
+             "url": "https://kaikki.org/dictionary/Iraqi%20Arabic/kaikki.org-dictionary-IraqiArabic.jsonl",
+             "include": []},
+            {"name": "Broken", "path": str(tmp_path / "b.jsonl"), "present": False, "url": "https://x.example/b.jsonl",
+             "include": []},
+            {"name": "Fine", "path": str(tmp_path / "f.jsonl"), "present": False, "url": "https://y.example/f.jsonl",
+             "include": []}]
+    monkeypatch.setattr(evidence, "references_status", lambda: refs)
+
+    def handler(req):
+        u = str(req.url)
+        if "kaikki.org" in u or "x.example" in u:
+            return httpx.Response(404)
+        if "categorymembers" in u:
+            return httpx.Response(200, json={"query": {"categorymembers": [{"title": "شلون"}, {"title": "زين"}]}})
+        if "/page/definition/" in u:
+            if "%D8%B4" in u:   # شلون
+                return httpx.Response(200, json={"other": [
+                    {"language": "Gulf Arabic", "partOfSpeech": "Adverb", "definitions": [{"definition": "how"}]},
+                    {"language": "Iraqi Arabic", "partOfSpeech": "Adverb",
+                     "definitions": [{"definition": '<a href="/wiki/how">how</a>?'}, {"definition": " "}]}]})
+            return httpx.Response(404)
+        return httpx.Response(200, content=b'{"word": "y"}\n')
+    with pytest.raises(RuntimeError, match="couldn't download Broken"):
+        evidence.download(client=httpx.Client(transport=httpx.MockTransport(handler)), say=lambda *a: None)
+    rows = [json.loads(x) for x in (tmp_path / "iq.jsonl").read_text().splitlines()]
+    assert rows == [{"word": "شلون", "pos": "adverb", "senses": [{"glosses": ["how?"]}]}]
+    assert (tmp_path / "f.jsonl").exists() and not (tmp_path / "b.jsonl").exists()
 
 
 def test_decks_come_from_config(monkeypatch):

@@ -11,7 +11,8 @@ Reference files are read by shape, so another learner points config at their own
 - a folder of CSVs (one column in the target language, one of glosses; a file named *sentences* is a sentence
   corpus). The target column is the first in the language's script ([learner] script), or `columns = {target =
   "...", gloss = "..."}` on the reference when the gloss language shares the script;
-- a JSON-lines dictionary (`word` plus `senses[].glosses`, as Wiktionary extracts are);
+- a JSON-lines dictionary (`word` plus `senses[].glosses`, as Wiktionary extracts are; for a language kaikki.org has
+  no file for, `download` makes one from Wiktionary's own lemmas and definitions);
 - a plain-text dictionary, searched for the scholarly transliteration (and the word itself).
 """
 from __future__ import annotations
@@ -242,38 +243,106 @@ def _github_files(url: str, include: list[str], client) -> list[tuple[str, str]]
     return [(f"https://raw.githubusercontent.com/{owner}/{repo}/HEAD/{p}", p.rsplit("/", 1)[-1]) for p in paths]
 
 
+KAIKKI = re.compile(r"^https://kaikki\.org/dictionary/([^/]+)/")
+WIKTIONARY_MAX = 3000       # lemmas fetched one by one; a language with more has its own file on kaikki.org
+
+
 def download(force: bool = False, client=None, say=print) -> list[dict]:
-    """Fetch every configured reference that has a `url` and isn't on disk yet (all of them with `force`)."""
+    """Fetch every configured reference that has a `url` and isn't on disk yet (all of them with `force`). One that
+    fails doesn't stop the others; they're named at the end."""
     import httpx
-    client = client or httpx.Client(timeout=120, follow_redirects=True, headers={"User-Agent": "panko"})
-    report = []
+    client = client or httpx.Client(timeout=120, follow_redirects=True, headers={"User-Agent": USER_AGENT})
+    report, failed = [], []
     for r in references_status():
-        p = Path(r["path"])
         if not r["url"]:
             report.append({**r, "done": "present" if r["present"] else "missing: add this file yourself"})
             continue
         if r["present"] and not force:
             report.append({**r, "done": "present"})
             continue
-        from panko.config import public_url
-        public_url(r["url"])
-        if r["url"].startswith("https://github.com/"):
-            p.mkdir(parents=True, exist_ok=True)
-            files = _github_files(r["url"], r["include"], client)
-            for raw, name in files:
-                (p / name).write_bytes(client.get(raw).raise_for_status().content)
-            report.append({**r, "done": f"downloaded {len(files)} files"})
-        else:
-            p.parent.mkdir(parents=True, exist_ok=True)
-            tmp = p.with_suffix(p.suffix + ".part")
-            with client.stream("GET", r["url"]) as resp:
-                resp.raise_for_status()
-                with open(tmp, "wb") as f:
-                    for chunk in resp.iter_bytes():
-                        f.write(chunk)
-            tmp.replace(p)
-            report.append({**r, "done": f"downloaded {p.stat().st_size // 1024} KB"})
-        say(f"{r['name']}: {report[-1]['done']}")
+        try:
+            done = _fetch(r, client, say)
+        except Exception as e:  # noqa: BLE001  a network or site problem: report it, carry on with the rest
+            done = f"failed: {e}"
+            failed.append(r["name"])
+        report.append({**r, "done": done})
+        say(f"{r['name']}: {done}")
     _references.cache_clear()
     _INDEX.clear()
+    if failed:
+        raise RuntimeError(f"couldn't download {', '.join(failed)} (the others are done): "
+                           + "; ".join(x["done"] for x in report if x["name"] in failed))
     return report
+
+
+USER_AGENT = "panko (https://github.com/NotAHill/panko)"
+
+
+def _fetch(r: dict, client, say) -> str:
+    from panko.config import public_url
+    p = Path(r["path"])
+    public_url(r["url"])
+    if r["url"].startswith("https://github.com/"):
+        p.mkdir(parents=True, exist_ok=True)
+        files = _github_files(r["url"], r["include"], client)
+        for raw, name in files:
+            (p / name).write_bytes(client.get(raw).raise_for_status().content)
+        return f"downloaded {len(files)} files"
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_suffix(p.suffix + ".part")
+    with client.stream("GET", r["url"]) as resp:
+        m = KAIKKI.match(r["url"])
+        if resp.status_code == 404 and m:     # kaikki.org publishes files only for languages with many entries
+            from urllib.parse import unquote
+            return _from_wiktionary(unquote(m.group(1)), p, client, say)
+        resp.raise_for_status()
+        with open(tmp, "wb") as f:
+            for chunk in resp.iter_bytes():
+                f.write(chunk)
+    tmp.replace(p)
+    return f"downloaded {p.stat().st_size // 1024} KB"
+
+
+def _from_wiktionary(language: str, out: Path, client, say) -> str:
+    """The same JSON lines a kaikki.org file has (`word`, `pos`, `senses[].glosses`), made from Wiktionary itself: the
+    language's lemmas, then each one's definitions in that language. For languages too small for kaikki.org."""
+    import html as htmlmod
+    from concurrent.futures import ThreadPoolExecutor
+    from urllib.parse import quote
+    api = "https://en.wiktionary.org/w/api.php"
+    titles, more = [], {}
+    while len(titles) < WIKTIONARY_MAX:
+        q = {"action": "query", "list": "categorymembers", "cmtitle": f"Category:{language} lemmas",
+             "cmtype": "page", "cmnamespace": 0, "cmlimit": 500, "format": "json", **more}
+        d = client.get(api, params=q).raise_for_status().json()
+        titles += [m["title"] for m in d.get("query", {}).get("categorymembers", [])]
+        if "continue" not in d:
+            break
+        more = {"cmcontinue": d["continue"]["cmcontinue"]}
+    if not titles:
+        raise RuntimeError(f"Wiktionary has no {language} lemmas (and kaikki.org has no file for it)")
+    say(f"kaikki.org has no {language} file: reading {len(titles)} entries from Wiktionary")
+
+    def text(h: str) -> str:
+        return re.sub(r"\s+", " ", htmlmod.unescape(re.sub(r"<[^>]+>", "", h))).strip()
+
+    def entries(title: str) -> list[dict]:
+        resp = client.get(f"https://en.wiktionary.org/api/rest_v1/page/definition/{quote(title, safe='')}")
+        if resp.status_code != 200:
+            return []
+        out = []
+        for group in resp.json().values():
+            for x in group:
+                if x.get("language") != language:
+                    continue
+                gl = [g for g in (text(dfn.get("definition", "")) for dfn in x.get("definitions", [])) if g]
+                if gl:
+                    out.append({"word": title, "pos": str(x.get("partOfSpeech", "")).lower(),
+                                "senses": [{"glosses": [g]} for g in gl]})
+        return out
+    with ThreadPoolExecutor(4) as pool:
+        rows = [e for found in pool.map(entries, titles) for e in found]
+    tmp = out.with_suffix(out.suffix + ".part")
+    tmp.write_text("".join(json.dumps(e, ensure_ascii=False) + "\n" for e in rows))
+    tmp.replace(out)
+    return f"made from Wiktionary: {len(rows)} entries ({len(titles)} lemmas)"

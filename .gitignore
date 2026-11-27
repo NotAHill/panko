@@ -16,3 +16,9 @@ data/
 
 # choices made in the hub (card design, pictures, voices): personal, laid over config/panko.toml
 config/hub.toml
+
+# editor swap files and other copies of .env (keys)
+*.swp
+*.swo
+.env.*
+!.env.example

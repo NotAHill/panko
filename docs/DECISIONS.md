@@ -2,6 +2,12 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-27 · A language kaikki.org has no file for gets its Wiktionary reference from Wiktionary itself.**
+kaikki.org publishes per-language extracts only for languages with many entries (Moroccan and Gulf Arabic, not
+Iraqi Arabic, which has about 220 lemmas). When its file is missing (404), `panko refs --download` lists the
+language's lemmas from Wiktionary's API and fetches each one's definitions, writing the same `word`/`pos`/`glosses`
+lines (up to 3000 lemmas; more would have a kaikki file). One reference that fails no longer stops the others.
+
 **2026-11-27 · On the server, the front door is its own OAuth server for chat mode.** The learner's Claude
 connects to `<site>/mcp` as a custom connector, so the front door implements the MCP authorisation spec itself
 (dynamic registration and client metadata documents, PKCE, consent, rotating refresh tokens) rather than bringing in
