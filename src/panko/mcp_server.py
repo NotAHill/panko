@@ -110,10 +110,11 @@ def panko_next_work(source: str, n: int = 5) -> dict:
 
 @tool(structured_output=False)
 def panko_page(source: str, unit: str) -> list:
-    """A unit to read: the page image (the truth) and its text layer (handy for spelling, but columns interleave)."""
+    """A unit to read: the page image (the truth) and its text layer when it can be trusted (handy for spelling, but
+    columns interleave). An OCR or garbled layer is left out, and `text_layer` says why."""
     p = work.page(source, unit)
-    meta = json.dumps({"source": source, "unit": unit, "printed_page": p["page"], "text": p["text"]},
-                      ensure_ascii=False)
+    meta = json.dumps({"source": source, "unit": unit, "printed_page": p["page"], "text": p["text"]}
+                      | ({"text_layer": p["layer_note"]} if p.get("layer_state") else {}), ensure_ascii=False)
     return [Image(path=p["image"]), meta] if p["image"] else [meta]
 
 

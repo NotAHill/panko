@@ -368,6 +368,8 @@ a.tile:hover { text-decoration: none; border-color: color-mix(in srgb, var(--acc
 .unit-view { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; }
 .unit-view img { max-width: 100%; border-radius: var(--r-sm); border: 1px solid var(--soft); }
 .unit-view pre { max-height: 520px; overflow: auto; background: var(--field); border: 1px solid var(--soft); border-radius: var(--r-sm); padding: 12px; }
+.unit-view .layer-note { margin: 0 0 8px; font-size: var(--fs-s); }
+.unit-view .layer details > summary { cursor: pointer; color: var(--dim); font-size: var(--fs-s); margin-bottom: 8px; }
 .drop { border: 1.5px dashed var(--line); border-radius: var(--r); padding: 26px 18px; text-align: center; color: var(--dim); background: var(--field);
   transition: border-color .12s, background .12s, color .12s; }
 .drop.over { border-color: var(--accent); color: var(--accent); background: var(--sel); }

@@ -300,6 +300,7 @@ def unit(req: Req):
     p = work.page(sid, u)
     r = work.result(sid, u) or {}
     return {"unit": u, "state": work.state(sid).get(u), "page": p.get("page"), "text": p.get("text", ""),
+            "layer": p.get("layer", ""), "layer_state": p.get("layer_state", ""), "layer_note": p.get("layer_note", ""),
             "rows": p.get("rows"), "image": f"/api/sources/{sid}/units/{u}/image" if p.get("image") else "",
             "items": r.get("items", []), "held": r.get("held", []), "dropped": r.get("dropped", [])}
 

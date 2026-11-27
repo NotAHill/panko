@@ -13,7 +13,8 @@ mode, so take the same care an API run would.
 1. `panko_next_work(source)` gives the next units to do. Work in batches of a few; you can stop at any point and pick
    up in another chat.
 2. `panko_page(source, unit)`: the page image and its text layer. **The image is the truth**: text layers of
-   two-column pages interleave. Skip exercises, answer blanks, title pages and pure explanation in {{gloss_language}}.
+   two-column pages interleave, and a layer from a scan's OCR is left out (`text_layer` says why): then read
+   everything from the image. Skip exercises, answer blanks, title pages and pure explanation in {{gloss_language}}.
 3. Extract items as the `extract` prompt says. Grammar pages: sentences that only show a pattern go in the
    headword's `examples`; a phrase item is only for a sentence a learner would use as it is.
 4. `panko_evidence` on every item, many per call: `[{ar, tl, tl_alt, pos}]`.

@@ -1229,7 +1229,10 @@ async function unitView(sid, u) {
   try {
     const d = await api(`/sources/${encodeURIComponent(sid)}/units/${u}`);
     put(box, html`<section class="box"><div class="t">${u} <span class="dim">${d.page ? `page ${d.page}, ` : ''}${d.state}</span></div>
-      <div class="unit-view">${d.image ? html`<img src="${d.image}" alt="page ${d.page || u}" loading="lazy">` : ''}${d.text ? html`<pre dir="auto">${d.text}</pre>` : ''}${!d.image && !d.text ? html`<p class="empty">Nothing to show.</p>` : ''}</div>
+      <div class="unit-view">${d.image ? html`<img src="${d.image}" alt="page ${d.page || u}" loading="lazy">` : ''}${d.layer_state
+        ? html`<div class="layer"><p class="layer-note ${d.layer_state === 'ok' ? 'dim' : 'warn'}">${d.layer_state === 'none' ? d.layer_note : html`<b>Text in the PDF:</b> ${d.layer_note}.`}</p>
+          ${d.layer ? html`<details ${d.layer_state === 'ok' ? 'open' : ''}><summary>${d.layer_state === 'ok' ? 'the text' : 'show it anyway'}</summary><pre dir="auto">${d.layer}</pre></details>` : ''}</div>`
+        : d.text ? html`<pre dir="auto">${d.text}</pre>` : ''}${!d.image && !d.text && !d.layer ? html`<p class="empty">Nothing to show.</p>` : ''}</div>
       ${d.items.length ? html`<p class="dim mt">${plural(d.items.length, 'item')} read from it</p><table class="t"><tbody>${d.items.map(it => html`<tr><td>${tgt(it.ar, it.variety)}</td><td class="dim">${it.tl || ''}</td><td>${it.gloss || ''}</td><td class="nw">${it.verdict?.verdict ? html`<span class="flag ${it.verdict.verdict}">${it.verdict.verdict}</span>` : ''}${it.known_id ? html`<span class="flag">known</span>` : ''}</td></tr>`)}</tbody></table>`
         : html`<p class="faint mt">Not read yet.</p>`}
     </section>`);

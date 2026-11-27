@@ -250,8 +250,13 @@ def page(sid: str, unit: str, dpi: int = 110) -> dict:
             subprocess.run(["pdftoppm", "-r", str(dpi), "-f", str(n), "-l", str(n), "-png", "-singlefile", str(p),
                             str(out.with_suffix(""))], check=True)
         image = out
-        text = subprocess.run(["pdftotext", "-layout", "-f", str(n), "-l", str(n), str(p), "-"],
-                              capture_output=True, text=True).stdout
+        layer = subprocess.run(["pdftotext", "-layout", "-f", str(n), "-l", str(n), str(p), "-"],
+                               capture_output=True, text=True).stdout.strip()
+        state = lang.text_layer(layer, ocr=_ocr_page(p, n))
+        # the model gets the layer only when it can be trusted; the hub shows it either way, with why
+        return {"source": sid, "unit": unit, "page": book_page(s, unit), "image": image,
+                "text": layer if state == "ok" else "", "layer": layer, "layer_state": state,
+                "layer_note": lang.layer_note(state)}
     elif s["type"] == "images":
         image = p / s["files"][int(unit[1:]) - 1]
     elif s["type"] == "pack":          # cards from a Panko pack (panko.library): already submitted, shown as they are
@@ -269,6 +274,16 @@ def page(sid: str, unit: str, dpi: int = 110) -> dict:
         i = (int(unit[1:]) - 1) * CHUNK_LINES
         text = "\n".join(lines[i:i + CHUNK_LINES])
     return {"source": sid, "unit": unit, "page": book_page(s, unit), "image": image, "text": text.strip()}
+
+
+def _ocr_page(pdf: Path, n: int) -> bool:
+    """Is this page's text an OCR layer over a scan? OCR tools write it in an invisible "GlyphLessFont"."""
+    try:
+        fonts = subprocess.run(["pdffonts", "-f", str(n), "-l", str(n), str(pdf)], capture_output=True, text=True,
+                               timeout=30).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return "GlyphLessFont" in fonts
 
 
 def deck_row(r: dict) -> dict:

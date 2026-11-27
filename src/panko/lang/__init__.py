@@ -81,6 +81,55 @@ def in_target(text: str, variety: str | None = None) -> bool:
     return bool(found & t) if t else bool(found)
 
 
+# a PDF's text layer --------------------------------------------------------------------------------------------------
+# A page's embedded text can help with spelling, or mislead: OCR over a scan is usually fine for Latin and poor for
+# other scripts, and some PDFs store shaped glyphs (Arabic presentation forms, often in reverse order). The page image
+# is always what's read; a layer that fails these checks isn't given to the model at all.
+
+LAYER_NOTES = {
+    "none": "this page has no text layer",
+    "ocr": "the scan's own OCR, unreliable for {script}: the page image is what's read",
+    "shaped": "stored as shaped glyphs, so its {script} is scrambled: the page image is what's read",
+    "garbled": "garbled (mixed scripts and stray symbols inside words): the page image is what's read",
+    "ok": "the PDF's own text, given to the model as a spelling aid; the page image is what's read",
+}
+_JUNK = set("$<>{}|\\^~@#_=")
+
+
+def _broken(tok: str) -> bool | None:
+    """True for a word OCR or a bad encoding broke: letters of two scripts in one word, a symbol inside it, or digits
+    glued to letters of a script that doesn't write numbers in them (Arabizi's 3/7/9 in Latin words are fine)."""
+    found = scripts(tok)
+    if not found:
+        return None
+    return len(found) > 1 or any(c in _JUNK for c in tok) or (
+        found != {"Latin"} and any(c.isdigit() for c in tok if c.isascii()))
+
+
+def text_layer(text: str, *, ocr: bool = False, variety: str | None = None) -> str:
+    """How far to trust a page's embedded text: "none", "ocr", "shaped", "garbled" or "ok" (see LAYER_NOTES)."""
+    text = text or ""
+    found = scripts(text)
+    if not text.strip() or not found:
+        return "none"
+    wanted = set(target(variety)) or (found - {"Latin"})
+    if ocr and wanted - {"Latin"}:
+        return "ocr"
+    letters = [c for c in text if c.isalpha()]
+    shaped = sum(1 for c in letters if unicodedata.normalize("NFKC", c) != c and script_of(c) != "Latin")
+    if letters and shaped / len(letters) > 0.02:
+        return "shaped"
+    marks = [b for t in text.split() if (b := _broken(t)) is not None]
+    if marks and sum(marks) / len(marks) > 0.08:
+        return "garbled"
+    return "ok"
+
+
+def layer_note(state: str, variety: str | None = None) -> str:
+    t = target(variety)
+    return LAYER_NOTES.get(state, "").format(script=t[0] if len(t) == 1 else "the target script")
+
+
 def romanised() -> bool:
     """Does the learner want a romanisation (`tl`)? Not when `[learner.translit] main` is set to "" (a language
     written in Latin letters already)."""

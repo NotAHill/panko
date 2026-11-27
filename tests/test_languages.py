@@ -119,3 +119,48 @@ def test_japanese_takes_a_list_of_scripts(monkeypatch):
     use(monkeypatch, {"learner": {"script": ["Han", "Hiragana", "Katakana"], "varieties": ["japanese"]}})
     assert lang.in_target("食べる") and lang.in_target("コーヒー") and not lang.in_target("taberu")
     assert lang.label() == "Han, Hiragana or Katakana script" and "Hiragino" in lang.font()[0]
+
+
+# ---- a PDF's text layer
+
+def test_a_scans_ocr_layer_is_not_trusted_for_a_non_latin_script(monkeypatch):
+    monkeypatch.setattr(lang, "_learner", lambda: {"script": "Arabic"})
+    ocr = "kam shahar bis-sana\n(a Sly ga eS\njadlen() ناككوا 5\n$51stLyaby otزان daa"
+    assert lang.text_layer(ocr, ocr=True) == "ocr"
+    assert "OCR" in lang.layer_note("ocr") and "Arabic" in lang.layer_note("ocr")
+    assert lang.text_layer("") == "none" and lang.text_layer("116 | 22") == "none"
+    clean = "kam shahar bis-sana     كم شهر بالسنة؟\nis-seef haar loo baarid bil-9iraaq?   الصيف حار لو بارد بالعراق؟"
+    assert lang.text_layer(clean) == "ok"                                  # Arabizi digits in Latin words are fine
+    assert lang.text_layer("ﻣﺮﺣﺒﺎ kam shahar") == "shaped"   # presentation forms
+    assert lang.text_layer("$51stLy otزان 95833؟بالش Bjl> 5ناككوا x|y") == "garbled"
+    monkeypatch.setattr(lang, "_learner", lambda: {"script": "Latin"})
+    assert lang.text_layer("la casa es grande", ocr=True) == "ok"         # OCR is fine for Latin
+
+
+def test_the_model_gets_only_a_trusted_layer(monkeypatch, tmp_path):
+    import shutil
+    if not shutil.which("pdftotext"):
+        pytest.skip("needs poppler")
+    monkeypatch.setattr(lang, "_learner", lambda: {"script": "Arabic"})
+    monkeypatch.setattr(work, "WORK", tmp_path / "work")
+    monkeypatch.setattr(work, "PAGES", tmp_path / "pages")
+    monkeypatch.setattr(work, "sources", lambda: {"s": {"id": "s", "type": "pdf", "path": str(tmp_path / "x.pdf"),
+                                                        "units": ["p001"]}})
+    monkeypatch.setattr(work, "book_page", lambda s, u: 1)
+
+    class Done:
+        def __init__(self, out):
+            self.stdout = out
+    calls = []
+
+    def run(cmd, **kw):
+        calls.append(cmd[0])
+        if cmd[0] == "pdftoppm":
+            (tmp_path / "pages" / "s" / "p001.png").write_bytes(b"png")
+        return Done("kam shahar bis-sana\njadlen() ناككوا 5" if cmd[0] == "pdftotext" else "")
+    monkeypatch.setattr(work.subprocess, "run", run)
+    monkeypatch.setattr(work, "_ocr_page", lambda p, n: True)
+    p = work.page("s", "p001")
+    assert p["text"] == "" and "ناككوا" in p["layer"] and p["layer_state"] == "ocr"
+    monkeypatch.setattr(work, "_ocr_page", lambda p, n: False)
+    assert work.page("s", "p001")["layer_state"] in ("ok", "garbled")

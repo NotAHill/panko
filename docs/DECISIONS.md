@@ -2,6 +2,12 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-27 · A PDF's text layer reaches the model only when it can be trusted.** Scanned books (the Internet
+Archive's, for one) carry an invisible OCR layer that reads Latin well and mangles Arabic. When a page's text is
+OCR (`GlyphLessFont`) and the learner's script isn't Latin, or it's stored as shaped glyphs, or too many of its
+words are broken, the model gets the page image alone (`lang.text_layer`, `work.page`); the hub still shows the
+layer, folded, with the reason. The image was always the truth; a bad layer only cost tokens and invited mistakes.
+
 **2026-11-26 · The front door keeps sessions on the server and asks nothing of the browser.** Sessions are
 random tokens stored hashed in `host.db`, not signed cookies, so disabling someone or changing a password ends their
 sessions at once. Changes are guarded by SameSite=Lax plus an Origin check on every POST, so the front door's pages
