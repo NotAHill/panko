@@ -145,7 +145,7 @@ def app(token: str | None = None, front: str | None = None) -> Starlette:
     api.JOBS = api.JOBS or Jobs()
     routes = [Route("/", index), Route("/api/upload", upload, methods=["POST"]), *api.ROUTES,
               Route("/media/{name}", api.media), Route("/export/file/{name}", api.export_file),
-              Route("/addon/panko-sync.ankiaddon", api.addon_file),
+              Route("/addon/panko-sync.ankiaddon", api.addon_file), Route("/addon/panko.mcpb", api.extension_file),
               Route("/anki/pull", api.anki_pull, methods=["POST"]), Route("/anki/done", api.anki_done, methods=["POST"]),
               Route("/anki/media/{name}", api.anki_media), Mount("/static", StaticFiles(directory=STATIC), name="static")]
     lifespan = None

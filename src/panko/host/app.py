@@ -204,6 +204,12 @@ def app(data: Path | str, **opts) -> Starlette:
         return page("on your own computer", INSTALL_PAGE.format(install=e(INSTALL), upgrade=e(UPGRADE),
                                                                 source=e(SOURCE)), user=door.user(req))
 
+    async def extension(req: Request):
+        """Chat mode as a Claude Desktop extension, for Panko on your own computer (~/Panko by default)."""
+        from panko import mcpb
+        return Response(await asyncio.to_thread(mcpb.bundle), media_type="application/zip",
+                        headers={"Content-Disposition": f'attachment; filename="{mcpb.NAME}"', "Cache-Control": "no-store"})
+
     async def addon(req: Request):
         """The Panko sync add-on, for anyone: it does nothing until it's given a Panko's address and code."""
         from panko.anki.addon import NAME, addon_zip
@@ -720,6 +726,7 @@ def app(data: Path | str, **opts) -> Starlette:
     routes = [Route("/host/login", login, methods=["GET", "POST"]), Route("/host/logout", logout, methods=["POST"]),
               Route("/host/invite/{token}", invite, methods=["GET", "POST"]), Route("/host/privacy", privacy),
               Route("/host/install", install), Route("/host/panko-sync.ankiaddon", addon),
+              Route("/host/panko.mcpb", extension),
               Route("/host/account", account, methods=["GET", "POST"]), Route("/host/account/export", account_export),
               Route("/host/admin", admin), Route("/host/admin/invite", admin_invite, methods=["POST"]),
               Route("/host/admin/withdraw/{n:int}", admin_withdraw, methods=["POST"]),
@@ -775,9 +782,11 @@ Anki: Tools → Add-ons → Install from file), then restart Anki. On Panko's sy
 the address shown there into Anki: Tools → Panko: settings…. Your review history and your own notes are never
 touched.</p></section>
 <section class="box"><div class="t">4. chat mode (optional)</div>
-<code class="link-out">panko mcp --config</code>
-<p>It prints what to add to Claude's desktop app (Settings → Developer → Edit Config) and the line for Claude
-Code. Restart Claude, then ask it to read a source with Panko.</p></section>
+<p><a class="btn" href="/host/panko.mcpb">download the Claude Desktop extension</a> and open it: Claude's desktop
+app installs it and Panko's tools with it (it uses your Panko folder). Then ask Claude to read a source with
+Panko.</p>
+<p class="faint">For Claude Code, or to set it up by hand: <code>panko mcp --config</code> prints what to add.</p>
+</section>
 <section class="box"><div class="t">later</div>
 <p>Update Panko: <code>{upgrade}</code>. Panko is free software (AGPL): <a href="{source}">its source</a>.</p>
 </section>"""

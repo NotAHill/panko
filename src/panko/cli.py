@@ -118,6 +118,8 @@ def _main(argv=None):
     rf.add_argument("--force", action="store_true", help="with --download: fetch them again even if present")
     mc = sub.add_parser("mcp", help="run Panko as an MCP server for Claude (chat mode, no API key needed)")
     mc.add_argument("--config", action="store_true", help="print the Claude Desktop / Claude Code config instead")
+    mc.add_argument("--bundle", metavar="FILE", help="write chat mode as a Claude Desktop extension (panko.mcpb): "
+                    "open it in Claude's desktop app to install, nothing else needed")
     mc.add_argument("--skill", metavar="DIR", help="write the chat workflow as a Claude skill: DIR/panko/SKILL.md "
                     "(e.g. ~/.claude/skills for Claude Code)")
     hb = sub.add_parser("hub", help="the local dashboard in your browser: sources, inbox, card previews, checks, "
@@ -324,6 +326,10 @@ def _main(argv=None):
             print(f"{r['name']:<45} {how:<36} {r['path']}")
     elif args.cmd == "work":
         _work(args, wk)
+    elif args.cmd == "mcp" and args.bundle:
+        from panko import mcpb
+        from panko.config import ROOT
+        print("wrote", mcpb.write(args.bundle, folder=ROOT), "(open it in Claude's desktop app)")
     elif args.cmd == "mcp" and args.skill:
         from panko import skill
         print("wrote", skill.write(args.skill))

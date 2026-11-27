@@ -1769,6 +1769,18 @@ async def addon_file(request: Request):
                     headers={"Content-Disposition": f'attachment; filename="{NAME}"'})
 
 
+async def extension_file(request: Request):
+    """Chat mode as a Claude Desktop extension, set to this Panko's folder (on your own computer only: on a server,
+    Claude connects to the address on the account page)."""
+    from panko import mcpb
+    from panko.config import ROOT, hosted
+    if hosted():
+        return Response("Not here: on a server, add Panko to Claude as a connector (your account page).", 404)
+    data = await run_in_threadpool(lambda: mcpb.bundle(folder=ROOT))
+    return Response(data, media_type="application/zip",
+                    headers={"Content-Disposition": f'attachment; filename="{mcpb.NAME}"', "Cache-Control": "no-store"})
+
+
 @api("GET", "/anki/addon")
 def anki_addon_state(req: Req):
     """For the sync page: the add-on's last sync, and where its device code is made."""

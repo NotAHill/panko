@@ -1925,9 +1925,11 @@ VIEWS.setup = async (el, r) => {
     <section class="box"><div class="t">chat mode</div>${hosted ? html`<p class="muted-p">Let your own Claude read sources and decide with Panko's tools, on your own Claude plan with no API spend. Add Panko as a custom connector with this address (claude.ai or Claude Desktop: Settings, then Connectors), then connect and allow it.</p>
       ${d.chat_url ? html`<div class="snippet mt"><button data-a="copy">copy</button><pre id="snip">${d.chat_url}</pre></div>
       <p class="faint mt-s">Claude Code: <code>claude mcp add --transport http panko ${d.chat_url}</code>, then <code>/mcp</code> to sign in. Connected apps are on your <a href="/host/account">account</a> page.</p>` : html`<p class="faint">Your account page has the address.</p>`}`
-      : html`<p class="muted-p">Let your own Claude (Desktop or Code) read sources and decide with Panko's tools, with no API spend.
-      Add this to Claude's MCP config, then restart it.</p>${d.chat ? html`<div class="snippet mt"><button data-a="copy">copy</button><pre id="snip">${d.chat}</pre></div>`
-        : html`<p class="warn">Needs the extra: <code>uv sync --extra mcp</code></p>`}`}</section>
+      : html`<p class="muted-p">Let your own Claude read sources and decide with Panko's tools, on your own Claude plan with no API spend.</p>
+      <div class="acts mt"><a class="btn pri" href="/addon/panko.mcpb" download>download the Claude Desktop extension</a></div>
+      <p class="faint mt-s">Open the file: Claude's desktop app installs Panko's tools, set to this Panko folder. It runs the released Panko from PyPI.</p>
+      ${d.chat ? html`<details class="mt"><summary>Claude Code, or by hand</summary><p class="muted-p mt-s">Add this to Claude's MCP config (this copy of Panko), then restart it.</p>
+        <div class="snippet mt-s"><button data-a="copy">copy</button><pre id="snip">${d.chat}</pre></div></details>` : ''}`}</section>
     <section class="box" id="disk"><div class="t">disk</div><div id="disk-in">${loading()}</div></section>
     <section class="box"><div class="t">look</div><div class="acts"><button data-a="theme">switch light / dark</button><button data-a="tour">show me around</button><span class="dim kbd-hint">or press <kbd>t</kbd> to switch</span></div></section>`);
   const diskPaint = async () => {

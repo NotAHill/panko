@@ -102,6 +102,7 @@ class Jobs:
         self._jobs: dict[str, Job] = {}
         self._q: queue.Queue[Job] = queue.Queue()
         self._lock = threading.Lock()
+        self._save_lock = threading.Lock()      # one save at a time: a later save always writes a later picture
         self.path = Path(path) if path else None
         if self.path:
             self._load()
@@ -129,17 +130,20 @@ class Jobs:
         self.save()
 
     def save(self):
+        """The jobs file. The snapshot and the write go together under one lock: two threads saving at once (a job
+        finishing, a resume noting its new job) once wrote the older snapshot last."""
         if not self.path:
             return
-        with self._lock:
-            rows = [j.saved() for j in sorted(self._jobs.values(), key=lambda j: -j.created)[:KEPT_JOBS]]
-        tmp = self.path.with_suffix(".tmp")
-        try:
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-            tmp.write_text(json.dumps(rows, ensure_ascii=False, default=str))
-            os.replace(tmp, self.path)
-        except OSError as e:          # a full disk mustn't stop a job
-            sys.__stderr__.write(f"jobs: couldn't save {self.path}: {e}\n")
+        with self._save_lock:
+            with self._lock:
+                rows = [j.saved() for j in sorted(self._jobs.values(), key=lambda j: -j.created)[:KEPT_JOBS]]
+            tmp = self.path.with_suffix(".tmp")
+            try:
+                self.path.parent.mkdir(parents=True, exist_ok=True)
+                tmp.write_text(json.dumps(rows, ensure_ascii=False, default=str))
+                os.replace(tmp, self.path)
+            except OSError as e:          # a full disk mustn't stop a job
+                sys.__stderr__.write(f"jobs: couldn't save {self.path}: {e}\n")
 
     def _saver(self, every: float = 2):
         """The log of a running job, every few seconds (status changes are saved straight away)."""

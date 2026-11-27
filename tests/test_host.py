@@ -82,6 +82,9 @@ def test_without_an_account_the_sign_in_page_offers_panko_on_your_own_computer(d
     assert z.status_code == 200 and "attachment" in z.headers["content-disposition"]
     names = zipfile.ZipFile(io.BytesIO(z.content)).namelist()
     assert "manifest.json" in names and "net.py" in names and not any("__pycache__" in n for n in names)
+    x = c.get("/host/panko.mcpb")                                # chat mode as a Claude Desktop extension
+    assert x.status_code == 200 and 'href="/host/panko.mcpb"' in r.text
+    assert "manifest.json" in zipfile.ZipFile(io.BytesIO(x.content)).namelist()
 
 
 def test_sign_in_needs_an_account_and_this_sites_own_form(data):

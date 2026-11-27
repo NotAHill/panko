@@ -17,6 +17,13 @@ already shown on a card of the card's own variety isn't offered either. For vari
 suggests another photo of the same thing (the photos found for the first card come up, free), since the same
 picture on both cards can bring the other variety's word to mind.
 
+**2026-11-27 · Chat mode on your own computer is a "uv" Claude Desktop extension that installs Panko from PyPI.**
+A classic Python extension must carry its dependencies, and compiled ones (pydantic, under the MCP library) can't be
+carried portably; a uv extension holds only a manifest and a `pyproject.toml`, and Claude's desktop app installs
+Python and the pinned `pankohub` release itself. So a release has to be on PyPI before an extension names it: bump
+the version and push its tag together. The extension and `panko hub` share one folder, the extension's only setting.
+Claude Code and checkouts keep `panko mcp --config`, which runs the local copy.
+
 **2026-11-27 · A server update runs detached from the terminal that started it.** A dropped SSH connection once
 stopped `deploy/update.sh` between creating the new container and starting it, and the site was down until someone
 noticed. Now the update runs on its own on the server (nohup, its own session, from a copy of the script so

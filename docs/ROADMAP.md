@@ -205,7 +205,15 @@ Update the **Now** section at the end of every work session: it's what a fresh s
 - **Deploys survive a dropped connection (2026-11-27).** `deploy/update.sh` runs detached on the server with a lock
   and a log, and checks the new container answers. `.github/workflows/publish.yml` publishes `pankohub` to PyPI on a
   `v*` tag through trusted publishing (no token in the repo).
-- **Next:** D4 (chat mode as a one-click Claude Desktop extension); the last of H5 (invite emails, when inviting more
+- **D4 built (2026-11-27): chat mode as a Claude Desktop extension.** `panko.mcpb` (`src/panko/mcpb/`) is a "uv"
+  extension (manifest 0.4): a manifest, the icon, and a `pyproject.toml` naming this release of `pankohub`, so
+  Claude's desktop app installs Python and Panko itself, with nothing installed first. Its one setting is the Panko
+  folder (`~/Panko` by default; a local hub's copy offers its own folder). Offered on the hub's setup page (chat mode),
+  on the install page, and by `panko mcp --bundle FILE`. Checked with Anthropic's `mcpb validate`, and its server
+  started as Claude would (`uv run` in the unpacked bundle): pankohub from PyPI, all 28 tools, the chosen folder.
+  Not yet tried inside Claude's desktop app itself. Also fixed: two threads saving the jobs file at once could
+  write the older picture last (a flaky test showed it).
+- **Next:** the last of H5 (invite emails, when inviting more
   than a couple of people); backups before inviting anyone (`deploy/README.md` §5, skipped for now). DODa stays on
   (free and invite-only fits its terms; switched off if its authors object).
 - The learner's own state (deck sizes, what's waiting on whom, plans) is in `data/STATUS.md` (git-ignored).
@@ -246,7 +254,7 @@ S10 has numbered tracks of its own: one per later step, and D for running it on 
 |---|---|---|
 | **L** (S10 step 2): the deck library, `docs/SPEC-library.md` | L1 Panko packs (`panko pack build`, `panko library import`) · L2 `panko publish` · L3 the library repo, `panko library list` / `get`, the hub's library page · L4 updates (a deck's v2 over v1, your edits kept) | L1–L3 built 2026-11-26, library live; L4 waits for a deck's v2 |
 | **H** (S10 step 3): the hosted Panko, `docs/SPEC-hosted.md` | H1 hosted mode inside Panko · H2 the front door and the server · H3 the Anki add-on · H4 chat mode remotely (MCP over HTTP, OAuth) · H5 polish (jobs survive a restart, quota warnings, invite emails, monitoring) | H1–H4 deployed; H5: restarts and monitoring done, quota warnings and invite emails to do |
-| **D** (after H5): Panko on your own computer, for those who don't want an account | D1 a package: `uv tool install pankohub`, then `panko hub` · D2 an install page, linked from the sign-in page ("or run it on your own computer") · D3 the Panko sync add-on tried end to end against a local Panko (one add-on for both) · D4 chat mode as a one-click Claude Desktop extension · D5 a signed double-click app, only if people ask | D1–D3 built, `pankohub` 0.1.0 on PyPI; D4–D5 to do |
+| **D** (after H5): Panko on your own computer, for those who don't want an account | D1 a package: `uv tool install pankohub`, then `panko hub` · D2 an install page, linked from the sign-in page ("or run it on your own computer") · D3 the Panko sync add-on tried end to end against a local Panko (one add-on for both) · D4 chat mode as a one-click Claude Desktop extension · D5 a signed double-click app, only if people ask | D1–D4 built, `pankohub` 0.1.0 on PyPI; D5 only if asked |
 
 Order (your call, 2026-11-23; product first from 2026-11-25): Phase 4 (lessons and recordings, built), Phase 5
 (verification, built), S9 (any language, built), S10. Card migration (Peace Corps pictures and sync, the Fusha round of Phase 6) waits until
