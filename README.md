@@ -33,7 +33,7 @@ Install it with [uv](https://docs.astral.sh/uv/) (which brings its own Python), 
 store, pictures and audio live in one folder, `~/Panko`, never in the code.
 
 ```bash
-uv tool install git+https://github.com/NotAHill/panko     # or: uv sync --all-extras in a checkout
+uv tool install pankohub     # the command is `panko`; or: uv sync --all-extras in a checkout
 ```
 
 ```bash

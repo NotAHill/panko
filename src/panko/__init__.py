@@ -6,9 +6,9 @@ SOURCE = "https://github.com/NotAHill/panko"
 USER_AGENT = f"panko ({SOURCE})"
 # Panko's name on PyPI ("panko" there is another project); the command and the module stay `panko`.
 DIST = "pankohub"
-# How a person installs Panko on their own computer (the install page, docs/ROADMAP.md track D): from GitHub until
-# the first release is on PyPI, then `uv tool install pankohub`.
-INSTALL = f"uv tool install git+{SOURCE}"
+# How a person installs Panko on their own computer (the install page, docs/ROADMAP.md track D). A release is a
+# `v*` tag (.github/workflows/publish.yml); `uv tool install git+<SOURCE>` gives the latest code instead.
+INSTALL = f"uv tool install {DIST}"
 UPGRADE = f"uv tool upgrade {DIST}"
 
 
