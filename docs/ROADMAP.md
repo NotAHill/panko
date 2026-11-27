@@ -153,6 +153,11 @@ Update the **Now** section at the end of every work session: it's what a fresh s
   through on an access token only. The account page shows the connector address and the connected apps (end one
   any time); the hub's setup page shows the address too. Tool errors now reach Claude with their reason (the MCP
   SDK hid them, locally too). Tests: `tests/test_host_oauth.py`, including a full run against a real Panko.
+- **Pictures without keys (2026-11-27):** the pictures page has "search photos for all" (a free background job:
+  the free photo sites for every card waiting, kept in `data/pictures/chosen/`) and "go through them" (the chooser
+  opens on each card's photos in turn: click one, skip, or no picture). The model's button is off without a key,
+  with the chat-mode request to copy instead; drawings are made from the page with the learner's image key, price
+  first when `usd_per_image` is set. No automatic pick without a model: a wrong photo teaches the wrong meaning.
 - **Next:** backups before inviting
   anyone (`deploy/README.md` §5). Then one invited person, then H3 (the Anki add-on). DODa stays on (free and
   invite-only fits its terms; switched off if its authors object).

@@ -10,6 +10,7 @@ import os
 import re
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 from starlette.concurrency import run_in_threadpool
@@ -861,9 +862,31 @@ def pictures_state(req: Req):
     except Exception:  # noqa: BLE001  a provider that can't load: not ready
         llm_ready = False
     from panko.providers.imagegen import Generate
+    saved = _searches()[0]
+    for c in cards:
+        c["searched"] = len(saved[c["id"]]) if c["id"] in saved else None
     return {"todo": len(cards), "cards": cards, "ids": [c["id"] for c in cards], "decisions": rows[::-1],
             "tags": sorted(tags.items(), key=lambda x: (-x[1], x[0]))[:80], "none": none,
-            "drawings_waiting": len(_drawings_todo(st)), "draw_ready": Generate({}).ready(), "llm_ready": llm_ready}
+            "drawings_waiting": len(_drawings_todo(st)), "draw_ready": Generate({}).ready(), "llm_ready": llm_ready,
+            "searched": sum(1 for c in cards if c["searched"] is not None), "sources": _photo_sources()}
+
+
+def _photo_sources() -> dict:
+    """The photo sites in your [images] chain: those searched now, and those left out until you add their key."""
+    from panko import providers
+    from panko.config import settings
+    out: dict[str, list] = {"ready": [], "need_key": []}
+    for name in settings().get("images", {}).get("chain", []):
+        p = providers.get("images", name)
+        if p is None or not hasattr(p, "search"):
+            continue
+        out["ready" if p.ready() else "need_key"].append(PHOTO_SITE.get(name, name))
+    return out
+
+
+PHOTO_SITE = {"source": "the source's own pages", "wikidata": "Wikidata", "commons": "Wikimedia Commons",
+              "openverse": "Openverse", "pexels": "Pexels", "pixabay": "Pixabay", "inaturalist": "iNaturalist",
+              "arasaac": "ARASAAC"}
 
 
 def _drawings_file() -> Path:
@@ -917,6 +940,90 @@ def _chosen_dir() -> Path:
     return ROOT / "data" / "pictures" / "chosen"
 
 
+_SEARCHES = threading.Lock()      # the search-all job and a search from the chooser write the same files
+
+
+def _searches() -> tuple[dict, dict]:
+    """Your own photo searches, kept: {card: candidates} (cands.json, what /pictures/choose reads) and {card: query}."""
+    d = _chosen_dir()
+    out = []
+    for name in ("cands.json", "queries.json"):
+        try:
+            out.append(json.loads((d / name).read_text()))
+        except (OSError, ValueError):
+            out.append({})
+    return out[0], out[1]
+
+
+def _save_searches(found: dict[str, tuple[str, list]]) -> None:
+    """Keep these searches ({card: (query, candidates)}), next to the ones already kept."""
+    if not found:
+        return
+    with _SEARCHES:
+        cands, queries = _searches()
+        for eid, (q, got) in found.items():
+            cands[eid], queries[eid] = got, q
+        d = _chosen_dir()
+        d.mkdir(parents=True, exist_ok=True)
+        for name, data in (("cands.json", cands), ("queries.json", queries)):
+            tmp = d / f".{name}.tmp"
+            tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1))
+            tmp.replace(d / name)
+
+
+def _cards(n: int) -> str:
+    return f"{n} card" + ("" if n == 1 else "s")
+
+
+@api("POST", "/pictures/search")
+def pictures_search(req: Req):
+    """Search your photo sources for every card waiting for a picture, in the background (free: no model, no spend).
+    The chooser then opens on each card's photos at once. Cards searched before are skipped unless `again`."""
+    from panko.media import pictures
+    status, tag = str(req.body.get("status", "active")), str(req.body.get("tag", ""))
+    cards = _picture_cards(status, tag)
+    if not req.body.get("again"):
+        done = _searches()[0]
+        cards = [c for c in cards if c["id"] not in done]
+    if not cards:
+        raise ValueError("every card waiting has been searched")
+    src = _photo_sources()
+    if not src["ready"]:
+        raise ValueError("no photo source is ready: turn one on in card design")
+    st = _store()
+    asks = [(c["id"], pictures.query_for(st.get(c["id"]) or c)) for c in cards]   # the store stays in this thread
+
+    def run(job: Job):
+        from concurrent.futures import ThreadPoolExecutor
+        job.say(f"searching {', '.join(src['ready'])} for {_cards(len(cards))}"
+                + (f" ({', '.join(src['need_key'])} left out: no key)" if src["need_key"] else ""))
+
+        def one(ask):
+            try:
+                return *ask, pictures.candidates(ask[1], per_provider=6)
+            except Exception as ex:  # noqa: BLE001  one card's search failing leaves it for next time, not the rest
+                return *ask, ex
+        found, empty, failed, n_done = {}, 0, 0, 0
+        with ThreadPoolExecutor(4) as pool:
+            for eid, q, got in pool.map(one, asks):
+                n_done += 1
+                if isinstance(got, Exception):
+                    failed += 1
+                    job.say(f"  {eid} “{q}”: {got}")
+                    continue
+                found[eid] = (q, got)
+                empty += not got
+                if len(found) >= 10:
+                    _save_searches(found)
+                    found = {}
+                    job.say(f"  {n_done}/{len(cards)}")
+        _save_searches(found)
+        job.say(f"searched {_cards(n_done - failed)}; nothing found for {empty}"
+                + (f"; {failed} failed (search all again to retry them)" if failed else ""))
+        return {"searched": n_done - failed, "nothing": empty, "failed": failed}
+    return _start("picture-search", f"Search photos for {_cards(len(cards))}", run)
+
+
 @api("GET", "/pictures/candidates")
 def pictures_candidates(req: Req):
     """Photos for one card, to choose from yourself: the model's sheet for it if it has one (unless you search), else
@@ -935,15 +1042,16 @@ def pictures_candidates(req: Req):
                     "from": "the model's search", "candidates": _cands_out(got)}
         except (OSError, ValueError, KeyError):
             pass
+    if not q:                                     # searched before (search all, or an earlier search here)
+        cands, queries = _searches()
+        if eid in cands:
+            return {"id": eid, "query": queries.get(eid) or pictures.query_for(e), "dir": str(_chosen_dir()),
+                    "chosen": None, "from": "searched earlier", "candidates": _cands_out(cands[eid])}
     q = q or pictures.query_for(e)
     got = pictures.candidates(q, per_provider=6)
-    out = _chosen_dir()
-    out.mkdir(parents=True, exist_ok=True)
-    f = out / "cands.json"
-    saved = json.loads(f.read_text()) if f.exists() else {}
-    saved[eid] = got
-    f.write_text(json.dumps(saved, ensure_ascii=False, indent=1))
-    return {"id": eid, "query": q, "dir": str(out), "chosen": None, "from": "your search", "candidates": _cands_out(got)}
+    _save_searches({eid: (q, got)})
+    return {"id": eid, "query": q, "dir": str(_chosen_dir()), "chosen": None, "from": "your search",
+            "candidates": _cands_out(got)}
 
 
 def _cands_out(cands: list[dict]) -> list[dict]:

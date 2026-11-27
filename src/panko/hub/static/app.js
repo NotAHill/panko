@@ -1466,9 +1466,13 @@ VIEWS.pictures = async (el, r) => {
     <section class="box"><div class="t">to do</div>
       <p><span class="acc big">${n(d.todo)}</span> ${status} card${d.todo === 1 ? '' : 's'}${tag ? ` tagged ${tagName(tag)}` : ''} without a picture or a decision.
         ${d.none ? html`<span class="dim">${plural(d.none, 'card')} set to no picture.</span>` : ''}</p>
-      <p class="muted-p">The model plans a search per card, looks through contact sheets from your picture sources and picks a photo.
-        When nothing fits it writes a drawing prompt, if you allow drawings. Or choose one yourself, free: <b>choose a photo</b> on any card below.
-        <a href="#/design">Choose the sources</a> in card design.</p>
+      ${d.todo ? html`<div class="by-hand"><div class="acts"><b>choose them yourself, free</b>
+          <button data-a="search-all" ${d.todo > d.searched && d.sources.ready.length ? '' : 'disabled'}>${d.searched >= d.todo ? 'all searched' : d.searched ? `search photos for the other ${n(d.todo - d.searched)}` : `search photos for all ${n(d.todo)}`}</button>
+          <button class="${d.searched ? 'pri' : ''}" data-a="go-through" ${d.searched ? '' : 'disabled'}>go through ${d.searched ? n(d.searched) : 'them'}</button></div>
+        <p class="faint mt-s">Search finds photos for every card in the background, from ${d.sources.ready.join(', ') || 'no source yet'}; then go through the cards and click the right photo on each.
+          ${d.sources.need_key.length ? html`${d.sources.need_key.join(' and ')} ${d.sources.need_key.length === 1 ? 'needs' : 'need'} a free key: <a href="#/setup">add it in setup</a>. ` : ''}Drawings need an image key.</p></div>` : ''}
+      <p class="muted-p mt">Or let a model choose: it plans a search per card, looks through contact sheets from your picture sources and picks a photo.
+        When nothing fits it writes a drawing prompt, if you allow drawings. <a href="#/design">Choose the sources</a> in card design.</p>
       <div class="acts mt"><div class="seg"><button data-a="st" data-s="active" class="${status === 'active' ? 'on' : ''}">active</button><button data-a="st" data-s="candidate" class="${status === 'candidate' ? 'on' : ''}">inbox</button></div>
         <label class="dim">at most <input id="p-lim" type="number" min="1" value="${Math.min(50, d.todo || 50)}"> cards</label>
         <button class="${d.llm_ready ? 'pri' : ''}" data-a="decide" ${d.todo && d.llm_ready ? '' : 'disabled'}><span class="paid">$</span>choose pictures with the model</button></div>
@@ -1495,7 +1499,7 @@ VIEWS.pictures = async (el, r) => {
       <div class="acts"><select id="p-tag" aria-label="tag"><option value="">any tag</option>${d.tags.map(([t, k]) => html`<option value="${t}" ${t === tag ? 'selected' : ''}>${tagName(t)} (${n(k)})</option>`)}</select>
         ${tag && d.todo ? html`<button data-a="none-all">mark all ${n(d.todo)} as no picture</button>` : html`<span class="faint">some cards are better without one, such as prayers or grammar words: pick a tag to set them all at once</span>`}</div>
       ${waiting ? paged(d.cards, 'waiting', c => html`<tr class="row" data-href="#/cards?status=all&id=${c.id}"><td class="nw faint">${c.id}</td><td>${tgt(c.ar, '')}</td><td class="dim">${c.tl || ''}</td><td>${c.gloss}</td>
-        <td class="r two"><button class="nopic" data-a="choose" data-id="${c.id}">choose a photo</button><button class="nopic" data-a="none" data-id="${c.id}" title="this card is better without a picture">mark as no picture</button></td></tr>`,
+        <td class="r two">${c.searched != null ? html`<span class="faint nw">${c.searched ? plural(c.searched, 'photo') : 'none found'}</span>` : ''}<button class="nopic" data-a="choose" data-id="${c.id}">choose a photo</button><button class="nopic" data-a="none" data-id="${c.id}" title="this card is better without a picture">mark as no picture</button></td></tr>`,
         html`<thead><tr><th>card</th><th>word</th><th>transliteration</th><th>gloss</th><th></th></tr></thead>`) : html`<p class="empty mt">Nothing waiting.</p>`}</details>`);
   $('#p-tag').onchange = e => go('#/pictures?' + new URLSearchParams({ status, tag: e.target.value }));
   const redraw = () => VIEWS.pictures(el, r);
@@ -1512,7 +1516,12 @@ VIEWS.pictures = async (el, r) => {
     st: b => go('#/pictures?' + new URLSearchParams({ status: b.dataset.s, tag })),
     page: b => { PIC.page[b.dataset.w] = +b.dataset.p; redraw(); },
     none: b => none([b.dataset.id]),
-    choose: b => choosePhoto(row(b.dataset.id), redraw),
+    choose: b => {
+      const i = d.cards.findIndex(c => c.id === b.dataset.id);
+      choosePhoto(row(b.dataset.id), redraw, i < 0 ? null : d.cards.slice(i + 1));
+    },
+    'search-all': () => startJob('/pictures/search', { status, tag }, redraw),
+    'go-through': () => { const seq = d.cards.filter(c => c.searched != null); if (seq.length) choosePhoto(seq[0], redraw, seq.slice(1)); },
     'none-all': async () => { if (await confirmIt(`no picture for ${plural(d.todo, 'card')} tagged ${tagName(tag)}?`, html`<p>They leave the picture queue. You can undo it, or ask for a picture on any one of them from its edit form.</p>`)) none(d.ids); },
     decide: () => paidAction('/pictures/decide', { status, tag, limit: +$('#p-lim').value || 0 }, 'choose pictures with the model?', { batch: false, onDone: redraw }),
     apply: () => startJob('/pictures/apply', {}, redraw),
@@ -1521,16 +1530,19 @@ VIEWS.pictures = async (el, r) => {
   });
 };
 
-/* Choose a photo for one card yourself: the model's candidates if it searched, else a search of your picture
-   sources (free). Clicking one puts it on the card straight away. */
-async function choosePhoto(card, onDone) {
+/* Choose a photo for one card yourself: the model's candidates if it searched, else the search kept for it, else a
+   search of your picture sources (free). Clicking one puts it on the card straight away. With `rest` (the cards
+   after it), the next one opens: skip or no picture moves on too, so a whole list goes in one pass. */
+async function choosePhoto(card, onDone, rest = null) {
   const L = $('#layer'), before = document.activeElement;
   let busy = false;
   const close = () => { document.removeEventListener('keydown', key, true); L.innerHTML = ''; tipHide(); peekHide(); before?.focus?.(); };
   const key = e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); } };
   document.addEventListener('keydown', key, true);
   const frame = inner => put(L, html`<div class="back"><div class="box modal chooser" role="dialog" aria-modal="true" aria-labelledby="ch-t" tabindex="-1">
-    <div class="t" id="ch-t">choose a photo · ${tgt(card.ar || '', '')} <span class="dim">${card.gloss || ''}</span></div>${inner}</div></div>`);
+    <div class="t" id="ch-t">choose a photo · ${tgt(card.ar || '', '')} <span class="dim">${card.gloss || ''}</span>
+      ${rest?.length ? html`<span class="faint">${plural(rest.length, 'more card')} after this</span>` : ''}</div>${inner}</div></div>`);
+  const next = () => { close(); onDone?.(); if (rest?.length) choosePhoto(rest[0], onDone, rest.slice(1)); };
   const show = res => {
     frame(html`<form class="acts" id="ch-f"><input id="ch-q" value="${res.query}" aria-label="search for" placeholder="search for…" style="flex:1">
         <button>search</button><span class="faint">${res.from} · free</span></form>
@@ -1538,7 +1550,17 @@ async function choosePhoto(card, onDone) {
           <img src="${c.thumb}" alt="${c.title}" loading="lazy" referrerpolicy="no-referrer" data-peek="${c.thumb}">
           <span class="lic">${c.provider} · ${c.license || 'licence unknown'}</span></button>`)}</div>
         <p class="faint mt-s">Click one to put it on the card. ${res.chosen != null ? 'The outlined one is what the model chose.' : ''}</p>`
-        : html`<p class="empty mt">Nothing found for “${res.query}”. Try other words.</p>`}`);
+        : html`<p class="empty mt">Nothing found for “${res.query}”. Try other words.</p>`}
+      ${rest ? html`<div class="acts mt"><button data-ch="none" title="this card is better without a picture">no picture</button>
+        <button data-ch="skip">${rest.length ? 'skip →' : 'skip'}</button><button data-ch="stop" class="link">stop</button></div>` : ''}`);
+    if (rest) {
+      $('[data-ch=skip]', L).onclick = next;
+      $('[data-ch=stop]', L).onclick = () => { close(); onDone?.(); };
+      $('[data-ch=none]', L).onclick = async () => {
+        try { await api('/pictures/none', { body: { ids: [card.id] } }); toast(html`<span class="ok">✔</span> no picture on ${card.id}`, 'ok', 4000); next(); }
+        catch (e) { toast(html`<span class="bad">✘</span> ${e.message}`, 'bad', 0); }
+      };
+    }
     $('.back', L).onclick = ev => { if (ev.target.classList.contains('back')) close(); };
     $('#ch-f', L).onsubmit = ev => { ev.preventDefault(); load($('#ch-q', L).value.trim()); };
     for (const b of $$('.pic', L)) b.onclick = async () => {
@@ -1546,9 +1568,8 @@ async function choosePhoto(card, onDone) {
       busy = true; b.classList.add('wait');
       try {
         await api('/pictures/choose', { body: { id: card.id, dir: res.dir, index: +b.dataset.i } });
-        close();
-        toast(html`<span class="ok">✔</span> photo on ${card.id} ${tgt(card.ar || '', '')}`, 'ok', 6000);
-        onDone?.();
+        toast(html`<span class="ok">✔</span> photo on ${card.id} ${tgt(card.ar || '', '')}`, 'ok', rest ? 3000 : 6000);
+        next();
       } catch (e) { busy = false; b.classList.remove('wait'); toast(html`<span class="bad">✘</span> ${e.message}`, 'bad', 0); }
     };
     $('.modal', L).focus({ preventScroll: true });

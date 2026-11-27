@@ -511,3 +511,32 @@ def test_choose_a_photo_yourself(env, monkeypatch):
     assert rows[0]["id"] == "dw-1" and rows[0]["file"] == again["image"]["file"] and rows[0]["by"] == "you"
     # the model's sheet comes first next time: the chooser opens on it
     assert c.get("/api/pictures/candidates?id=dw-1").json()["chosen"] == 1
+
+
+def test_search_photos_for_every_card_free(env, monkeypatch):
+    """Search all: every card waiting gets its photos searched in the background (no model, no spend); the chooser
+    then opens on them without searching again, and a second search-all skips them."""
+    c, s, tmp = env
+    from panko.media import choose, pictures
+    monkeypatch.setattr(choose, "decisions_path", lambda: tmp / "decisions.json")
+    monkeypatch.setattr(api, "_chosen_dir", lambda: tmp / "chosen")
+    monkeypatch.setattr(api, "_photo_sources", lambda: {"ready": ["commons"], "need_key": ["pexels"]})
+    asked = []
+    monkeypatch.setattr(pictures, "candidates", lambda q, per_provider=6: asked.append(q) or [
+        {"thumb": f"https://pics.example/{q}.jpg", "title": q, "provider": "commons"}])
+    before = c.get("/api/pictures?status=active").json()
+    assert before["searched"] == 0 and before["todo"] > 0 and before["sources"]["need_key"] == ["pexels"]
+    j = wait(c, c.post("/api/pictures/search", json={"status": "active"}, headers=H).json()["job"])
+    assert j["status"] == "done", (j["error"], j["log"])
+    assert not j["paid"] and j["result"]["searched"] == before["todo"]
+    assert "pexels left out" in "".join(j["log"])
+    after = c.get("/api/pictures?status=active").json()
+    assert after["searched"] == after["todo"] and all(x["searched"] == 1 for x in after["cards"])
+    n = len(asked)
+    r = c.get("/api/pictures/candidates?id=dw-1").json()
+    assert len(asked) == n and r["from"] == "searched earlier" and r["query"] == "outside"
+    assert c.post("/api/pictures/search", json={"status": "active"}, headers=H).status_code == 400   # nothing left
+    # a photo from a kept search can be chosen
+    monkeypatch.setattr(pictures, "_media", lambda: tmp / "media")
+    monkeypatch.setattr(pictures, "_download", lambda cand, path: path.write_bytes(b"\xff\xd8"))
+    assert c.post("/api/pictures/choose", json={"id": "dw-1", "dir": r["dir"], "index": 0}, headers=H).json()["image"]
