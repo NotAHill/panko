@@ -503,6 +503,9 @@ def entries(req: Req):
         rows.sort(key=lambda r: r["gloss"].lower())
     elif sort == "recent":
         rows.sort(key=lambda r: r["updated"], reverse=True)
+    if q.get("ids") == "1":       # every match, for "select all": the ids, and which of them are doubtful
+        return {"total": len(rows), "ids": [r["id"] for r in rows],
+                "doubtful": [r["id"] for r in rows if "doubtful" in r["flags"]]}
     off, lim = int(q.get("offset", 0)), min(int(q.get("limit", 100)), 500)
     tags: dict[str, int] = {}
     for e in es:

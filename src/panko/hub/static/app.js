@@ -634,7 +634,16 @@ async function cardsView(el, r, status) {
   actions(el, {
     status: b => { C.status = b.dataset.s; C.offset = 0; C.sel.clear(); loadRows(); },
     activate: () => act('activate'), reject: () => act('reject'), restore: () => act('restore'),
-    'sel-page': () => { C.rows.forEach(x => C.sel.add(x.id)); paintRows(); }, 'sel-none': () => { C.sel.clear(); paintRows(); },
+    'sel-page': () => { C.rows.forEach(x => C.sel.add(x.id)); paintRows(); }, 'sel-none': () => { C.sel.clear(); C.doubt = null; paintRows(); },
+    'sel-all': async () => {        // every card the filters match, on every page
+      try {
+        const p = new URLSearchParams({ status: C.status, variety: C.variety, kind: C.kind, flag: C.flag, tag: C.tag, source: C.source, q: C.q, ids: '1' });
+        const d = await api('/entries?' + p);
+        d.ids.forEach(id => C.sel.add(id));
+        C.doubt = new Set(d.doubtful);
+        paintRows();
+      } catch (e) { toast(html`<span class="bad">✘</span> ${e.message}`, 'bad', 0); }
+    },
     prev: () => page(-1), next: () => page(1),
   });
   $('#c-table').onclick = ev => {
@@ -744,8 +753,10 @@ function paintRows() {
   put($('#c-bulk'), C.sel.size ? html`<span class="count">${n(C.sel.size)} selected</span>
       ${canAct ? html`<button class="pri" data-a="activate">activate<kbd>a</kbd></button><button class="danger" data-a="reject">reject<kbd>r</kbd></button>` : ''}
       ${C.status === 'rejected' ? html`<button data-a="restore">back to the inbox<kbd>u</kbd></button>` : ''}
-      <button class="ghost" data-a="sel-page">select the page</button><button class="ghost" data-a="sel-none">clear</button>`
+      ${C.sel.size < C.total ? html`<button class="ghost" data-a="sel-page" ${C.rows.every(x => C.sel.has(x.id)) ? 'disabled' : ''}>select the page</button>
+        <button class="ghost" data-a="sel-all">select all ${n(C.total)}</button>` : ''}<button class="ghost" data-a="sel-none">clear</button>`
     : html`<span>${C.total ? `${n(C.offset + 1)}–${n(C.offset + C.rows.length)} of ${n(C.total)}` : ''}</span>
+      ${canAct && C.total > 1 ? html`<button class="ghost" data-a="sel-all">select all ${n(C.total)}</button>` : ''}
       ${(C.status === 'candidate' ? [['a', 'activate'], ['r', 'reject'], ['x', 'select'], ['shift', '+ click for a range']] : [['j k', 'move'], ['enter', 'open']])
         .map(([k, d]) => html`<span class="faint kbd-hint">${k.split(' ').map(x => html`<kbd>${x}</kbd> `)}${d}</span>`)}`);
   const pages = Math.ceil(C.total / PAGE);
@@ -761,10 +772,12 @@ async function act(kind, ids = selIds()) {
   if (!ids.length) return;
   const rows = ids.map(id => C.rows.find(r => r.id === id) || (C.entry?.entry.id === id ? { id, ...C.entry.entry, flags: C.entry.entry.tags?.includes('panko::doubtful') ? ['doubtful'] : [] } : { id, flags: [] }));
   if (kind === 'activate') {
-    const doubt = rows.filter(r => r.flags?.includes('doubtful'));
+    const doubt = rows.filter(r => r.flags?.includes('doubtful') || C.doubt?.has(r.id));
     if (doubt.length && !await confirmIt(`activate ${plural(ids.length, 'card')}?`,
       html`<p>${doubt.length === ids.length && ids.length === 1 ? 'This one is' : `${n(doubt.length)} of these are`} <span class="warn">doubtful</span>: a check found a problem.
         Activating clears the doubt and the card goes to Anki on the next sync.</p>`, 'Yes, I checked it')) return;
+    if (!doubt.length && ids.length > PAGE && !await confirmIt(`activate ${plural(ids.length, 'card')}?`,
+      html`<p class="dim">They become cards and reach Anki on the next sync. Any of them can be retired later from its card.</p>`)) return;
   }
   if (kind === 'reject' && ids.length > 1 && !await confirmIt(`reject ${plural(ids.length, 'candidate')}?`,
     html`<p class="dim">They go to the rejected tab, not away: it can bring them back, and they stay out of your inbox when a source has them again.</p>`)) return;
@@ -776,6 +789,7 @@ async function act(kind, ids = selIds()) {
     toast(html`<span class="ok">✔</span> ${plural(done.length, 'card')} ${verb}${skipped ? html`, <span class="warn">${n(skipped)} skipped</span>` : ''}${kind === 'activate' && done.length ? html`<div class="dim">They reach Anki on the next sync.</div>` : ''}`, 'ok');
     const wasOpen = C.open && done.includes(C.open);
     C.sel.clear();
+    C.doubt = null;
     await loadRows();
     refreshCounts();
     if (wasOpen) { if (C.rows[C.cur]) openCard(C.rows[C.cur].id); else { C.open = null; put($('#detail'), idlePanel()); } }

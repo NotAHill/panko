@@ -572,3 +572,13 @@ def test_wikimedia_gets_a_name_it_accepts():
     from panko import USER_AGENT
     from panko.providers.images import web
     assert "github.com/" in USER_AGENT and web.UA["User-Agent"] == USER_AGENT
+
+
+
+def test_select_all_gets_every_match_and_its_doubtful_ones(env):
+    """The inbox's "select all N": every card the filters match, on every page, and which are doubtful."""
+    c, s, _ = env
+    d = c.get("/api/entries?status=candidate&ids=1").json()
+    assert set(d["ids"]) == {"dw-2", "dw-3", "dw-4"} and d["doubtful"] == ["dw-3"] and d["total"] == 3
+    assert c.get("/api/entries?status=candidate&flag=doubtful&ids=1").json()["ids"] == ["dw-3"]
+    assert c.get("/api/entries?status=candidate&q=glass&ids=1").json()["ids"] == ["dw-2"]
