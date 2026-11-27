@@ -477,7 +477,9 @@ document.addEventListener('keydown', e => {
 function actions(el, handlers) {
   el.onclick = async ev => {
     const b = ev.target.closest('[data-a]');
-    if (b && el.contains(b) && handlers[b.dataset.a]) { ev.preventDefault(); await handlers[b.dataset.a](b, ev); return; }
+    // handled here: stop, so a panel inside a page (the card panel in the inbox) doesn't also run the page's own
+    // handler for the same button (that activated the card twice, and any other selected cards with it)
+    if (b && el.contains(b) && handlers[b.dataset.a]) { ev.preventDefault(); ev.stopPropagation(); await handlers[b.dataset.a](b, ev); return; }
     const row = ev.target.closest('[data-href]');
     if (row && el.contains(row) && !ev.target.closest('a, button, input')) go(row.dataset.href);
   };
