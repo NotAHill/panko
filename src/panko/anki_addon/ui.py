@@ -78,8 +78,14 @@ def sync_now(quiet: bool = False) -> None:
     panko = net.Panko(c["server"], c["code"])
     got: dict = {}
 
+    def show(text: str) -> None:
+        try:
+            mw.progress.update(label=f"Panko sync: {text}")
+        except Exception:  # noqa: BLE001  the progress window already closed: nothing to show
+            pass
+
     def say(text: str) -> None:
-        mw.taskman.run_on_main(lambda: mw.progress.update(label=f"Panko sync: {text}"))
+        mw.taskman.run_on_main(lambda: show(text))
 
     def op(col):
         r = core.run(col, panko, say=say, version=net.VERSION)
@@ -100,7 +106,7 @@ def sync_now(quiet: bool = False) -> None:
         else:
             showWarning(f"Panko sync stopped: {e!r}", title="Panko sync")
 
-    CollectionOp(parent=mw, op=op).success(ok).failure(failed).with_progress("Panko sync…").run_in_background()
+    CollectionOp(parent=mw, op=op).success(ok).failure(failed).run_in_background()   # it shows its own progress
 
 
 def _on_open() -> None:
