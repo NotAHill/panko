@@ -38,8 +38,9 @@ class Running:
 
 class Pankos:
     def __init__(self, data: Path, *, idle_minutes: float = 20, quota_gb: float = 5, upload_mb: float = 500,
-                 base_url: str = ""):
+                 base_url: str = "", notify=None):
         self.data = Path(data)
+        self.notify = notify            # notify(kind, text, uid, detail): the front door's Watch.note
         self.base_url = base_url
         self.idle = idle_minutes * 60
         self.quota_gb, self.upload_mb = quota_gb, upload_mb
@@ -69,9 +70,18 @@ class Pankos:
         r = self.running.get(uid)
         if r and r.proc.poll() is None:
             return r
-        if r:
+        if r:             # it stopped by itself: stop() forgets a Panko before stopping it
             self.running.pop(uid, None)
+            self._tell("crash", f"a Panko stopped by itself (exit code {r.proc.returncode})", uid)
         return None
+
+    def _tell(self, kind: str, text: str, uid: str) -> None:
+        if self.notify:
+            from panko.host.watch import log_tail
+            try:
+                self.notify(kind, text, uid, log_tail(self.data / "logs" / f"{uid}.log"))
+            except Exception as e:  # noqa: BLE001  noting it must never break serving
+                print(f"notify: {e}", file=sys.stderr)
 
     async def ensure(self, uid: str, quota_gb: float | None = None) -> Running:
         """The user's Panko, started if it isn't running. Waits until its socket answers."""
@@ -93,6 +103,7 @@ class Pankos:
             deadline = time.time() + START_TIMEOUT
             while time.time() < deadline:
                 if proc.poll() is not None:
+                    self._tell("start-failed", f"a Panko stopped while starting (exit code {proc.returncode})", uid)
                     raise RuntimeError(f"your Panko stopped while starting (see logs/{uid}.log on the server)")
                 if _answers(sock):
                     r = Running(proc, sock, secret)
@@ -100,6 +111,7 @@ class Pankos:
                     return r
                 await asyncio.sleep(0.1)
             _stop(proc)
+            self._tell("start-failed", f"a Panko took longer than {START_TIMEOUT} s to start", uid)
             raise RuntimeError("your Panko took too long to start: try again in a minute")
 
     async def busy(self, uid: str) -> bool:
@@ -117,7 +129,8 @@ class Pankos:
         return any(j.get("status") in ("queued", "running") for j in rows if isinstance(j, dict))
 
     async def reap(self) -> list[str]:
-        """Stop the Pankos idle for longer than the limit. Returns who was stopped."""
+        """Stop the Pankos idle for longer than the limit (and notice any that stopped by themselves). Returns who
+        was stopped."""
         stopped = []
         for uid in list(self.running):
             r = self.alive(uid)

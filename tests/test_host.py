@@ -249,3 +249,61 @@ def test_jobs_a_restart_cut_off_wake_their_panko_and_hold_a_deploy(data, monkeyp
         assert list(p.working()) == [a["id"]]        # its Panko answers: a deploy waits for it
     finally:
         s.close()
+
+
+# ---- looking after it
+
+def test_health_says_when_the_disk_is_nearly_full_and_admin_sees_what_happened(data, monkeypatch):
+    import shutil as sh
+    import subprocess
+    import sys
+
+    from panko.host import watch
+    from panko.host.pankos import Running
+    a = host_app.app(data)
+    door = a.state.door
+    st = door.store
+    st.add_user("boss", PW, admin=True)
+    sent = []
+    door.watch.alert_url = "https://alerts.example/topic"
+    monkeypatch.setattr(door.watch, "_post", lambda text: sent.append(text))
+    door.watch._spawn = lambda fn, *a: fn(*a)
+    roomy = sh.disk_usage(data)._replace(total=100_000_000_000, free=60_000_000_000)
+    full = roomy._replace(free=200_000_000)
+    monkeypatch.setattr(watch.shutil, "disk_usage", lambda p: roomy)
+    with client(a) as c:                                     # the lifespan runs: the start is noted
+        r = c.get("/host/health")
+        assert r.status_code == 200 and r.json() == {"ok": True, "running": 0, "disk": "ok", "db": "ok"}
+        monkeypatch.setattr(watch.shutil, "disk_usage", lambda p: full)
+        r = c.get("/host/health")
+        assert r.status_code == 503 and r.json()["disk"] == "low"
+        door.watch.check_disk()
+        door.watch.check_disk()                              # still low: one event, one alert
+        # a user's Panko that stopped by itself
+        u = st.add_user("amal", PW)
+        (data / "logs" / f"{u['id']}.log").write_text("starting\nTraceback: boom\n")
+        proc = subprocess.Popen([sys.executable, "-c", "raise SystemExit(3)"])
+        proc.wait()
+        door.pankos.running[u["id"]] = Running(proc, door.pankos.sock(u["id"]), "s")
+        assert door.pankos.alive(u["id"]) is None
+        kinds = [x["kind"] for x in door.watch.events()]
+        assert kinds[:3] == ["crash", "disk", "start"]
+        crash = door.watch.events()[0]
+        assert "exit code 3" in crash["text"] and "boom" in crash["detail"] and crash["user_id"] == u["id"]
+        assert len(sent) == 2 and not any("boom" in t for t in sent)       # alerts never carry log lines
+        post(c, "/host/login", {"name": "boss", "password": PW})
+        page = c.get("/host/admin").text
+        assert "nearly full" in page and "exit code 3" in page and "Alerts go to" in page
+        monkeypatch.setattr(watch.shutil, "disk_usage", lambda p: roomy)
+        door.watch.check_disk()
+        assert door.watch.events()[0]["kind"] == "disk-ok"
+
+
+def test_the_same_alert_is_sent_once_in_a_while(data, monkeypatch):
+    from panko.host.store import HostStore as HS
+    from panko.host.watch import Watch
+    w = Watch(data, HS(data / "host.db").db)
+    assert not w.alert("crash", "x", "u1")                    # no address: nothing sent
+    w.alert_url = "https://alerts.example/t"
+    monkeypatch.setattr(w, "_post", lambda text: None)
+    assert w.alert("crash", "x", "u1") and not w.alert("crash", "x", "u1") and w.alert("crash", "x", "u2")

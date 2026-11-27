@@ -35,6 +35,8 @@ button.pri, .btn.pri { background:var(--accent); color:var(--on-accent); border-
 button.bad { color:var(--bad); }
 .acts { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:14px; }
 .muted { color:var(--dim); } .faint { color:var(--faint); } .ok { color:var(--ok); } .warn { color:var(--warn); }
+.bad-t { color:var(--bad); } .nw { white-space:nowrap; }
+pre.log { white-space:pre-wrap; word-break:break-all; font-size:12px; max-height:240px; overflow:auto; background:var(--field); border:1px solid var(--line); border-radius:4px; padding:8px; margin:6px 0 0; }
 .err { color:var(--bad); border:1px solid color-mix(in srgb, var(--bad) 40%, transparent); border-radius:5px;
   padding:8px 10px; margin:12px 0; }
 table { width:100%; border-collapse:collapse; font-size:13px; }

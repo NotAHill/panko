@@ -2,6 +2,12 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-27 · Monitoring: GitHub checks from outside, ntfy carries alerts, nothing new to sign up for.** A dead
+server can't report itself, so a scheduled GitHub workflow asks `/host/health` every 15 minutes and GitHub emails
+when it fails; the address is a repository secret, so the public repo doesn't name the server. What only the server
+knows (a user's Panko crashing, a full disk) is shown on the admin page and, with `PANKO_ALERT_URL`, sent to any
+address that takes a POST (an ntfy.sh topic needs no account). Alerts never carry a user's content.
+
 **2026-11-27 · A job a restart cuts off is replayed from its request; a paid one asks again.** Every job keeps the
 request that started it, and the steps already keep what they finished (model answers in the cache, audio files,
 saved photo searches, ingested units), so starting the same request again does only what's left. Free jobs start

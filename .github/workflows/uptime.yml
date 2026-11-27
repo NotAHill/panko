@@ -1,0 +1,28 @@
+# The outside check of a hosted Panko: every 15 minutes, ask its /host/health. When it doesn't answer ok three times
+# in a row (a dead server, a full disk), the run fails and GitHub emails you. The address is the repository secret
+# PANKO_HEALTH_URL (e.g. https://yourname.duckdns.org/host/health), so it isn't in the repo; without the secret (a
+# fork) the check does nothing. See deploy/README.md, "Looking after it".
+name: uptime
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+permissions: {}
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: The hosted Panko answers
+        env:
+          URL: ${{ secrets.PANKO_HEALTH_URL }}
+        run: |
+          if [ -z "$URL" ]; then echo "No PANKO_HEALTH_URL secret: nothing to check."; exit 0; fi
+          for i in 1 2 3; do
+            code=$(curl -sS -o body.json -w '%{http_code}' --max-time 20 "$URL" || echo 000)
+            if [ "$code" = 200 ] && grep -q '"ok": *true' body.json; then cat body.json; echo; exit 0; fi
+            echo "try $i: HTTP $code $(cat body.json 2>/dev/null)"
+            [ "$i" = 3 ] || sleep 40
+          done
+          echo "::error::The hosted Panko didn't answer ok three times in two minutes."
+          exit 1

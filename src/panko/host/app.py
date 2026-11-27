@@ -13,6 +13,7 @@ import contextlib
 import os
 import shutil
 import sqlite3
+import sys
 import tempfile
 import time
 import zipfile
@@ -31,6 +32,7 @@ from panko.host.oauth import OAuth, OAuthError
 from panko.host.pages import ago, e, page, size
 from panko.host.pankos import Pankos
 from panko.host.store import HostStore
+from panko.host.watch import Watch, checks
 
 COOKIE = "panko_session"
 HOP = {b"connection", b"keep-alive", b"proxy-authenticate", b"proxy-authorization", b"te", b"trailer",
@@ -58,8 +60,9 @@ class Door:
         self.store = HostStore(self.data / "host.db")
         self.oauth = OAuth(self.store)
         self.base_url = base_url.rstrip("/")
+        self.watch = Watch(self.data, self.store.db)
         self.pankos = Pankos(self.data, idle_minutes=idle_minutes, quota_gb=quota_gb, upload_mb=upload_mb,
-                             base_url=self.base_url)
+                             base_url=self.base_url, notify=self.watch.note)
         self.clients: dict[str, httpx.AsyncClient] = {}
 
     # ---- helpers
@@ -294,6 +297,25 @@ def app(data: Path | str, **opts) -> Starlette:
         u = door.user(req)
         return u if u and u["admin"] else None
 
+    async def health_box(users: list[dict]) -> str:
+        w = door.watch
+        c = await asyncio.to_thread(checks, door.data, door.store.db)
+        d = c["disk"]
+        names = {x["id"]: x["name"] for x in users}
+        failed = await asyncio.to_thread(w.failed_jobs, list(names), time.time() - 86400)
+        disk_line = ("<span class=\"bad-t\">nearly full</span>" if d.get("low") else "<span class=\"ok\">fine</span>") + (
+            f" · {d['free_gb']:g} GB free of {d['total_gb']:g} GB ({d['used_pct']:g}% used)" if "free_gb" in d else "")
+        evs = "".join(f"""<tr><td class="nw faint">{ago(x['at'])}</td><td>{e(names.get(x['user_id'] or '', ''))}</td>
+            <td>{e(x['text'])}{f'<details><summary class="faint">its last log lines</summary><pre class="log">{e(x["detail"])}</pre></details>' if x['detail'] else ''}</td></tr>"""
+                      for x in w.events(15))
+        return f"""<section class="box"><div class="t">health</div>
+            <p>disk: {disk_line}<br>database: {'<span class="ok">fine</span>' if c['db'] else '<span class="bad-t">not answering</span>'}
+            <br>front door started {ago(w.started)} · {len(door.pankos.running)} Panko{'s' if len(door.pankos.running) != 1 else ''} running
+            {'<br>jobs failed in the last day: ' + ', '.join(f'{e(names.get(u, u))} {k}' for u, k in failed.items()) if failed else ''}</p>
+            <p class="muted">{'Alerts go to the address in <code>PANKO_ALERT_URL</code>.' if w.alert_url else 'Alerts are off: set <code>PANKO_ALERT_URL</code> in <code>deploy/.env</code> (an ntfy.sh topic works) to hear about these on your phone.'}
+            An outside check of <code>/host/health</code> tells you when the whole server is down: see <code>deploy/README.md</code>.</p>
+            {f'<table><tr><th class="nw">when</th><th>who</th><th>what happened</th></tr>{evs}</table>' if evs else '<p class="faint">Nothing has happened yet.</p>'}</section>"""
+
     async def admin(req: Request, note: str = ""):
         a = admin_only(req)
         if not a:
@@ -311,7 +333,7 @@ def app(data: Path | str, **opts) -> Starlette:
             ('<span class="faint">expired</span>' if i['expires'] < time.time() else 'open, until ' + time.strftime('%d %b', time.localtime(i['expires'])))}</td>
             <td>{'' if i['used_by'] or i['expires'] < time.time() else f'<form method="post" action="/host/admin/withdraw/{i["n"]}"><button>withdraw</button></form>'}</td></tr>"""
                           for i in door.store.invites()[:30])
-        return page("admin", f"""<h1>admin</h1>{note}
+        return page("admin", f"""<h1>admin</h1>{note}{await health_box(users)}
             <section class="box"><div class="t">people</div><table><tr><th>name</th><th>disk</th><th class="wide">last seen</th><th></th></tr>{rows}</table></section>
             <form method="post" action="/host/admin/invite" class="box"><div class="t">invite someone</div>
             <p class="muted">Makes a link that works once, for 7 days. Send it to them yourself.</p>
@@ -404,7 +426,12 @@ def app(data: Path | str, **opts) -> Starlette:
         return FileResponse(LOGO, media_type="image/svg+xml", headers={"Cache-Control": "max-age=86400"})
 
     async def health(req: Request):
-        return JSONResponse({"ok": True, "running": len(door.pankos.running)})
+        """For an outside check: 503 when the disk is nearly full or the database doesn't answer. Says no more than
+        that (no names, no sizes)."""
+        c = await asyncio.to_thread(checks, door.data, door.store.db)
+        return JSONResponse({"ok": c["ok"], "running": len(door.pankos.running),
+                             "disk": "low" if c["disk"].get("low") else "ok", "db": "ok" if c["db"] else "error"},
+                            status_code=200 if c["ok"] else 503)
 
     # ---- everything else: the user's own Panko
     async def proxy(req: Request):
@@ -638,15 +665,27 @@ def app(data: Path | str, **opts) -> Starlette:
         door.oauth.end_grant(req.path_params["gid"], u["id"])
         return RedirectResponse("/host/account", 303)
 
+    async def watch_disk():
+        from panko.host.watch import WATCH_EVERY
+        while True:
+            try:
+                await asyncio.to_thread(door.watch.check_disk)
+            except Exception as ex:  # noqa: BLE001  the watch must keep going
+                print(f"watch: {ex}", file=sys.stderr)
+            await asyncio.sleep(WATCH_EVERY)
+
     @contextlib.asynccontextmanager
     async def lifespan(a):
         task = asyncio.create_task(door.pankos.reaper())
         wake = asyncio.create_task(door.pankos.wake(door.store))     # jobs the restart cut off carry on
+        door.watch.note("start", "the front door started", alert=False)
+        watching = asyncio.create_task(watch_disk())
         try:
             yield
         finally:
             task.cancel()
             wake.cancel()
+            watching.cancel()
             door.pankos.stop_all()
             for c in door.clients.values():
                 await c.aclose()

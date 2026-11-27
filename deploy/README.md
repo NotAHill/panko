@@ -90,3 +90,20 @@ carry on by themselves (once); paid ones wait on the jobs page with a resume but
   `/srv/panko/logs/<id>.log`.
 - Deleting an account in admin moves the folder to `/srv/panko/deleted/`; `panko host purge` removes it for good.
 - Disk use per person is on the admin page; quotas are set there or in `deploy/.env`.
+- **Health** is at the top of the admin page: the disk, the database, how long the front door has been up, jobs
+  that failed in the last day, and what happened lately (a Panko that stopped by itself, with its last log lines;
+  a Panko that failed to start; the disk getting low). `/host/health` answers 503 when the disk is nearly full or
+  the database doesn't answer.
+- **Alerts on your phone:** set `PANKO_ALERT_URL` in `deploy/.env` (an ntfy.sh topic with a long random name, then
+  subscribe to it in the ntfy app) and update. Alerts say what happened, never anyone's content, and the same one
+  comes at most every 6 hours.
+- **When the whole server is down** nothing on it can tell you, so a GitHub workflow checks from outside
+  (`.github/workflows/uptime.yml`, every 15 minutes; GitHub emails you when a run fails). Turn it on once with the
+  address as a repository secret, so it isn't in the repo:
+
+  ```bash
+  gh secret set PANKO_HEALTH_URL --body https://yourname.duckdns.org/host/health
+  ```
+
+  GitHub pauses scheduled workflows in a repository with no activity for 60 days: it emails you first, and one
+  click (or a push) turns it back on.

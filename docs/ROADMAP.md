@@ -177,7 +177,11 @@ Update the **Now** section at the end of every work session: it's what a fresh s
   front door starts that user's Panko when it comes back, free jobs carry on by themselves (once), paid ones wait
   with a resume button that prices what's left first (the old yes isn't reused). `deploy/update.sh` builds first and
   waits for running jobs before switching (`panko host busy`).
-- **Next:** the rest of H5 (simple monitoring, quota warnings, invite emails); backups before inviting anyone
+- **H5: simple monitoring (2026-11-27).** `/host/health` answers 503 when the disk is nearly full or the database
+  doesn't answer; the admin page shows health and what happened lately (a Panko that stopped by itself, with its
+  last log lines; a failed start; low disk); alerts go to `PANKO_ALERT_URL` (an ntfy.sh topic) when set; a GitHub
+  workflow (`uptime.yml`) checks `/host/health` from outside every 15 minutes, its address a repository secret.
+- **Next:** the rest of H5 (quota warnings, invite emails); backups before inviting anyone
   (`deploy/README.md` §5, skipped for now). DODa stays on
   (free and invite-only fits its terms; switched off if its authors object).
 - The learner's own state (deck sizes, what's waiting on whom, plans) is in `data/STATUS.md` (git-ignored).
