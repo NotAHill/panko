@@ -762,7 +762,9 @@ and paste this (macOS or Linux):</p>
 <p class="faint">On Windows, in PowerShell: <code>powershell -ExecutionPolicy ByPass -c "irm
 https://astral.sh/uv/install.ps1 | iex"</code> (Panko hasn't been tried on Windows yet).</p>
 <p>Then open a new terminal window and install Panko:</p>
-<code class="link-out">{install}</code></section>
+<code class="link-out">{install}</code>
+<p class="faint">If the terminal then says it can't find <code>panko</code>, run <code>uv tool update-shell</code> and
+open a new window.</p></section>
 <section class="box"><div class="t">2. start it</div>
 <code class="link-out">panko hub</code>
 <p>It opens in your browser and asks which language you're learning. Ctrl-C in the terminal stops it; run it again
