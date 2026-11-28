@@ -87,7 +87,7 @@ def render(entries: list[dict], plans: dict | None = None, title: str = "Inbox r
 def write(entries: list[dict], plans: dict | None = None, title: str = "Inbox review", out: Path | None = None) -> Path:
     out = out or ROOT / "cache" / "review" / "inbox.html"
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(render(entries, plans, title))
+    out.write_text(render(entries, plans, title), encoding="utf-8")
     return out
 
 

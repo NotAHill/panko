@@ -277,7 +277,7 @@ def publish(pack_id: str, title: str, *, out: Path | None = None, varieties: lis
     _slug(pack_id)
     store = store or Store()
     dest = Path(out) if out else out_dir()
-    idx = json.loads(Path(index).read_text()) if index and Path(index).exists() else {"format": 1, "decks": []}
+    idx = json.loads(Path(index).read_text(encoding="utf-8")) if index and Path(index).exists() else {"format": 1, "decks": []}
     version = version or _next_version(pack_id, dest, idx)
     es, doubtful = _select(store, varieties, tag)
     public = list(_lib().get("public_sources", []))
@@ -337,13 +337,13 @@ def publish(pack_id: str, title: str, *, out: Path | None = None, varieties: lis
                         "sha256": _sha256(f), **({"url": _release_url(f"{pack_id}-v{version}", f.name)}
                                                   if _lib().get("repo") else {})} for f in files],
              "samples": [{k: c.get(k, "") for k in ("ar", "tl", "gloss")} for c in _samples(cards)]}
-    (dest / f"{stem}.index.json").write_text(json.dumps(entry, ensure_ascii=False, indent=1))
+    (dest / f"{stem}.index.json").write_text(json.dumps(entry, ensure_ascii=False, indent=1), encoding="utf-8")
     report = dest / f"{stem}.report.md"
-    report.write_text(_report(meta, rep, left, names, public))
+    report.write_text(_report(meta, rep, left, names, public), encoding="utf-8")
     if index:
         idx["decks"] = [d for d in idx.get("decks", []) if d.get("id") != pack_id] + [entry]
         idx["decks"].sort(key=lambda d: d["id"])
-        Path(index).write_text(json.dumps(idx, ensure_ascii=False, indent=1) + "\n")
+        Path(index).write_text(json.dumps(idx, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     return {**rep, "files": [str(f) for f in files], "entry": str(dest / f"{stem}.index.json"),
             "report": str(report), "upload": upload_steps(entry, files, index)}
 
@@ -484,7 +484,7 @@ def load_index(src: str | None = None) -> dict:
         idx = r.json()
     else:
         from panko.config import inside
-        idx = json.loads(inside(src).read_text())
+        idx = json.loads(inside(src).read_text(encoding="utf-8"))
     if not isinstance(idx, dict) or idx.get("format") != 1 or not isinstance(idx.get("decks"), list):
         raise ValueError(f"{src} isn't a Panko library index (format 1)")
     return idx

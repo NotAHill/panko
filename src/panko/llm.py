@@ -77,16 +77,16 @@ def key(p: LLM, a: Ask) -> str:
 
 def _cached(task: str, k: str) -> Answer | None:
     f = _cache_dir(task) / f"{k}.json"
-    return Answer(**json.loads(f.read_text())) if f.exists() else None
+    return Answer(**json.loads(f.read_text(encoding="utf-8"))) if f.exists() else None
 
 
 def _save(task: str, k: str, ans: Answer):
     d = _cache_dir(task)
     d.mkdir(parents=True, exist_ok=True)
-    (d / f"{k}.json").write_text(json.dumps(asdict(ans), ensure_ascii=False))
+    (d / f"{k}.json").write_text(json.dumps(asdict(ans), ensure_ascii=False), encoding="utf-8")
     f = _usage_file()
     f.parent.mkdir(parents=True, exist_ok=True)
-    with f.open("a") as fh:
+    with f.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps({"at": time.strftime("%Y-%m-%d %H:%M"), "task": task, "id": ans.id, "model": ans.model,
                              "batch": ans.batch, "usage": ans.usage, "cost": round(ans.cost, 6)}) + "\n")
 
@@ -101,7 +101,7 @@ def expected_out(task: str, model: str | None = None) -> int:
     f = _usage_file()
     rows = []
     if f.exists():
-        for line in f.read_text().splitlines():
+        for line in f.read_text(encoding="utf-8").splitlines():
             r = json.loads(line)
             if r["task"] == task and r.get("usage", {}).get("output"):
                 rows.append(r)
@@ -153,11 +153,11 @@ def run(task: str, asks: list[Ask], *, expect_out: int | None = None, budget: fl
     if batch:
         bid = p.batch_submit(todo)
         f = _batches_file()
-        rec = json.loads(f.read_text()) if f.exists() else {}
+        rec = json.loads(f.read_text(encoding="utf-8")) if f.exists() else {}
         rec[bid] = {"task": task, "provider": p.name, "model": p.model, "keys": {a.id: keys[a.id] for a in todo},
                     "submitted": time.strftime("%Y-%m-%d %H:%M"), "done": False}
         f.parent.mkdir(parents=True, exist_ok=True)
-        f.write_text(json.dumps(rec, indent=1))
+        f.write_text(json.dumps(rec, indent=1), encoding="utf-8")
         say(f"{task}: submitted batch {bid}; `panko llm collect` saves the answers, then run this again")
         return out
 
@@ -192,7 +192,7 @@ def run(task: str, asks: list[Ask], *, expect_out: int | None = None, budget: fl
 def _log_only(task: str, ans: Answer):
     f = _usage_file()
     f.parent.mkdir(parents=True, exist_ok=True)
-    with f.open("a") as fh:
+    with f.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps({"at": time.strftime("%Y-%m-%d %H:%M"), "task": task, "id": ans.id, "model": ans.model,
                              "batch": ans.batch, "usage": ans.usage, "cost": round(ans.cost, 6), "error": ans.error}) + "\n")
 
@@ -201,7 +201,7 @@ def collect(llm: LLM | None = None) -> dict[str, dict]:
     """Save the answers of every finished batch into the cache; report the rest. Returns {batch id: summary}."""
     from panko import providers
     f = _batches_file()
-    rec = json.loads(f.read_text()) if f.exists() else {}
+    rec = json.loads(f.read_text(encoding="utf-8")) if f.exists() else {}
     report = {}
     for bid, r in rec.items():
         if r.get("done"):
@@ -227,7 +227,7 @@ def collect(llm: LLM | None = None) -> dict[str, dict]:
         r.update(done=True, saved=saved, failed=failed)
         report[bid].update(saved=saved, failed=failed)
     if rec:
-        f.write_text(json.dumps(rec, indent=1))
+        f.write_text(json.dumps(rec, indent=1), encoding="utf-8")
     return report
 
 
@@ -237,7 +237,7 @@ def usage(since: str = "") -> dict:
     tot = {"usd": 0.0, "by_task": {}, "by_model": {}, "answers": 0}
     if not f.exists():
         return tot
-    for line in f.read_text().splitlines():
+    for line in f.read_text(encoding="utf-8").splitlines():
         r = json.loads(line)
         if since and r["at"] < since:
             continue

@@ -31,7 +31,7 @@ def ingest(path: Path | str | dict, store: Store | None = None, verdicts: dict |
     from panko.ingest.verify import apply
 
     store = store or Store()
-    x = json.loads(json.dumps(path)) if isinstance(path, dict) else json.loads(Path(path).read_text())
+    x = json.loads(json.dumps(path)) if isinstance(path, dict) else json.loads(Path(path).read_text(encoding="utf-8"))
     x["items"] = apply(x["items"], verdicts, overrides)
     src = x["source"]
     store.add_source(src["id"], src["kind"], src["title"], src.get("date", ""), src.get("path", ""), src.get("trust", 50))

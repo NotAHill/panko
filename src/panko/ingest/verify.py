@@ -36,7 +36,7 @@ def slug(text: str) -> str:
 def load_verdicts(paths) -> dict[str, dict]:
     out = {}
     for p in paths or []:
-        for r in json.loads(Path(p).read_text()):
+        for r in json.loads(Path(p).read_text(encoding="utf-8")):
             out[r["key"]] = r
     return out
 

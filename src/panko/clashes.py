@@ -64,7 +64,7 @@ def key(group: dict) -> str:
 
 
 def load(path: Path) -> dict:
-    return json.loads(path.read_text()) if path.exists() else {}
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
 
 
 def _fine_path(path: Path) -> Path:
@@ -74,14 +74,14 @@ def _fine_path(path: Path) -> Path:
 def fine(path: Path) -> set[str]:
     """Keys of the groups the learner called fine as they are."""
     p = _fine_path(path)
-    return set(json.loads(p.read_text())) if p.exists() else set()
+    return set(json.loads(p.read_text(encoding="utf-8"))) if p.exists() else set()
 
 
 def mark_fine(path: Path, group_key: str, undo: bool = False) -> None:
     keys = fine(path)
     (keys.discard if undo else keys.add)(group_key)
     _fine_path(path).parent.mkdir(parents=True, exist_ok=True)
-    _fine_path(path).write_text(json.dumps(sorted(keys), ensure_ascii=False, indent=1))
+    _fine_path(path).write_text(json.dumps(sorted(keys), ensure_ascii=False, indent=1), encoding="utf-8")
 
 
 def open_groups(groups: list[dict], path: Path) -> list[dict]:
@@ -179,4 +179,4 @@ def estimate(groups: list[dict], llm_provider=None) -> dict:
 
 def save(decisions: dict, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(decisions, ensure_ascii=False, indent=1))
+    path.write_text(json.dumps(decisions, ensure_ascii=False, indent=1), encoding="utf-8")

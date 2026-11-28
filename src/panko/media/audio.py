@@ -40,7 +40,7 @@ def speak(text: str, variety: str, prefix: str = "_panko_", slot: int = 0, dry: 
         out = MEDIA / f"{prefix}{p.name}_{key}.mp3"
         meta = out.with_suffix(".txt")
         if out.exists() and meta.exists() and out.stat().st_size:
-            return Voiced(out.name, meta.read_text())
+            return Voiced(out.name, meta.read_text(encoding="utf-8"))
         if out.with_suffix(".empty").exists():      # this voice gave no sound for it before: not asked (or paid) again
             continue
         if dry is not None and p.name != "native":
@@ -50,12 +50,12 @@ def speak(text: str, variety: str, prefix: str = "_panko_", slot: int = 0, dry: 
         if got and not got.native and (not out.exists() or not out.stat().st_size):
             out.unlink(missing_ok=True)   # e.g. a one-letter word comes back as empty audio
             meta.unlink(missing_ok=True)
-            out.with_suffix(".empty").write_text(text)   # remembered, so it isn't "still to make" for ever
+            out.with_suffix(".empty").write_text(text, encoding="utf-8")   # remembered, so it isn't "still to make" for ever
             continue
         if got and got.native:
             return Voiced(got.path.name, got.source)
         if got:
-            meta.write_text(got.source)
+            meta.write_text(got.source, encoding="utf-8")
             return Voiced(out.name, got.source)
     return None
 

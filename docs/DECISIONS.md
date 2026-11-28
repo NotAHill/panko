@@ -665,3 +665,11 @@ sync would have set the look of both. Cost: moving the Mac Panko to the server l
 names for it or one Change Note Type (a full sync). The add-on also leaves a note in whatever deck you moved it to,
 only adds tags, and refuses (never changes) a note type whose fields or card types differ.
 
+
+## Every text file is read and written as UTF-8 (2026-11-28, D)
+Windows reads and writes text in its own code page (cp1252) unless told otherwise, so the first Arabic word in a
+language preset, a card or a cache crashed Panko there; CI's Windows install check found it on the setup page. Every
+`read_text`, `write_text`, text `open`/`fdopen` and text `subprocess.run` names `encoding="utf-8"`, and a test
+(`tests/test_encoding.py`) fails on one that doesn't. The console streams replace what they can't print instead of
+crashing. Python's UTF-8 mode would do the same in one switch, but it has to be set before Python starts, which the
+`uv tool` launcher and Claude Desktop's extension runner don't let us do.

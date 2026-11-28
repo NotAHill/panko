@@ -34,7 +34,7 @@ def key(text: str) -> str:
 
 def load_index() -> dict:
     p = index_path()
-    return json.loads(p.read_text()) if p.exists() else {}
+    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
 
 
 def lookup(text: str) -> dict | None:
@@ -46,7 +46,7 @@ def register(text: str, file: str, source: str) -> None:
     idx = load_index()
     idx[key(text)] = {"file": file, "source": source}
     index_path().parent.mkdir(parents=True, exist_ok=True)
-    index_path().write_text(json.dumps(idx, ensure_ascii=False, indent=1))
+    index_path().write_text(json.dumps(idx, ensure_ascii=False, indent=1), encoding="utf-8")
 
 
 def _norm(tok: str) -> str:

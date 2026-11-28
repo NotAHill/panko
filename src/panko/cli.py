@@ -367,7 +367,7 @@ def _main(argv=None):
 
         from panko.ingest import ingest
         from panko.ingest.verify import load_verdicts
-        ov = json.loads(Path(args.overrides).read_text()) if args.overrides else None
+        ov = json.loads(Path(args.overrides).read_text(encoding="utf-8")) if args.overrides else None
         r = ingest(args.path, verdicts=load_verdicts(args.verdicts), overrides=ov)
         print(f"{r['source']}: {len(r['new'])} new candidates, {len(r['known'])} already known: {', '.join(r['known'])}")
     elif args.cmd == "inbox":
@@ -380,7 +380,7 @@ def _main(argv=None):
             from panko import review
             plans = {}
             for f in args.plans:
-                plans.update(json.loads(Path(f).read_text()))
+                plans.update(json.loads(Path(f).read_text(encoding="utf-8")))
             print(review.write(es, plans, title=f"Inbox review{' · ' + args.tag.split('::')[-1] if args.tag else ''}"))
             return
         for e in es:
@@ -410,7 +410,7 @@ def _main(argv=None):
         elif not args.path:
             ap.error("draw needs a FILE (or --collect)")
         else:
-            _draw(pictures, json.loads(Path(args.path).read_text()), args.force, args.batch)
+            _draw(pictures, json.loads(Path(args.path).read_text(encoding="utf-8")), args.force, args.batch)
     elif args.cmd == "llm":
         _llm(args, lm)
     elif args.cmd == "migrate":
@@ -436,7 +436,7 @@ def _main(argv=None):
         from panko.store import Store
         s, path = Store(), ROOT / "data" / "work" / "clashes.json"
         if args.apply:
-            print(clashes.apply(s, json.loads(path.read_text())))
+            print(clashes.apply(s, json.loads(path.read_text(encoding="utf-8"))))
             return
         found = clashes.open_groups(clashes.find(s, None if args.all else [e["id"] for e in s.entries("candidate")]), path)
         groups = clashes.undecided(found, clashes.load(path))        # not the ones you called fine or chose for
@@ -527,7 +527,7 @@ def _verify(args):
         print(f"{len(r['ungrounded'])} dialect words no reference lists (ask your teacher): "
               + ", ".join(f"{u['ar']} '{u['gloss']}'" for u in r["ungrounded"][:25]))
     if args.report:
-        Path(args.report).write_text(json.dumps(r, ensure_ascii=False, indent=1))
+        Path(args.report).write_text(json.dumps(r, ensure_ascii=False, indent=1), encoding="utf-8")
         print(f"report: {args.report}")
     if r["doubtful"] and not args.apply:
         print("tag them with --apply (candidates only; --tag-active for cards already in Anki)")
@@ -637,7 +637,7 @@ def _migrate(args):
         print("Now open Anki: it will ask for a one-way sync. Choose Upload to AnkiWeb.")
         return
     if args.report:
-        Path(args.report).write_text(res["report"] + "\n")
+        Path(args.report).write_text(res["report"] + "\n", encoding="utf-8")
     print(res["report"])
     print(f"\n{sum(1 for r in res['rows'] if r.get('nid'))} notes to convert, "
           f"{sum(1 for r in res['rows'] if not r.get('nid'))} new. Dry run: nothing changed.")
@@ -665,7 +665,7 @@ def _pictures(args, parser):
         k = -(-len(rows) // args.chunks) if rows else 0
         for i in range(args.chunks):
             f = out if args.chunks == 1 else out.with_name(f"{out.stem}-{i + 1}{out.suffix}")
-            f.write_text(json.dumps(rows[i * k:(i + 1) * k], ensure_ascii=False, indent=1))
+            f.write_text(json.dumps(rows[i * k:(i + 1) * k], ensure_ascii=False, indent=1), encoding="utf-8")
             print(f, len(rows[i * k:(i + 1) * k]))
     elif args.pcmd == "search":
         names = [n.strip() for n in args.providers.split(",") if n.strip()] if args.providers else None
@@ -690,12 +690,12 @@ def _pictures(args, parser):
         args.paths = args.paths or [str(choose.decisions_path())]
         decisions = {}
         for p in args.paths:
-            decisions.update(json.loads(Path(p).read_text()))
+            decisions.update(json.loads(Path(p).read_text(encoding="utf-8")))
         r = pictures.apply(decisions)
         print(f"photos {r['photo']}, skips {r['skip']}, prompts {len(r['prompts'])}, failed photos {r['failed']}")
         if args.no_draw:
             f = Path(args.paths[0]).with_suffix(".prompts.json")
-            f.write_text(json.dumps(r["prompts"], ensure_ascii=False, indent=1))
+            f.write_text(json.dumps(r["prompts"], ensure_ascii=False, indent=1), encoding="utf-8")
             print("prompts written to", f)
         elif r["prompts"]:
             _draw(pictures, r["prompts"], False, args.batch)

@@ -91,7 +91,7 @@ terminal (it carries a one-time key). Run it again if you lost it.</p></body>"""
 
 async def index(request: Request):
     """The page, with the script and style named by version so an updated Panko is never served stale."""
-    page = (STATIC / "index.html").read_text()
+    page = (STATIC / "index.html").read_text(encoding="utf-8")
     for name in ("app.js", "app.css"):
         page = page.replace(f"/static/{name}", f"/static/{name}?v={int((STATIC / name).stat().st_mtime)}")
     return HTMLResponse(page, headers={"Cache-Control": "no-store"})

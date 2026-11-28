@@ -130,7 +130,7 @@ class Watch:
         out = {}
         for uid in uids:
             try:
-                rows = json.loads((self.data / "users" / uid / "data" / "work" / "jobs.json").read_text())
+                rows = json.loads((self.data / "users" / uid / "data" / "work" / "jobs.json").read_text(encoding="utf-8"))
             except (OSError, ValueError):
                 continue
             k = sum(1 for j in rows if isinstance(j, dict) and j.get("status") == "failed"

@@ -23,5 +23,5 @@ def text() -> str:
 def write(dir: Path) -> Path:
     out = Path(dir).expanduser() / "panko" / "SKILL.md"
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(text())
+    out.write_text(text(), encoding="utf-8")
     return out

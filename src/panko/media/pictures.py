@@ -166,7 +166,7 @@ def search(queries: dict[str, str], outdir: Path, per_slug: int = 10, names: lis
     with ThreadPoolExecutor(6) as ex:
         found = dict(zip(queries, ex.map(lambda q: candidates(q, each, names)[:per_slug], queries.values()),
                          strict=True))
-    (outdir / "cands.json").write_text(json.dumps(found, ensure_ascii=False, indent=1))
+    (outdir / "cands.json").write_text(json.dumps(found, ensure_ascii=False, indent=1), encoding="utf-8")
     cell, slugs, sheets = 170, list(queries), []
     for part in range(0, len(slugs), 6):
         rows = slugs[part:part + 6]
@@ -245,7 +245,7 @@ def apply(decisions: dict[str, dict], store=None, out: Path | None = None, downl
     st = store or Store()
     out = out or _media()
     cp = out / "credits.json"
-    credits = json.loads(cp.read_text()) if cp.exists() else {}
+    credits = json.loads(cp.read_text(encoding="utf-8")) if cp.exists() else {}
     res = {"photo": 0, "skip": 0, "failed": [], "prompts": {}}
     draw = drawings_allowed()
     for eid, d in decisions.items():
@@ -262,7 +262,7 @@ def apply(decisions: dict[str, dict], store=None, out: Path | None = None, downl
         if not e or e.get("image"):
             continue
         try:
-            c = json.loads((inside(d["photo"]["dir"]) / "cands.json").read_text())[eid][d["photo"]["index"]]
+            c = json.loads((inside(d["photo"]["dir"]) / "cands.json").read_text(encoding="utf-8"))[eid][d["photo"]["index"]]
             name = _place(c, eid, out, f"{PHOTO_PREFIX}{eid}.jpg", download)
         except Exception as ex:  # noqa: BLE001
             print("photo failed", eid, ex, file=sys.stderr)
@@ -273,7 +273,7 @@ def apply(decisions: dict[str, dict], store=None, out: Path | None = None, downl
         e["image"] = _record(c, e, name)
         st.put(e)
         res["photo"] += 1
-    cp.write_text(json.dumps(credits, indent=1, ensure_ascii=False))
+    cp.write_text(json.dumps(credits, indent=1, ensure_ascii=False), encoding="utf-8")
     return res
 
 
@@ -294,9 +294,9 @@ def use(eid: str, c: dict, store=None, out: Path | None = None, download=None) -
     name = _place(c, eid, out, name, download or _download)
     if not c.get("file"):
         cp = out / "credits.json"
-        credits = json.loads(cp.read_text()) if cp.exists() else {}
+        credits = json.loads(cp.read_text(encoding="utf-8")) if cp.exists() else {}
         credits[name] = {k: c.get(k, "") for k in ("provider", "title", "author", "license", "page")}
-        cp.write_text(json.dumps(credits, indent=1, ensure_ascii=False))
+        cp.write_text(json.dumps(credits, indent=1, ensure_ascii=False), encoding="utf-8")
     e["image"] = _record(c, e, name)
     if e.get("picture_pref") == "none":       # you chose one after all
         e.pop("picture_pref")
@@ -379,9 +379,9 @@ def draw_batch(prompts: dict[str, str], force: bool = False, store=None, gen=Non
         return None
     bid = (gen or Generate({})).batch_submit(todo)
     f = _batches_file()
-    rec = json.loads(f.read_text()) if f.exists() else {}
+    rec = json.loads(f.read_text(encoding="utf-8")) if f.exists() else {}
     rec[bid] = {"prompts": todo, "model": _model(), "submitted": time.strftime("%Y-%m-%d %H:%M"), "done": False}
-    f.write_text(json.dumps(rec, ensure_ascii=False, indent=1))
+    f.write_text(json.dumps(rec, ensure_ascii=False, indent=1), encoding="utf-8")
     return bid
 
 
@@ -392,7 +392,7 @@ def collect(store=None, out: Path | None = None, gen=None, batches: Path | None 
 
     st, out, gen = store or Store(), out or _media(), gen or Generate({})
     f = batches or _batches_file()
-    rec = json.loads(f.read_text()) if f.exists() else {}
+    rec = json.loads(f.read_text(encoding="utf-8")) if f.exists() else {}
     report = {}
     for bid, r in rec.items():
         if r.get("done"):
@@ -412,5 +412,5 @@ def collect(store=None, out: Path | None = None, gen=None, batches: Path | None 
                 errors[eid] = got
         r.update(done=True, saved=saved, errors=errors)
         report[bid].update(saved=saved, errors=len(errors))
-    f.write_text(json.dumps(rec, ensure_ascii=False, indent=1))
+    f.write_text(json.dumps(rec, ensure_ascii=False, indent=1), encoding="utf-8")
     return report

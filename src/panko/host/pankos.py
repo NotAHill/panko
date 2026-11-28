@@ -167,7 +167,7 @@ class Pankos:
     def jobs_on(self, uid: str) -> list[dict]:
         """The user's queued or running jobs as their Panko last saved them."""
         try:
-            rows = json.loads((self.home(uid) / "data" / "work" / "jobs.json").read_text())
+            rows = json.loads((self.home(uid) / "data" / "work" / "jobs.json").read_text(encoding="utf-8"))
         except (OSError, ValueError):
             return []
         return [j for j in rows if isinstance(j, dict) and j.get("status") in ("queued", "running")]

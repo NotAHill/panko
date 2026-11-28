@@ -85,7 +85,7 @@ def run(all_voices: bool = False) -> None:
             print(f"{name:10} {heard}")
         except httpx.HTTPError as e:
             print(f"{name:10} failed: {e}")
-    (OUT / "voices.json").write_text(json.dumps(rows, indent=1, ensure_ascii=False))
+    (OUT / "voices.json").write_text(json.dumps(rows, indent=1, ensure_ascii=False), encoding="utf-8")
     cards = "".join(
         f"<section><h2>{html.escape(r['name'])}</h2><p class=meta>{r['gender']}, {r['age']} · <code>{r['voice_id']}</code></p>"
         f"<audio controls preload=none src='{r['file']}'></audio><p class=heard dir=auto>{html.escape(r['heard'])}</p></section>"
@@ -97,5 +97,5 @@ def run(all_voices: bool = False) -> None:
         "section{border-top:1px solid #ddd;padding:12px 0}h2{margin:0;font-size:18px}.meta{color:#777;font-size:13px;margin:2px 0 8px}"
         f".heard{{font-size:20px;font-family:{lang.font()[0]}}}.target{{background:#f4f4f4;padding:10px;border-radius:6px}}</style>"
         f"<h1>{title}</h1><p>Each voice reads:</p><p class='target heard' dir=auto>{html.escape(sentence)}</p>"
-        f"<p>Under each player is what speech-to-text heard back.</p>{cards}")
+        f"<p>Under each player is what speech-to-text heard back.</p>{cards}", encoding="utf-8")
     print(f"open {OUT / 'index.html'}")

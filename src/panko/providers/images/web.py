@@ -46,7 +46,7 @@ def get_json(site: str, url: str, params: dict | None = None, headers: dict | No
     seconds per site. `missing` is returned (and cached) on a 404 when given; otherwise a 404 raises."""
     f = _cache_file(site, url, params or {})
     if f.exists() and time.time() - f.stat().st_mtime < ttl:
-        return json.loads(f.read_text())
+        return json.loads(f.read_text(encoding="utf-8"))
     with _guard:
         lock = _locks.setdefault(site, threading.Lock())
     with lock:
@@ -72,7 +72,7 @@ def get_json(site: str, url: str, params: dict | None = None, headers: dict | No
         r.raise_for_status()
         data = r.json()
     f.parent.mkdir(parents=True, exist_ok=True)
-    f.write_text(json.dumps(data, ensure_ascii=False))
+    f.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
     return data
 
 

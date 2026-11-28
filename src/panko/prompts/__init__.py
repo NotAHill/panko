@@ -64,7 +64,7 @@ def context() -> dict:
 
 @cache
 def _raw(name: str) -> str:
-    return (DIR / f"{name}.md").read_text()
+    return (DIR / f"{name}.md").read_text(encoding="utf-8")
 
 
 def render(name: str, **extra) -> str:

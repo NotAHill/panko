@@ -91,7 +91,7 @@ def generic(deck: str, n: dict) -> dict | None:
 def rows(path: Path) -> tuple[str, list[dict]]:
     """(deck title, rows) from an exported deck file {"deck", "notes": [{nid, fields, studied}]}."""
     import json
-    d = json.loads(path.read_text())
+    d = json.loads(path.read_text(encoding="utf-8"))
     deck = path.stem
     return d.get("deck", deck), [r for n in d["notes"] if (r := parse(deck, {"studied": False, **n}))
                                  and (r["ar"] or r["tl"])]

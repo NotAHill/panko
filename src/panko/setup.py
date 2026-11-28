@@ -37,7 +37,7 @@ def presets() -> dict[str, Path]:
 def preset(language: str) -> dict:
     """The preset for a language name or slug ({} when there is none: every setting then starts neutral)."""
     p = presets().get(_slug(language))
-    return tomllib.loads(p.read_text()) if p else {}
+    return tomllib.loads(p.read_text(encoding="utf-8")) if p else {}
 
 
 def defaults(language: str) -> dict:
@@ -118,7 +118,7 @@ def render(answers: dict) -> str:
         "none_for": _q([v for v in tr.get("none_for", []) if v in vs] or ([] if a["translit"] else vs)),
         "evidence": evidence_block(pre.get("evidence", {}).get("corpora", []), a["wiktionary"]),
     }
-    text = TEMPLATE.read_text()
+    text = TEMPLATE.read_text(encoding="utf-8")
     for k, v in vals.items():
         text = text.replace("{{" + k + "}}", v)
     tomllib.loads(text)   # fails loudly rather than writing a broken config
@@ -131,7 +131,7 @@ def write_config(answers: dict, force: bool = False, path: Path = CONFIG) -> Pat
     if path.exists():
         shutil.copy2(path, path.with_suffix(".toml.bak"))
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(render(answers))
+    path.write_text(render(answers), encoding="utf-8")
     env = path.parent.parent / ".env"
     if not env.exists():
         shutil.copy2(TEMPLATES / "env.example", env)
@@ -156,7 +156,7 @@ def keys() -> list[dict]:
     except FileNotFoundError:
         pass
     out, note = [], ""
-    for line in (TEMPLATES / "env.example").read_text().splitlines():
+    for line in (TEMPLATES / "env.example").read_text(encoding="utf-8").splitlines():
         if line.startswith("#"):
             note = "" if line.startswith(("# Copy", "# Keep")) else line.lstrip("# ").strip()
             continue
@@ -180,7 +180,7 @@ def set_key(name: str, value: str, env: Path | None = None) -> Path:
     if any(c in value for c in "\r\n\0") or len(value) > 4000:
         raise ValueError("that doesn't look like a key")
     env = env or ROOT / ".env"
-    lines = env.read_text().splitlines() if env.exists() else []
+    lines = env.read_text(encoding="utf-8").splitlines() if env.exists() else []
     line = f"{name}={value}"
     for i, old in enumerate(lines):
         if old.startswith(f"{name}="):
@@ -191,7 +191,7 @@ def set_key(name: str, value: str, env: Path | None = None) -> Path:
     env.parent.mkdir(parents=True, exist_ok=True)
     tmp = env.with_name(".env.tmp")
     fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w") as f:
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
     os.chmod(tmp, 0o600)
     os.replace(tmp, env)

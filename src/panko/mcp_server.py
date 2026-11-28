@@ -269,7 +269,7 @@ def panko_photo_search(queries: dict) -> list:
     base = ROOT / "cache" / "pictures" / "chat"
     out = base / f"run{len(list(base.glob('run*'))) + 1:03d}" if base.exists() else base / "run001"
     sheets = pictures.search(dict(queries), out)
-    found = json.loads((out / "cands.json").read_text())
+    found = json.loads((out / "cands.json").read_text(encoding="utf-8"))
     ids = list(found)
     meta = json.dumps({"dir": str(out), "sheets": [ids[i:i + 6] for i in range(0, len(ids), 6)],
                        "candidates": {k: len(v) for k, v in found.items()}}, ensure_ascii=False)
@@ -293,8 +293,8 @@ def panko_pictures_apply() -> dict:
     r = pictures.apply(choose.load_decisions())
     p = ROOT / "data" / "pictures" / "drawings.json"
     p.parent.mkdir(parents=True, exist_ok=True)
-    old = json.loads(p.read_text()) if p.exists() else {}
-    p.write_text(json.dumps({**old, **r["prompts"]}, ensure_ascii=False, indent=1))
+    old = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+    p.write_text(json.dumps({**old, **r["prompts"]}, ensure_ascii=False, indent=1), encoding="utf-8")
     return {"photos": r["photo"], "skips": r["skip"], "failed": r["failed"], "drawings_waiting": len({**old, **r["prompts"]}),
             "drawings_file": str(p), "note": "drawings cost money: the learner runs `panko draw` on that file"}
 

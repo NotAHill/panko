@@ -61,12 +61,12 @@ def _reg_path() -> Path:
 
 def sources() -> dict[str, dict]:
     p = _reg_path()
-    return json.loads(p.read_text()) if p.exists() else {}
+    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
 
 
 def _save_sources(reg: dict):
     _reg_path().parent.mkdir(parents=True, exist_ok=True)
-    _reg_path().write_text(json.dumps(reg, ensure_ascii=False, indent=1))
+    _reg_path().write_text(json.dumps(reg, ensure_ascii=False, indent=1), encoding="utf-8")
 
 
 def source(sid: str) -> dict:
@@ -92,7 +92,7 @@ def add_source(path: str, kind: str, title: str, sid: str = "", date: str = "", 
     s = {"id": sid, "kind": kind, "title": title, "date": date, "trust": trust, "tag": tag or sid,
          "path": str(p.relative_to(ROOT)) if p.is_relative_to(ROOT) else str(p), "added": _now()}
     if p.suffix.lower() == ".pdf":
-        info = subprocess.run(["pdfinfo", str(p)], capture_output=True, text=True, check=True).stdout
+        info = subprocess.run(["pdfinfo", str(p)], capture_output=True, text=True, encoding="utf-8", check=True).stdout
         n = int(re.search(r"^Pages:\s+(\d+)", info, re.M).group(1))
         last = min(last or n, n)
         s |= {"type": "pdf", "page_offset": page_offset, "units": [f"p{i:03d}" for i in range(first, last + 1)]}
@@ -109,7 +109,7 @@ def add_source(path: str, kind: str, title: str, sid: str = "", date: str = "", 
             raise ValueError(f"{p} has no deck rows (expected an exported deck: {{\"deck\", \"notes\"}})")
         rp = WORK / sid / "rows.json"
         rp.parent.mkdir(parents=True, exist_ok=True)
-        rp.write_text(json.dumps(rs, ensure_ascii=False))
+        rp.write_text(json.dumps(rs, ensure_ascii=False), encoding="utf-8")
         s |= {"type": "deck", "deck": title, "rows": len(rs),
               "units": [f"d{i:03d}" for i in range(1, (len(rs) - 1) // DECK_ROWS + 2)]}
     elif p.suffix.lower() in AUDIO_EXT:
@@ -126,7 +126,7 @@ def add_source(path: str, kind: str, title: str, sid: str = "", date: str = "", 
         if transcript:
             if len(paths) > 1:
                 raise ValueError("a ready transcript works for a single recording; transcribe several tracks instead")
-            _save_transcript(sid, s, [json.loads(_abs(transcript).read_text())], engine="given")
+            _save_transcript(sid, s, [json.loads(_abs(transcript).read_text(encoding="utf-8"))], engine="given")
     elif p.suffix.lower() in TEXT_EXT:
         n = len(p.read_text(encoding="utf-8").splitlines())
         s |= {"type": "text", "units": [f"c{i:03d}" for i in range(1, n // CHUNK_LINES + 2)]}
@@ -143,7 +143,7 @@ def add_source(path: str, kind: str, title: str, sid: str = "", date: str = "", 
 
 def duration(path: Path) -> float:
     out = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(path)],
-                         capture_output=True, text=True, check=True).stdout
+                         capture_output=True, text=True, encoding="utf-8", check=True).stdout
     return float(out.strip() or 0)
 
 
@@ -155,7 +155,7 @@ def transcript(sid: str) -> dict:
     p = _transcript_path(sid)
     if not p.exists():
         raise ValueError(f"{sid} isn't transcribed yet: run `panko work transcribe {sid}` (paid speech-to-text)")
-    return json.loads(p.read_text())
+    return json.loads(p.read_text(encoding="utf-8"))
 
 
 def _save_transcript(sid: str, s: dict, outs: list[dict], engine: str) -> None:
@@ -178,7 +178,7 @@ def _save_transcript(sid: str, s: dict, outs: list[dict], engine: str) -> None:
     _transcript_path(sid).parent.mkdir(parents=True, exist_ok=True)
     _transcript_path(sid).write_text(json.dumps({"engine": engine or outs[0].get("engine", ""), "duration": dur,
                                                  "language": outs[0].get("language_code", ""), "words": words},
-                                                ensure_ascii=False))
+                                                ensure_ascii=False), encoding="utf-8")
     s["duration"] = round(dur, 1)
     s["units"] = [f"a{i:03d}" for i in range(1, int(dur // CHUNK_SECS) + 2)] if words else []
 
@@ -251,7 +251,7 @@ def page(sid: str, unit: str, dpi: int = 110) -> dict:
                             str(out.with_suffix(""))], check=True)
         image = out
         layer = subprocess.run(["pdftotext", "-layout", "-f", str(n), "-l", str(n), str(p), "-"],
-                               capture_output=True, text=True).stdout.strip()
+                               capture_output=True, text=True, encoding="utf-8").stdout.strip()
         state = lang.text_layer(layer, ocr=_ocr_page(p, n))
         # the model gets the layer only when it can be trusted; the hub shows it either way, with why
         return {"source": sid, "unit": unit, "page": book_page(s, unit), "image": image,
@@ -266,7 +266,7 @@ def page(sid: str, unit: str, dpi: int = 110) -> dict:
         return {"source": sid, "unit": unit, "page": None, "image": None, "text": text}
     elif s["type"] == "deck":
         i = (int(unit[1:]) - 1) * DECK_ROWS
-        rs = json.loads((WORK / sid / "rows.json").read_text())[i:i + DECK_ROWS]
+        rs = json.loads((WORK / sid / "rows.json").read_text(encoding="utf-8"))[i:i + DECK_ROWS]
         text = "\n".join(json.dumps(deck_row(r), ensure_ascii=False) for r in rs)
         return {"source": sid, "unit": unit, "page": None, "image": None, "text": text, "rows": rs}
     else:
@@ -279,7 +279,7 @@ def page(sid: str, unit: str, dpi: int = 110) -> dict:
 def _ocr_page(pdf: Path, n: int) -> bool:
     """Is this page's text an OCR layer over a scan? OCR tools write it in an invisible "GlyphLessFont"."""
     try:
-        fonts = subprocess.run(["pdffonts", "-f", str(n), "-l", str(n), str(pdf)], capture_output=True, text=True,
+        fonts = subprocess.run(["pdffonts", "-f", str(n), "-l", str(n), str(pdf)], capture_output=True, text=True, encoding="utf-8",
                                timeout=30).stdout
     except (OSError, subprocess.TimeoutExpired):
         return False
@@ -301,13 +301,13 @@ def _unit_path(sid: str, unit: str) -> Path:
 
 def result(sid: str, unit: str) -> dict | None:
     p = _unit_path(sid, unit)
-    return json.loads(p.read_text()) if p.exists() else None
+    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
 
 
 def _save_result(sid: str, unit: str, r: dict):
     p = _unit_path(sid, unit)
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(r, ensure_ascii=False, indent=1))
+    p.write_text(json.dumps(r, ensure_ascii=False, indent=1), encoding="utf-8")
 
 
 def state(sid: str) -> dict[str, str]:
@@ -562,8 +562,8 @@ def ingest_source(sid: str, store=None, units: list[str] | None = None) -> dict:
         rep["clips"] = _clips(s, [*known.values(), *new])
     if plans:
         p = WORK / sid / "pictures.json"
-        old = json.loads(p.read_text()) if p.exists() else {}
-        p.write_text(json.dumps({**old, **plans}, ensure_ascii=False, indent=1))
+        old = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+        p.write_text(json.dumps({**old, **plans}, ensure_ascii=False, indent=1), encoding="utf-8")
     for u in todo:
         r = result(sid, u)
         r["held"] = held_by_unit[u]
@@ -624,5 +624,5 @@ def plans(sid: str | None = None) -> dict:
     """Picture plans saved by ingest, for the review page."""
     out = {}
     for p in sorted(WORK.glob(f"{sid or '*'}/pictures.json")):
-        out |= json.loads(p.read_text())
+        out |= json.loads(p.read_text(encoding="utf-8"))
     return out

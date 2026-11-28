@@ -339,7 +339,7 @@ def overview(req: Req):
     days = [(dt.date.today() - dt.timedelta(days=13 - i)).isoformat() for i in range(14)]
     return {"counts": counts, "sources": srcs, "spend": {"all": llm.usage()["usd"], "month": llm.usage(month)["usd"]},
             "added": [{"day": d, "n": added.get(d, 0)} for d in days], "steps": steps, "jobs": [j.view(tail=3) for j in _jobs().busy()],
-            "batches": len(json.loads(llm._batches_file().read_text())) if llm._batches_file().exists() else 0,
+            "batches": len(json.loads(llm._batches_file().read_text(encoding="utf-8"))) if llm._batches_file().exists() else 0,
             "work_dir": str(work.WORK), "modes": modes.state(), "quota": _quota()}
 
 
@@ -362,7 +362,7 @@ def usage(req: Req):
     days: dict[str, float] = {}
     recent = []
     if f.exists():
-        for line in f.read_text().splitlines():
+        for line in f.read_text(encoding="utf-8").splitlines():
             r = json.loads(line)
             days[r["at"][:10]] = days.get(r["at"][:10], 0) + r["cost"]
             recent.append(r)
@@ -1015,7 +1015,7 @@ def pictures_state(req: Req):
             return ""
         if ph["dir"] not in sheets:
             try:
-                sheets[ph["dir"]] = json.loads((Path(ph["dir"]) / "cands.json").read_text())
+                sheets[ph["dir"]] = json.loads((Path(ph["dir"]) / "cands.json").read_text(encoding="utf-8"))
             except (OSError, ValueError):
                 sheets[ph["dir"]] = {}
         try:
@@ -1085,7 +1085,7 @@ def _drawings_todo(st) -> dict[str, str]:
     from panko.media import pictures
     p = _drawings_file()
     try:
-        prompts = json.loads(p.read_text()) if p.exists() else {}
+        prompts = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
     except ValueError:
         prompts = {}
     return pictures._todo(st, prompts, False)
@@ -1135,7 +1135,7 @@ def _searches() -> tuple[dict, dict]:
     out = []
     for name in ("cands.json", "queries.json"):
         try:
-            out.append(json.loads((d / name).read_text()))
+            out.append(json.loads((d / name).read_text(encoding="utf-8")))
         except (OSError, ValueError):
             out.append({})
     return out[0], out[1]
@@ -1153,7 +1153,7 @@ def _save_searches(found: dict[str, tuple[str, list]]) -> None:
         d.mkdir(parents=True, exist_ok=True)
         for name, data in (("cands.json", cands), ("queries.json", queries)):
             tmp = d / f".{name}.tmp"
-            tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1))
+            tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
             tmp.replace(d / name)
 
 
@@ -1227,7 +1227,7 @@ def pictures_candidates(req: Req):
     d = choose.load_decisions().get(eid, {})
     if not q and d.get("photo"):
         try:
-            got = json.loads((Path(d["photo"]["dir"]) / "cands.json").read_text())[eid]
+            got = json.loads((Path(d["photo"]["dir"]) / "cands.json").read_text(encoding="utf-8"))[eid]
             return {"id": eid, "query": pictures.query_for(e), "dir": d["photo"]["dir"], "chosen": d["photo"]["index"],
                     "from": "the model's search", "candidates": _cands_out(got)}
         except (OSError, ValueError, KeyError):
@@ -1301,7 +1301,7 @@ def pictures_choose(req: Req):
     if where not in allowed:
         return JSONResponse({"error": "pick from the candidates shown"}, 400)
     try:
-        c = json.loads((Path(where) / "cands.json").read_text())[eid][idx]
+        c = json.loads((Path(where) / "cands.json").read_text(encoding="utf-8"))[eid][idx]
     except (OSError, ValueError, KeyError, IndexError):
         return JSONResponse({"error": "that candidate is gone: search again"}, 400)
     try:
@@ -1359,8 +1359,8 @@ def pictures_apply(req: Req):
         r = pictures.apply(choose.load_decisions(), store=_store())
         p = ROOT / "data" / "pictures" / "drawings.json"
         p.parent.mkdir(parents=True, exist_ok=True)
-        old = json.loads(p.read_text()) if p.exists() else {}
-        p.write_text(json.dumps({**old, **r["prompts"]}, ensure_ascii=False, indent=1))
+        old = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+        p.write_text(json.dumps({**old, **r["prompts"]}, ensure_ascii=False, indent=1), encoding="utf-8")
         job.say(f"photos {r['photo']}, skips {r['skip']}, drawings waiting {len({**old, **r['prompts']})}, "
                 f"failed {len(r['failed'])}")
         return {"photos": r["photo"], "skips": r["skip"], "failed": r["failed"]}
@@ -1603,7 +1603,7 @@ def setup_state(req: Req):
     if out["config"]:
         out["modes"] = modes.state()
         out["references"] = evidence.references_status()
-        out["text"] = setup.CONFIG.read_text()
+        out["text"] = setup.CONFIG.read_text(encoding="utf-8")
         from panko.config import hosted
         if hosted():     # chat mode through the front door: the connector address (host/oauth.py)
             site = os.environ.get("PANKO_HOST_URL", "").rstrip("/")
@@ -1654,7 +1654,7 @@ def setup_text(req: Req):
         raise ValueError("the config can't be empty")
     if setup.CONFIG.exists():
         shutil.copy2(setup.CONFIG, setup.CONFIG.with_suffix(".toml.bak"))
-    setup.CONFIG.write_text(text)
+    setup.CONFIG.write_text(text, encoding="utf-8")
     _reload()
     return {"path": _shown(setup.CONFIG)}
 

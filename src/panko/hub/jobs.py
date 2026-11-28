@@ -114,7 +114,7 @@ class Jobs:
 
     def _load(self):
         try:
-            rows = json.loads(self.path.read_text())
+            rows = json.loads(self.path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             return
         names = set(Job.__dataclass_fields__) - {"fn", "_part"}
@@ -140,7 +140,7 @@ class Jobs:
             tmp = self.path.with_suffix(".tmp")
             try:
                 self.path.parent.mkdir(parents=True, exist_ok=True)
-                tmp.write_text(json.dumps(rows, ensure_ascii=False, default=str))
+                tmp.write_text(json.dumps(rows, ensure_ascii=False, default=str), encoding="utf-8")
                 os.replace(tmp, self.path)
             except OSError as e:          # a full disk mustn't stop a job
                 sys.__stderr__.write(f"jobs: couldn't save {self.path}: {e}\n")

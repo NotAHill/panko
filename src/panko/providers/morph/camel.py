@@ -53,7 +53,7 @@ class Camel(Morph):
 
     def _cache(self, db: str):
         p = CACHE / "morph" / f"camel-{db}.json"
-        return p, (json.loads(p.read_text()) if p.exists() else {})
+        return p, (json.loads(p.read_text(encoding="utf-8")) if p.exists() else {})
 
     def analyse(self, words: list[str], variety: str) -> dict[str, list[dict]]:
         db = self.dbs().get(variety)
@@ -62,16 +62,17 @@ class Camel(Morph):
         path, cached = self._cache(db)
         todo = sorted({w for w in words if w and w not in cached})
         if todo:
-            env = {**os.environ}
+            env = {**os.environ, "PYTHONIOENCODING": "utf-8"}     # its JSON is Arabic: UTF-8 both ways, Windows too
             data = secret("CAMELTOOLS_DATA") if hosted() else self.cfg.get("data") or secret("CAMELTOOLS_DATA")
             if data:
                 env["CAMELTOOLS_DATA"] = data
             r = subprocess.run([self.python(), "-I", "-c", HELPER], env=env, capture_output=True, text=True,
+                               encoding="utf-8",
                                input=json.dumps({"db": db, "words": todo, "keys": KEYS}, ensure_ascii=False))
             if r.returncode:
                 raise RuntimeError(f"CAMeL Tools failed: {r.stderr.strip().splitlines()[-1] if r.stderr else r.returncode}"
                                    " (is the database installed? camel_data -i morphology-db-msa-r13)")
             cached |= json.loads(r.stdout)
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(json.dumps(cached, ensure_ascii=False))
+            path.write_text(json.dumps(cached, ensure_ascii=False), encoding="utf-8")
         return {w: cached.get(w, []) for w in words}

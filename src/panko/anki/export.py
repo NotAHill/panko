@@ -40,5 +40,5 @@ def export_deck(name: str, path: Path) -> dict:
                           "studied": n["noteId"] in studied})
     out = {"deck": name, "notes": notes}
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(out, ensure_ascii=False))
+    path.write_text(json.dumps(out, ensure_ascii=False), encoding="utf-8")
     return out

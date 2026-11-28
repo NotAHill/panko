@@ -340,6 +340,6 @@ def _from_wiktionary(language: str, out: Path, client, say) -> str:
     with ThreadPoolExecutor(4) as pool:
         rows = [e for found in pool.map(entries, titles) for e in found]
     tmp = out.with_suffix(out.suffix + ".part")
-    tmp.write_text("".join(json.dumps(e, ensure_ascii=False) + "\n" for e in rows))
+    tmp.write_text("".join(json.dumps(e, ensure_ascii=False) + "\n" for e in rows), encoding="utf-8")
     tmp.replace(out)
     return f"made from Wiktionary: {len(rows)} entries ({len(titles)} lemmas)"

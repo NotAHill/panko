@@ -29,7 +29,7 @@ def mark_chat(tool: str) -> None:
     try:
         p = _path()
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps({"last": datetime.now(UTC).isoformat(timespec="seconds"), "tool": tool}))
+        p.write_text(json.dumps({"last": datetime.now(UTC).isoformat(timespec="seconds"), "tool": tool}), encoding="utf-8")
         _last_write = now
     except OSError:
         pass
@@ -38,7 +38,7 @@ def mark_chat(tool: str) -> None:
 def chat() -> dict:
     """{"last": ISO time or "", "ago": seconds or None, "active": bool}."""
     try:
-        d = json.loads(_path().read_text())
+        d = json.loads(_path().read_text(encoding="utf-8"))
         ago = int((datetime.now(UTC) - datetime.fromisoformat(d["last"])).total_seconds())
         return {"last": d["last"], "ago": ago, "active": ago < RECENT}
     except (OSError, ValueError, KeyError):

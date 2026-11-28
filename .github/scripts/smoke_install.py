@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -39,7 +40,10 @@ try:
         except OSError:
             time.sleep(0.5)
     assert "Panko" in page, page[:300]
-    meta = json.loads(web.open("http://127.0.0.1:8771/api/meta", timeout=10).read())
+    try:
+        meta = json.loads(web.open("http://127.0.0.1:8771/api/meta", timeout=10).read())
+    except urllib.error.HTTPError as e:
+        raise SystemExit(f"/api/meta answered {e.code}: {e.read().decode(errors='replace')}")
     print("hub: folder", meta["root"], "config:", meta["config"])
     assert Path(meta["root"]).name == "Panko" and Path(meta["root"]).parent == Path.home()
 finally:

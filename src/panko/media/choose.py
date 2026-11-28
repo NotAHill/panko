@@ -36,7 +36,7 @@ def decisions_path() -> Path:
 
 def load_decisions(path: Path | None = None) -> dict:
     p = path or decisions_path()
-    return json.loads(p.read_text()) if p.exists() else {}
+    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
 
 
 def validate(decisions: dict) -> list[str]:
@@ -51,7 +51,7 @@ def validate(decisions: dict) -> list[str]:
             try:
                 if ph["dir"] not in cands:
                     from panko.config import inside
-                    cands[ph["dir"]] = json.loads((inside(ph["dir"]) / "cands.json").read_text())
+                    cands[ph["dir"]] = json.loads((inside(ph["dir"]) / "cands.json").read_text(encoding="utf-8"))
                 found = cands[ph["dir"]].get(eid, [])
                 if not 0 <= int(ph["index"]) < len(found):
                     errs.append(f"{eid}: {ph['dir']} has no candidate {ph['index']} for it ({len(found)} found)")
@@ -74,7 +74,7 @@ def save_decisions(new: dict, path: Path | None = None) -> dict:
     p = path or decisions_path()
     p.parent.mkdir(parents=True, exist_ok=True)
     allof = {**load_decisions(p), **new}
-    p.write_text(json.dumps(allof, ensure_ascii=False, indent=1))
+    p.write_text(json.dumps(allof, ensure_ascii=False, indent=1), encoding="utf-8")
     return {"ok": True, "saved": len(new), "total": len(allof)}
 
 
@@ -85,7 +85,7 @@ def known_plans(files: list[Path] = ()) -> dict:
     from panko import work
     out = work.plans()
     for f in files:
-        out |= json.loads(Path(f).read_text())
+        out |= json.loads(Path(f).read_text(encoding="utf-8"))
     return out
 
 
@@ -120,13 +120,13 @@ def searched(dirs: list[Path]) -> dict[str, Path]:
     for d in dirs:
         p = Path(d) / "cands.json"
         if p.exists():
-            out |= {k: Path(d) for k, v in json.loads(p.read_text()).items() if v and k not in out}
+            out |= {k: Path(d) for k, v in json.loads(p.read_text(encoding="utf-8")).items() if v and k not in out}
     return out
 
 
 def _sheets(d: Path) -> list[tuple[Path, list[str]]]:
     """(sheet image, the card ids on it in row order) for a search folder."""
-    slugs = list(json.loads((d / "cands.json").read_text()))
+    slugs = list(json.loads((d / "cands.json").read_text(encoding="utf-8")))
     return [(d / f"sheet{i // ROWS}.jpg", slugs[i:i + ROWS]) for i in range(0, len(slugs), ROWS)
             if (d / f"sheet{i // ROWS}.jpg").exists()]
 
@@ -182,7 +182,7 @@ def decide(cards: list[dict], *, plan_files: list[Path] = (), searched_dirs: lis
         if a is None or a.error:
             rep["waiting"] += mine
             continue
-        cands = json.loads((d / "cands.json").read_text())
+        cands = json.loads((d / "cands.json").read_text(encoding="utf-8"))
         res = {r["id"]: r for r in a.data.get("results", [])}
         for s in mine:
             r = res.get(s, {})

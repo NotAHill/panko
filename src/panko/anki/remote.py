@@ -126,7 +126,7 @@ def local_code() -> str:
     """The add-on's code for a Panko on your own computer ('' until one is made). On a server the front door's
     device codes stand in for it."""
     try:
-        return _code_file().read_text().strip()
+        return _code_file().read_text(encoding="utf-8").strip()
     except OSError:
         return ""
 
@@ -139,7 +139,7 @@ def new_local_code() -> str:
     p.parent.mkdir(parents=True, exist_ok=True)
     code = secrets.token_urlsafe(18)
     fd = os.open(p, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w") as f:
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
         f.write(code)
     return code
 
@@ -153,16 +153,16 @@ def _remember(n: int) -> None:
     p = _state_file()
     p.parent.mkdir(parents=True, exist_ok=True)
     try:
-        s = json.loads(p.read_text())
+        s = json.loads(p.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         s = {}
     s = {"last": time.time(), "written": s.get("written", 0) + n if time.time() - s.get("last", 0) < 600 else n}
-    p.write_text(json.dumps(s))
+    p.write_text(json.dumps(s), encoding="utf-8")
 
 
 def last_sync() -> dict:
     """When the add-on last wrote to Anki, and how many notes in that sync ({} if it never has)."""
     try:
-        return json.loads(_state_file().read_text())
+        return json.loads(_state_file().read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {}

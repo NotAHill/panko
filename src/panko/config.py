@@ -188,7 +188,7 @@ def save_choices(section: str, values: dict) -> Path:
     p = choices_path()
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text("# Choices made in the Panko hub. They override config/panko.toml; delete a section to undo it.\n\n"
-                 + dump_toml(data))
+                 + dump_toml(data), encoding="utf-8")
     settings.cache_clear()
     return p
 
