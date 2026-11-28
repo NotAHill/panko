@@ -1632,7 +1632,7 @@ async function choosePhoto(card, onDone, rest = null) {
       ${res.failed?.length ? html`<p class="warn mt-s">${res.failed.join(' and ')} didn't answer: these are from the other sites. Search again to retry.</p>` : ''}
       ${res.candidates.length ? html`<div class="grid-pics mt">${res.candidates.map(c => html`<button class="pic ${res.chosen === c.i ? 'on' : ''}" data-i="${c.i}" title="${c.title}">
           <img src="${c.thumb}" alt="${c.title}" loading="lazy" referrerpolicy="no-referrer" data-peek="${c.thumb}">
-          <span class="lic">${c.provider === 'yours' ? `yours · ${c.author}${c.license ? ' · ' + c.license : ''}` : `${c.provider} · ${c.license || 'licence unknown'}`}</span></button>`)}</div>
+          <span class="lic">${c.provider === 'yours' ? `yours · ${c.author}${c.license ? ' · ' + c.license : ''}` : c.provider === 'pool' ? `shared here · ${c.license || (c.drawn ? 'drawing' : '')}` : `${c.provider} · ${c.license || 'licence unknown'}`}</span></button>`)}</div>
         <p class="faint mt-s">Click one to put it on the card. ${res.chosen != null ? 'The outlined one is what the model chose.' : ''}</p>`
         : html`<p class="empty mt">Nothing found for “${res.query}”. Try other words.</p>`}
       ${rest ? html`<div class="acts mt"><button data-ch="none" title="this card is better without a picture">no picture</button>
@@ -2215,6 +2215,11 @@ function picturePanel(p) {
     <ol class="order mt" id="pp-chain">${rows.map(x => html`<li data-s="${x.name}" class="${x.on ? '' : 'off'}"><span class="grip" aria-hidden="true">⋮⋮</span>
       <label class="nm"><input type="checkbox" ${x.on ? 'checked' : ''}> ${x.name}<small>${x.about}</small>${x.ready ? '' : html`<small class="warn">needs ${x.needs.length ? x.needs.join(', ') : 'setting up'}</small>`}</label>
       <span class="mv"><button class="ghost" data-pmv="-1" aria-label="move ${x.name} up">↑</button><button class="ghost" data-pmv="1" aria-label="move ${x.name} down">↓</button></span></li>`)}</ol>
+    ${p.pool ? html`<h4 class="sub-h">shared on this server</h4>
+      <label class="chk-l"><input type="checkbox" id="pp-pool" ${p.pool.use ? 'checked' : ''}> use pictures other people here chose for the same meaning <span class="dim">free, offered first after your own</span></label>
+      <label class="chk-l"><input type="checkbox" id="pp-share" ${p.pool.share ? 'checked' : ''}> share the photos on my cards that anyone may share <span class="dim">CC BY, CC BY-SA, CC0, public domain: never pictures from your own sources</span></label>
+      <label class="chk-l"><input type="checkbox" id="pp-share-dr" ${p.pool.share_drawings ? 'checked' : ''}> share my drawings too</label>
+      <p class="faint mt-s">Others see only the picture and its credit: not your name, your cards or what you're learning. Changes reach the server within the hour.</p>` : ''}
     <h4 class="sub-h">drawings</h4>
     <label class="chk-l"><input type="checkbox" id="pp-draw" ${p.drawings ? 'checked' : ''} ${gen ? '' : 'disabled'}> draw a picture when no photo fits <span class="dim">paid, made by an image model${gen && !gen.ready ? ', needs ' + (gen.needs.join(', ') || 'a key') : ''}</span></label>
     <div class="form mt-s">
@@ -2247,7 +2252,8 @@ function pictureActions(el, p) {
       const chain = $$('#pp-chain li').filter(li => $('input', li).checked).map(li => li.dataset.s);
       if ($('#pp-draw').checked) chain.push('generate');
       try {
-        await api('/pictures/prefs', { body: { chain, style: $('#pp-style').value.trim(), quality: $('#pp-quality').value,
+        const shared = p.pool ? { pool: $('#pp-pool').checked, share: $('#pp-share').checked, share_drawings: $('#pp-share-dr').checked } : {};
+        await api('/pictures/prefs', { body: { ...shared, chain, style: $('#pp-style').value.trim(), quality: $('#pp-quality').value,
           rules: $('#pp-rules').value.split('\n'), skip: $('#pp-skip').value } });
         toast(html`<span class="ok">✔</span> picture choices saved`, 'ok');
       } catch (e) { toast(html`<span class="bad">✘</span> ${e.message}`, 'bad', 0); }

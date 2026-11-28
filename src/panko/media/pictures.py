@@ -78,13 +78,18 @@ def drawings_allowed() -> bool:
 # 2. search ------------------------------------------------------------------------------------------------------
 
 def _searchers(names: list[str] | None = None) -> list:
-    """The photo sites in the [images] chain, after your own pictures (unless `[images] reuse = false`)."""
+    """The photo sites in the [images] chain, after your own pictures (unless `[images] reuse = false`) and, on a
+    server, the pictures shared there (unless `[images] pool = false`)."""
     from panko.config import settings
+    img = settings().get("images", {})
     found = [p for p in providers.chain("images", names) if hasattr(p, "search")]
-    if names is None and settings().get("images", {}).get("reuse", True) and not any(p.name == "yours" for p in found):
-        mine = providers.get("images", "yours")
-        if mine is not None:
-            found.insert(0, mine)
+    if names is None:
+        first = []
+        for name, on in (("yours", img.get("reuse", True)), ("pool", img.get("pool", True))):
+            p = providers.get("images", name) if on is not False else None
+            if p is not None and p.ready() and not any(x.name == name for x in found):
+                first.append(p)
+        found = first + found
     return found
 
 
@@ -136,9 +141,7 @@ def _fetch(c: dict):
             return None
     for attempt in range(2):                          # image hosts throttle bursts of parallel fetches
         try:
-            r = httpx.get(c["thumb"], headers=UA, timeout=30, follow_redirects=True)
-            r.raise_for_status()
-            im = Image.open(io.BytesIO(r.content))
+            im = Image.open(io.BytesIO(_bytes(c, 30)))
             im.load()
             return _on_white(im)
         except Exception:  # noqa: BLE001
@@ -148,7 +151,7 @@ def _fetch(c: dict):
 
 
 # provider → short tag printed next to each candidate's number on a sheet
-TAGS = {"yours": "yo", "wikidata": "wd", "commons": "cm", "openverse": "ov", "pexels": "px", "pixabay": "pb", "inaturalist": "in",
+TAGS = {"yours": "yo", "pool": "sh", "wikidata": "wd", "commons": "cm", "openverse": "ov", "pexels": "px", "pixabay": "pb", "inaturalist": "in",
         "arasaac": "as", "source": "src"}
 
 
@@ -189,8 +192,18 @@ def search(queries: dict[str, str], outdir: Path, per_slug: int = 10, names: lis
 
 # 3. apply -------------------------------------------------------------------------------------------------------
 
+def _bytes(c: dict, timeout: float) -> bytes:
+    """A candidate's file: from its site, or through its provider when it has its own way (the server's pool)."""
+    p = providers.get("images", c.get("provider", ""))
+    if p is not None and hasattr(p, "fetch"):
+        return p.fetch(c)
+    r = httpx.get(c["thumb"], headers=UA, timeout=timeout, follow_redirects=True)
+    r.raise_for_status()
+    return r.content
+
+
 def _credit(c: dict) -> str:
-    if c.get("file"):                                  # your own picture keeps the credit it came with
+    if c.get("file") or c.get("provider") == "pool":   # your own picture, or one shared here, keeps its credit
         return c.get("credit", "")
     p = providers.get("images", c.get("provider", ""))
     site = getattr(p, "label", "") or "Openverse"     # older cands.json files: anything not Commons was Openverse
@@ -201,9 +214,7 @@ def _download(c: dict, path: Path):
     p = providers.get("images", c.get("provider", ""))
     if p is not None and hasattr(p, "fresh"):
         c = p.fresh(c)                                 # some sites' links expire (Pixabay: 24 h)
-    r = httpx.get(c["thumb"], headers=UA, follow_redirects=True, timeout=60)
-    r.raise_for_status()
-    _to_jpeg(r.content, path, 800, 85)                  # pictograms are transparent PNGs: flattened onto white
+    _to_jpeg(_bytes(c, 60), path, 800, 85)              # pictograms are transparent PNGs: flattened onto white
 
 
 def _record(c: dict, entry: dict, name: str) -> dict:
