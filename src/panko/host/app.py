@@ -846,7 +846,9 @@ PRIVACY = """<h1>privacy</h1><section class="box">
 <p><b>What's kept.</b> Your account (a name and a password hash), and your own Panko folder: your config, the keys you
 add, your cards, the sources you upload (lesson recordings, sheets, photos) and the media made from them.</p>
 <p><b>Who can see it.</b> Only you, through your account. The person who runs this server could technically read
-the files on it; they're backed up nightly, encrypted.</p>
+the files on it.</p>
+<p><b>Backups.</b> This server doesn't back up your folder yet. To keep your own copy, download everything from your
+account page now and then.</p>
 <p><b>Pictures shared here.</b> Photos on your cards that anyone may share anyway (CC BY, CC BY-SA, CC0, public
 domain) are offered to other people on this server for cards with the same meaning, with their credit. Your drawings
 only if you choose, and never a picture from your own sources. Others don't see your name, your cards or what you're
