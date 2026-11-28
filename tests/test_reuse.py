@@ -69,3 +69,22 @@ def test_your_pictures_come_first_in_a_search_and_are_never_downloaded(st, tmp_p
     im = st.get("fs-2")["image"]
     assert r["photo"] == 1 and not fetched and im["file"] == "glass.jpg" and im["credit"] == "Commons · CC BY"
     assert im["provider"] == "yours" and im["reused_from"] == "dw-1" and im["meaning"]["gloss"] == "a glass; cup"
+
+
+def test_photos_apply_in_a_new_panko_with_no_media_folder(tmp_path, monkeypatch):
+    import panko.config
+    home = tmp_path / "home"
+    monkeypatch.setattr(panko.config, "ROOT", home)               # nothing saved yet: no data/media
+    s = Store(tmp_path / "s.db")
+    s.put({"id": "iq-1", "kind": "word", "variety": "iraqi", "ar": "كرسي", "gloss": "chair", "pos": "noun"},
+          status="active")
+    run = tmp_path / "run"
+    run.mkdir()
+    (run / "cands.json").write_text(json.dumps({"iq-1": [{"thumb": "https://x/chair.jpg", "provider": "commons",
+                                                          "page": "https://x", "author": "A", "license": "CC0"}]}))
+    r = pictures.apply({"iq-1": {"photo": {"dir": str(run), "index": 0}}}, store=s,
+                       download=lambda c, p: p.write_bytes(b"jpg"))
+    media = home / "data" / "media"
+    assert r["photo"] == 1 and not r["failed"] and s.get("iq-1")["image"]["file"] == "_panko_proto_iq-1.jpg"
+    assert (media / "_panko_proto_iq-1.jpg").exists() and "_panko_proto_iq-1.jpg" in json.loads(
+        (media / "credits.json").read_text())

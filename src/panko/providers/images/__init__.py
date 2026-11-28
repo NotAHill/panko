@@ -5,6 +5,7 @@ from panko.providers.images import (  # noqa: F401
     openverse,
     pexels,
     pixabay,
+    pool,
     source,
     wikidata,
     yours,

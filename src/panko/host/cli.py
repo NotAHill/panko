@@ -53,7 +53,8 @@ def run(args, ap) -> None:
         import uvicorn
 
         from panko.host.app import app
-        a = app(data, idle_minutes=args.idle, quota_gb=args.quota_gb, upload_mb=args.upload_mb, base_url=args.url)
+        a = app(data, idle_minutes=args.idle, quota_gb=args.quota_gb, upload_mb=args.upload_mb, base_url=args.url,
+                self_url=f"http://127.0.0.1:{args.port}")
         print(f"✻ Panko front door on http://{args.bind}:{args.port} (data in {data})", flush=True)
         uvicorn.run(a, host=args.bind, port=args.port, log_level="warning", proxy_headers=True,
                     forwarded_allow_ips=args.proxy)

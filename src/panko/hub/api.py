@@ -1059,6 +1059,9 @@ def _photo_sources() -> dict:
     out: dict[str, list] = {"ready": [], "need_key": []}
     if settings().get("images", {}).get("reuse", True):
         out["ready"].append(PHOTO_SITE["yours"])
+    pool = providers.get("images", "pool")
+    if pool is not None and pool.ready() and settings().get("images", {}).get("pool", True) is not False:
+        out["ready"].append(PHOTO_SITE["pool"])
     for name in settings().get("images", {}).get("chain", []):
         p = providers.get("images", name)
         if p is None or not hasattr(p, "search"):
@@ -1067,7 +1070,7 @@ def _photo_sources() -> dict:
     return out
 
 
-PHOTO_SITE = {"yours": "your own pictures", "source": "the source's own pages", "wikidata": "Wikidata", "commons": "Wikimedia Commons",
+PHOTO_SITE = {"yours": "your own pictures", "pool": "pictures shared on this server", "source": "the source's own pages", "wikidata": "Wikidata", "commons": "Wikimedia Commons",
               "openverse": "Openverse", "pexels": "Pexels", "pixabay": "Pixabay", "inaturalist": "iNaturalist",
               "arasaac": "ARASAAC"}
 
@@ -1439,11 +1442,16 @@ def picture_prefs(req: Req):
     chain = img.get("chain", [])
     rows = []
     for name in chain + [n for n in providers.available("images") if n not in chain]:
+        if name == "pool":              # not a site to put in order: the switches below
+            continue
         p = providers.get("images", name)
         rows.append({"name": name, "on": name in chain, "ready": bool(p and p.ready()), "about": IMAGE_ABOUT.get(name, ""),
                      "needs": list(getattr(p, "needs", ()) or ())})
     pics = s.get("learner", {}).get("pictures", {})
-    return {"providers": rows, "drawings": "generate" in chain, "style": gen.get("style", ""),
+    pool = providers.get("images", "pool")
+    shared = ({"use": img.get("pool", True) is not False, "share": img.get("share", True) is not False,
+               "share_drawings": img.get("share_drawings", False) is True} if pool is not None and pool.ready() else None)
+    return {"providers": rows, "drawings": "generate" in chain, "pool": shared, "style": gen.get("style", ""),
             "quality": gen.get("quality", "low"), "model": gen.get("model", ""), "rules": pics.get("rules", []),
             "skip": pics.get("skip", "")}
 
@@ -1459,6 +1467,9 @@ def picture_prefs_save(req: Req):
         if not chain:
             raise ValueError("keep at least one picture source")
         save_choices("images", {"chain": chain})
+    flags = {k: bool(b[k]) for k in ("pool", "share", "share_drawings") if k in b}
+    if flags:
+        save_choices("images", flags)
     gen = {k: str(b[k]) for k in ("style", "quality") if k in b}
     if gen.get("quality") and gen["quality"] not in ("low", "medium", "high"):
         raise ValueError("quality is low, medium or high")

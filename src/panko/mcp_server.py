@@ -363,7 +363,7 @@ def panko_clashes_apply(decisions: dict) -> dict:
 
 @tool()
 def panko_examples_todo(status: str = "active", tag: str = "", limit: int = 20) -> dict:
-    """Cards that still need an example sentence (words, and phrases of up to four words), each with the sentences
+    """Cards that still need an example sentence (words only: a phrase is its own example), each with the sentences
     it has and candidates from the learner's sources and the open corpora. Write as `panko_prompt("examples")` says,
     then `panko_examples_save`. status: active (cards) or candidate (the inbox)."""
     from panko import examples

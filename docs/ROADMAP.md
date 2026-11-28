@@ -81,7 +81,7 @@ Update the **Now** section at the end of every work session: it's what a fresh s
   none, and what it should show), a voice picker (ElevenLabs library by language, accent and man or woman, with
   samples, up to four per variety), a walkthrough of the interface, a tag filter, references looked up as soon as a
   card opens, each source listed once per card, a click on the preview flips it. Choices go in `config/hub.toml`.
-  `panko examples` now covers short phrases too (most phrase cards have no example yet: run it with `--estimate`).
+  `panko examples` covers words only (2026-11-28: a phrase is its own example).
   The card HTML lost its "·" separators, so the next sync updates every note in place once (normal sync).
 - **Hub round 3 (2026-11-26).** Voices as a list per variety; the sources page lists the sources from before the
   queue (and filters cards by source); "no picture" per card or per tag; retired cards say why, with duplicates
@@ -213,6 +213,18 @@ Update the **Now** section at the end of every work session: it's what a fresh s
   started as Claude would (`uv run` in the unpacked bundle): pankohub from PyPI, all 28 tools, the chosen folder.
   Not yet tried inside Claude's desktop app itself. Also fixed: two threads saving the jobs file at once could
   write the older picture last (a flaky test showed it).
+- **Picture pool, stage 2 of picture reuse (2026-11-28).** On a server, pictures one person found are offered to
+  the others for cards with the same meaning (`host/pool.py`, the `pool` photo source, second after your own in
+  every search, tagged `sh` on sheets). The front door collects them from everyone's cards every hour: photos under
+  licences that let anyone share them (CC BY, CC BY-SA, CC0, public domain; not non-commercial, no-derivatives,
+  Pexels or Pixabay), never pictures cut from your own sources, drawings only if their owner opts in. One copy per
+  file, kept by hash; a person who stops sharing or leaves is taken out. Others see only the picture, its credit and
+  licence. Switches in card design ("shared on this server"); the privacy page says what's shared; the admin page
+  counts it. Tried on the local front door with two scratch accounts: the second one's chooser showed the first
+  one's photo first, and taking it put it on the card with its credit.
+- **Install checked on Windows, macOS and Linux in CI (2026-11-28).** The `install` job builds the wheel, installs it
+  with `uv tool install` and runs `.github/scripts/smoke_install.py`: the hub opens in `~/Panko`, chat mode lists its
+  tools, the Claude Desktop extension is written.
 - **Next:** the last of H5 (invite emails, when inviting more
   than a couple of people); backups before inviting anyone (`deploy/README.md` §5, skipped for now). DODa stays on
   (free and invite-only fits its terms; switched off if its authors object).
@@ -253,7 +265,7 @@ S10 has numbered tracks of its own: one per later step, and D for running it on 
 | Track | Step | Status |
 |---|---|---|
 | **L** (S10 step 2): the deck library, `docs/SPEC-library.md` | L1 Panko packs (`panko pack build`, `panko library import`) · L2 `panko publish` · L3 the library repo, `panko library list` / `get`, the hub's library page · L4 updates (a deck's v2 over v1, your edits kept) | L1–L3 built 2026-11-26, library live; L4 waits for a deck's v2 |
-| **H** (S10 step 3): the hosted Panko, `docs/SPEC-hosted.md` | H1 hosted mode inside Panko · H2 the front door and the server · H3 the Anki add-on · H4 chat mode remotely (MCP over HTTP, OAuth) · H5 polish (jobs survive a restart, quota warnings, invite emails, monitoring) | H1–H4 deployed; H5: restarts and monitoring done, quota warnings and invite emails to do |
+| **H** (S10 step 3): the hosted Panko, `docs/SPEC-hosted.md` | H1 hosted mode inside Panko · H2 the front door and the server · H3 the Anki add-on · H4 chat mode remotely (MCP over HTTP, OAuth) · H5 polish (jobs survive a restart, quota warnings, invite emails, monitoring) | H1–H4 deployed; H5: restarts, monitoring and quota warnings done, invite emails to do |
 | **D** (after H5): Panko on your own computer, for those who don't want an account | D1 a package: `uv tool install pankohub`, then `panko hub` · D2 an install page, linked from the sign-in page ("or run it on your own computer") · D3 the Panko sync add-on tried end to end against a local Panko (one add-on for both) · D4 chat mode as a one-click Claude Desktop extension · D5 a signed double-click app, only if people ask | D1–D4 built, `pankohub` 0.1.0 on PyPI; D5 only if asked |
 
 Order (your call, 2026-11-23; product first from 2026-11-25): Phase 4 (lessons and recordings, built), Phase 5

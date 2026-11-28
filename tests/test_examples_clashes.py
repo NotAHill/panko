@@ -112,9 +112,7 @@ def test_examples_in_chat_mode(store, monkeypatch, tmp_path):
     assert [e["id"] for e in examples.todo(store)] == ["dw-2"]
 
 
-def test_a_phrase_that_is_a_sentence_is_its_own_example():
-    phrase = {"kind": "phrase", "ar": "من فضلك", "gloss": "please"}
-    assert examples.needs_example(phrase)
-    assert not examples.needs_example({**phrase, "ar": "كيف كان السفر؟", "gloss": "How was the trip?"})
-    assert not examples.needs_example({**phrase, "ar": "شحال هادا", "gloss": "How much is this?"})
-    assert not examples.needs_example({**phrase, "ar": "واحد اثنين ثلاثة أربعة خمسة"})
+def test_only_words_need_an_example():
+    assert examples.needs_example({"kind": "word", "ar": "كتاب", "gloss": "book"})
+    assert not examples.needs_example({"kind": "phrase", "ar": "من فضلك", "gloss": "please"})
+    assert not examples.needs_example({"kind": "phrase", "ar": "كيف كان السفر؟", "gloss": "How was the trip?"})

@@ -28,8 +28,11 @@ PHOTO_PREFIX = "_panko_proto_"
 
 
 def _media() -> Path:
+    """The media folder, made if missing: a new Panko has none until something is first saved there."""
     from panko.config import ROOT
-    return ROOT / "data" / "media"
+    p = ROOT / "data" / "media"
+    p.mkdir(parents=True, exist_ok=True)
+    return p
 
 
 def _batches_file() -> Path:

@@ -105,7 +105,7 @@ const HINTS = {
   'gloss clashes': 'A production card shows the meaning and asks for the word, so two cards with the same meaning can’t both be answered. For each card: keep it, give it a sharper gloss, make it recognition only, or mark it as the same word as another (an inbox card then moves to duplicates). Nothing changes until you apply.',
   'to do': 'Cards without a picture or a decision about one.',
   'waiting for a picture': 'Active cards with no picture yet. Prayers, grammar words and the like are often better without one: mark those “no picture”.',
-  'to write': 'Words, and phrases of up to four words, with no example sentence yet. A longer phrase is its own example.',
+  'to write': 'Words with no example sentence yet. A phrase is its own example, so phrases never need one.',
   'waiting for an example': 'Open a card and press e to write one yourself, or let chat or the model write them for every card here.',
   'library': 'Ready-made decks, checked and with pictures. Adding one goes through the same checks as any source: words you have keep your card, near ones wait for you, new ones land in your inbox.',
   'decisions': 'What the model chose for each card: a photo, a drawing to make, or no picture. Apply puts them on the cards.',

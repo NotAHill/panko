@@ -3,7 +3,8 @@ the {{gloss_language}} gloss, so it must show the thing clearly.
 
 You are given contact sheets: one row per card, labelled with the card id, with up to ten numbered candidates
 (numbers in red, starting at 0; the grey tag next to each number names the site it came from; `yo` is a picture
-already on another of the learner's cards for this meaning: free, and fine to choose when it fits this sense). For
+already on another of the learner's cards for this meaning, `sh` one another learner on the same server chose for it:
+both free, and fine to choose when they fit this sense). For
 each card you also get `{"id", "gloss", "query", "prompt"}`.
 
 Pick the candidate that shows the thing **clearly, as the main subject**, in this sense, with no text overlay or

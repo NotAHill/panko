@@ -2,6 +2,8 @@
 
 Newest first. One paragraph each: what, and why. Reverse one by adding a new entry.
 
+**2026-11-28 · Only words get example sentences.** A phrase is already its own example, so phrases are never flagged "no example", never counted on the overview and never sent to `panko examples` or chat mode's examples step. Replaces the 2026-11-27 rule that phrases of up to four words needed one too (your call).
+
 **2026-11-27 · A full Panko stops adding files, never stops working.** At its quota a hosted Panko still opens,
 reads, edits and syncs; only steps that add files wait (downloads, audio, pictures, Anki packages, reading pages),
 with a message saying what takes room. Collecting finished batches never waits, since those answers are paid for.
@@ -16,6 +18,15 @@ variety with one meaning are synonyms, and the same picture would make their pro
 already shown on a card of the card's own variety isn't offered either. For varieties studied side by side the page
 suggests another photo of the same thing (the photos found for the first card come up, free), since the same
 picture on both cards can bring the other variety's word to mind.
+
+**2026-11-28 · The server's picture pool shares only what anyone may share, and never says who.** A photo goes in
+when its licence lets anyone pass it on for any use (CC BY, CC BY-SA, CC0, public domain); non-commercial and
+no-derivatives licences stay out (some sites mean personal use, and the pool keeps a resized copy), and so do Pexels
+and Pixabay, whose licences forbid passing the files on as a collection. Pictures cut from someone's own sources are
+never shared; drawings only when their owner opts in. The front door collects from everyone's cards every hour rather
+than each Panko sending pictures, so stopping sharing or leaving takes your pictures out without your Panko running.
+A Panko asks the pool with its own front-door secret; the answer carries the picture, credit and licence, never the
+person, card or gloss it came from, and your own pictures never come back to you from it.
 
 **2026-11-27 · Chat mode on your own computer is a "uv" Claude Desktop extension that installs Panko from PyPI.**
 A classic Python extension must carry its dependencies, and compiled ones (pydantic, under the MCP library) can't be

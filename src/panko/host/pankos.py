@@ -38,10 +38,11 @@ class Running:
 
 class Pankos:
     def __init__(self, data: Path, *, idle_minutes: float = 20, quota_gb: float = 5, upload_mb: float = 500,
-                 base_url: str = "", notify=None):
+                 base_url: str = "", notify=None, pool_url: str = ""):
         self.data = Path(data)
         self.notify = notify            # notify(kind, text, uid, detail): the front door's Watch.note
         self.base_url = base_url
+        self.pool_url = pool_url        # the front door's picture pool, asked with the Panko's own secret
         self.idle = idle_minutes * 60
         self.quota_gb, self.upload_mb = quota_gb, upload_mb
         self.running: dict[str, Running] = {}
@@ -64,6 +65,8 @@ class Pankos:
                     "PANKO_UPLOAD_MB": str(self.upload_mb), "PYTHONUNBUFFERED": "1"})
         if self.base_url:     # its setup page shows the address to connect Claude to (<site>/mcp)
             env["PANKO_HOST_URL"] = self.base_url
+        if self.pool_url:
+            env["PANKO_POOL_URL"] = self.pool_url
         return env
 
     def alive(self, uid: str) -> Running | None:

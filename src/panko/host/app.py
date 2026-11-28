@@ -31,6 +31,7 @@ from panko.host import oauth
 from panko.host.oauth import OAuth, OAuthError
 from panko.host.pages import ago, e, page, quota_line
 from panko.host.pankos import Pankos
+from panko.host.pool import Pool
 from panko.host.store import HostStore
 from panko.host.watch import Watch, checks
 
@@ -53,7 +54,7 @@ CORS = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET
 
 class Door:
     def __init__(self, data: Path, *, idle_minutes: float = 20, quota_gb: float = 5, upload_mb: float = 500,
-                 base_url: str = ""):
+                 base_url: str = "", self_url: str = ""):
         self.data = Path(data)
         self.data.mkdir(parents=True, exist_ok=True)
         os.chmod(self.data, 0o700)
@@ -61,13 +62,31 @@ class Door:
         self.oauth = OAuth(self.store)
         self.base_url = base_url.rstrip("/")
         self.watch = Watch(self.data, self.store.db)
+        self.pool = Pool(self.data)
+        # each Panko asks the pool here (on this machine, with its front-door secret): `self_url` is where the front
+        # door listens, as seen from inside
         self.pankos = Pankos(self.data, idle_minutes=idle_minutes, quota_gb=quota_gb, upload_mb=upload_mb,
-                             base_url=self.base_url, notify=self.watch.note)
+                             base_url=self.base_url, notify=self.watch.note,
+                             pool_url=f"{self_url.rstrip('/')}/host/pool" if self_url else "")
         self.clients: dict[str, httpx.AsyncClient] = {}
 
     # ---- helpers
     def user(self, req: Request) -> dict | None:
         return self.store.session_user(req.cookies.get(COOKIE, ""))
+
+    def panko_user(self, req: Request) -> str | None:
+        """Which user's Panko is asking (the pool): the front-door secret only that running Panko holds."""
+        import secrets
+        given = req.headers.get("x-panko-front", "")
+        if not given:
+            return None
+        for uid, r in list(self.pankos.running.items()):
+            if secrets.compare_digest(given, r.secret) and r.proc.poll() is None:
+                return uid
+        return None
+
+    def fill_pool(self) -> dict:
+        return self.pool.fill([(u["id"], self.pankos.home(u["id"])) for u in self.store.users() if not u["disabled"]])
 
     def link(self, req: Request, path: str) -> str:
         return (self.base_url or f"{req.url.scheme}://{req.url.netloc}") + path
@@ -210,6 +229,26 @@ def app(data: Path | str, **opts) -> Starlette:
         return Response(await asyncio.to_thread(mcpb.bundle), media_type="application/zip",
                         headers={"Content-Disposition": f'attachment; filename="{mcpb.NAME}"', "Cache-Control": "no-store"})
 
+    # ---- the picture pool (host/pool.py): a Panko searches it; files for the Panko and for its signed-in owner
+    async def pool_search(req: Request):
+        uid = door.panko_user(req)
+        if not uid:
+            return JSONResponse({"error": "only a Panko on this server can ask"}, 403)
+        try:
+            limit = max(1, min(20, int(req.query_params.get("limit", 6))))
+        except ValueError:
+            limit = 6
+        rows = await asyncio.to_thread(door.pool.search, req.query_params.get("q", ""), uid, limit)
+        return JSONResponse({"pictures": rows})
+
+    async def pool_file(req: Request):
+        if not (door.panko_user(req) or door.user(req)):
+            return Response("sign in first", 401)
+        p = door.pool.path(req.path_params["name"])
+        if not p:
+            return Response("no such picture", 404)
+        return FileResponse(p, headers={"Cache-Control": "private, max-age=86400"})
+
     async def addon(req: Request):
         """The Panko sync add-on, for anyone: it does nothing until it's given a Panko's address and code."""
         from panko.anki.addon import NAME, addon_zip
@@ -324,6 +363,7 @@ def app(data: Path | str, **opts) -> Starlette:
         d = c["disk"]
         names = {x["id"]: x["name"] for x in users}
         failed = await asyncio.to_thread(w.failed_jobs, list(names), time.time() - 86400)
+        pool = await asyncio.to_thread(door.pool.stats)
         tight = [(x["name"], lvl) for x in users if not x["disabled"]
                  for lvl in [quota_line(disk[x["id"]], x["quota_gb"] or door.pankos.quota_gb)[0]] if lvl != "ok"]
         disk_line = ("<span class=\"bad-t\">nearly full</span>" if d.get("low") else "<span class=\"ok\">fine</span>") + (
@@ -335,7 +375,8 @@ def app(data: Path | str, **opts) -> Starlette:
             <p>disk: {disk_line}<br>database: {'<span class="ok">fine</span>' if c['db'] else '<span class="bad-t">not answering</span>'}
             <br>front door started {ago(w.started)} · {len(door.pankos.running)} Panko{'s' if len(door.pankos.running) != 1 else ''} running
             {'<br>jobs failed in the last day: ' + ', '.join(f'{e(names.get(u, u))} {k}' for u, k in failed.items()) if failed else ''}
-            {'<br>near their disk limit: ' + ', '.join(f'{e(n)} ({"full" if lvl == "full" else "nearly full"})' for n, lvl in tight) if tight else ''}</p>
+            {'<br>near their disk limit: ' + ', '.join(f'{e(n)} ({"full" if lvl == "full" else "nearly full"})' for n, lvl in tight) if tight else ''}
+            <br>picture pool: {pool['pictures']} picture{'s' if pool['pictures'] != 1 else ''} ({pool['bytes'] / 1e6:.1f} MB{f", {pool['drawings']} drawn" if pool['drawings'] else ''}) shared by {pool['people']} {'person' if pool['people'] == 1 else 'people'}</p>
             <p class="muted">{'Alerts go to the address in <code>PANKO_ALERT_URL</code>.' if w.alert_url else 'Alerts are off: set <code>PANKO_ALERT_URL</code> in <code>deploy/.env</code> (an ntfy.sh topic works) to hear about these on your phone.'}
             An outside check of <code>/host/health</code> tells you when the whole server is down: see <code>deploy/README.md</code>.</p>
             {f'<table><tr><th class="nw">when</th><th>who</th><th>what happened</th></tr>{evs}</table>' if evs else '<p class="faint">Nothing has happened yet.</p>'}</section>"""
@@ -702,6 +743,7 @@ def app(data: Path | str, **opts) -> Starlette:
                 await asyncio.to_thread(door.watch.check_disk)
                 if n % QUOTA_EVERY == 0:
                     await asyncio.to_thread(check_quotas)
+                    await asyncio.to_thread(door.fill_pool)       # the picture pool, from everyone's cards
             except Exception as ex:  # noqa: BLE001  the watch must keep going
                 print(f"watch: {ex}", file=sys.stderr)
             n += 1
@@ -727,6 +769,7 @@ def app(data: Path | str, **opts) -> Starlette:
               Route("/host/invite/{token}", invite, methods=["GET", "POST"]), Route("/host/privacy", privacy),
               Route("/host/install", install), Route("/host/panko-sync.ankiaddon", addon),
               Route("/host/panko.mcpb", extension),
+              Route("/host/pool/search", pool_search), Route("/host/pool/file/{name}", pool_file),
               Route("/host/account", account, methods=["GET", "POST"]), Route("/host/account/export", account_export),
               Route("/host/admin", admin), Route("/host/admin/invite", admin_invite, methods=["POST"]),
               Route("/host/admin/withdraw/{n:int}", admin_withdraw, methods=["POST"]),
@@ -796,6 +839,10 @@ PRIVACY = """<h1>privacy</h1><section class="box">
 add, your cards, the sources you upload (lesson recordings, sheets, photos) and the media made from them.</p>
 <p><b>Who can see it.</b> Only you, through your account. The person who runs this server could technically read
 the files on it; they're backed up nightly, encrypted.</p>
+<p><b>Pictures shared here.</b> Photos on your cards that anyone may share anyway (CC BY, CC BY-SA, CC0, public
+domain) are offered to other people on this server for cards with the same meaning, with their credit. Your drawings
+only if you choose, and never a picture from your own sources. Others don't see your name, your cards or what you're
+learning, only the picture. Turn either off in card design; it's taken out within the hour.</p>
 <p><b>Keys and spend.</b> Keys you add are yours and are used only for your Panko. What a paid step costs is
 charged to your key, and Panko shows the price before it spends anything.</p>
 <p><b>Leaving.</b> Download everything from your account page (a zip you can open with Panko on your own computer),
@@ -849,4 +896,5 @@ def _remove(door: Door, uid: str) -> str:
     if src.exists():
         shutil.move(str(src), dest)
     (door.data / "logs" / f"{uid}.log").unlink(missing_ok=True)
+    door.pool.forget(uid)
     return str(dest.relative_to(door.data))

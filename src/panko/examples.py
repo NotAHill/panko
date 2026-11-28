@@ -7,7 +7,6 @@ the store, so the next sync shows and voices them.
 from __future__ import annotations
 
 import json
-import re
 
 from panko import evidence, llm, prompts
 from panko.store.normalize import bare
@@ -16,24 +15,14 @@ CHUNK = 20
 
 
 def todo(store, status: str = "active", ids: list[str] | None = None, tag: str = "", want: int = 1) -> list[dict]:
-    """Entries with fewer than `want` examples. A short phrase ("somehow", "on the way") gets one too; a phrase that
-    is already a whole sentence (longer than SHORT_PHRASE words, or ending like one) is its own example."""
+    """Words with fewer than `want` examples (a phrase is its own example)."""
     return [e for e in store.entries(status) if needs_example(e) and len(e.get("examples", [])) < want
             and (not ids or e["id"] in ids) and (not tag or tag in e.get("tags", []))]
 
 
-SHORT_PHRASE = 4          # words: a phrase this short is shown in a sentence of its own
-
-
-SENTENCE_END = re.compile(r"[.?!؟]\s*$")
-
-
 def needs_example(e: dict) -> bool:
-    """A word does; a short phrase does unless it is a whole sentence (it ends like one: "How was the trip?")."""
-    if e["kind"] == "word":
-        return True
-    return (len(e["ar"].split()) <= SHORT_PHRASE and not SENTENCE_END.search(e["ar"])
-            and not SENTENCE_END.search(e.get("gloss") or ""))
+    """Only words get an example sentence; a phrase is already one."""
+    return e["kind"] == "word"
 
 
 def candidates(e: dict, store, n: int = 5) -> list[dict]:
