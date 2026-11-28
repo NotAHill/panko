@@ -34,6 +34,8 @@ class FakeAnki:
             return {}
         if name == "find_notes":
             pid = args["query"].split("PankoID:")[1].strip('"')
+            if pid == "_*":                                   # any Panko note, from this Panko or another
+                return {"noteIds": [n for n, x in self.notes.items() if x["fields"].get("PankoID")]}
             return {"noteIds": [n for n, x in self.notes.items() if x["fields"].get("PankoID") == pid]}
         if name == "add_note":
             nid = len(self.notes) + 1
@@ -44,8 +46,10 @@ class FakeAnki:
                 assert "MyNotes" not in n["fields"], "Panko must never write MyNotes"
                 self.notes[n["id"]]["fields"].update(n["fields"])
             return {}
-        if name == "notes_info":
-            return {"notes": [{"cards": [1, 2]} for _ in args["notes"]]}
+        if name == "notes_info":                              # like the add-on: notes not there are left out
+            return {"notes": [{"noteId": n, "cards": [1, 2], "fields": {k: {"value": v} for k, v in
+                                                                      self.notes[n]["fields"].items()}}
+                              for n in args["notes"] if n in self.notes]}
         raise AssertionError(f"unexpected Anki call {name}")
 
 
@@ -73,6 +77,48 @@ def test_sync_adds_skips_and_updates_in_place(anki, tmp_path):
     s.put({**e, "gloss": "glass, cup"})
     assert sync.sync(s, Silent())["updated"] == 1
     assert "cup" in str(note["fields"]) and note["fields"]["MyNotes"] == "my mnemonic"
+
+
+def test_another_profile_open_changes_nothing(anki, tmp_path):
+    """Anki opens on the last profile used: when none of the notes Panko synced are in it, stop before any write."""
+    s = Store(tmp_path / "s.db")
+    s.put({"id": "dw-1", "kind": "word", "variety": "darija", "ar": "كاس", "gloss": "glass"}, status="active")
+    sync.sync(s, Silent())
+    s.put({**s.get("dw-1"), "gloss": "glass, cup"})
+    anki.notes.clear()                                      # a different collection
+    anki.calls.clear()
+    with pytest.raises(RuntimeError, match="Switch to your own profile"):
+        sync.sync(s, Silent())
+    assert set(anki.calls) <= {"notes_info"}
+
+
+def test_a_note_deleted_in_anki_is_listed_not_crashed_on(anki, tmp_path):
+    s = Store(tmp_path / "s.db")
+    for i, g in ((1, "glass"), (2, "table")):
+        s.put({"id": f"dw-{i}", "kind": "word", "variety": "darija", "ar": "كاس", "gloss": g}, status="active")
+    sync.sync(s, Silent())
+    gone = next(n for n, x in anki.notes.items() if x["fields"]["PankoID"] == "dw-2")
+    del anki.notes[gone]
+    for i in (1, 2):
+        s.put({**s.get(f"dw-{i}"), "gloss": s.get(f"dw-{i}")["gloss"] + " (new)"})
+    r = sync.sync(s, Silent())
+    assert r["updated"] == 1 and r["deleted_in_anki"] == ["dw-2"]
+
+
+def test_media_another_pankos_cards_use_is_kept(anki, tmp_path, monkeypatch):
+    """The add-on writes a server Panko's cards into the same Anki with the same file names: a local sync deletes
+    only what no note uses."""
+    media = tmp_path / "media"
+    media.mkdir()
+    (media / "_panko_proto_dw-1.jpg").write_bytes(b"jpg")
+    monkeypatch.setattr(sync, "MEDIA_DIRS", [media])
+    s = Store(tmp_path / "s.db")
+    s.put({"id": "dw-1", "kind": "word", "variety": "darija", "ar": "كاس", "gloss": "glass",
+           "image": {"file": "_panko_photo_dw-1.jpg"}}, status="active")
+    anki.notes[99] = {"fields": {"PankoID": "iw-1", "Picture": '<img src="_panko_proto_iw-1.jpg">'}}
+    anki.media.update({"_panko_proto_iw-1.jpg": True, "_panko_proto_old.jpg": True})
+    sync.sync(s, Silent())
+    assert "_panko_proto_iw-1.jpg" in anki.media and "_panko_proto_old.jpg" not in anki.media
 
 
 def test_dry_run_touches_nothing(anki, tmp_path):

@@ -673,3 +673,12 @@ language preset, a card or a cache crashed Panko there; CI's Windows install che
 (`tests/test_encoding.py`) fails on one that doesn't. The console streams replace what they can't print instead of
 crashing. Python's UTF-8 mode would do the same in one switch, but it has to be set before Python starts, which the
 `uv tool` launcher and Claude Desktop's extension runner don't let us do.
+
+## `panko sync` checks the profile and keeps another Panko's media (2026-11-28)
+Anki opens on the last profile used. A sync with a test profile open (the add-on's) created decks and note types in
+it, copied 16,000 media files there and deleted the server Panko's pictures as "stale", then stopped on a note it
+couldn't find. Now a sync first checks that the open collection holds the notes this Panko synced before and stops,
+changing nothing, when none are there. A note deleted in Anki is listed (`deleted_in_anki`), not re-added or crashed
+on. Media cleanup runs after the notes are written and keeps every `_panko_proto_` file any note in the collection
+uses, so a local Panko and the add-on's server Panko can share one Anki (both use that prefix). Deleted files go to
+Anki's media trash.

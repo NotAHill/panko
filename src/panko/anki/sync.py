@@ -42,22 +42,53 @@ def push_models():
             tool("create_model", {"model_name": name, "in_order_fields": fields, "card_templates": tmpls, "css": T.css()})
 
 
-def push_media(notes: list[dict]) -> tuple[int, int]:
-    blob = json.dumps(notes, ensure_ascii=False)
-    used = set(re.findall(rf"({re.escape(PREFIX)}[\w.-]+?\.(?:mp3|jpg|jpeg|png|svg|webp))", blob))
+def _media_names(notes: list[dict]) -> set[str]:
+    return set(re.findall(rf"({re.escape(PREFIX)}[\w.-]+?\.(?:mp3|jpg|jpeg|png|svg|webp))",
+                          json.dumps(notes, ensure_ascii=False)))
+
+
+def push_media(notes: list[dict]) -> int:
+    used = _media_names(notes)
     files = {f.name: f for d in MEDIA_DIRS if d.exists() for f in d.iterdir() if f.name in used}
     for name, f in sorted(files.items()):
         try:
             tool("store_media_file", {"filename": name, "path": str(f)})
         except RuntimeError:
             tool("store_media_file", {"filename": name, "data": base64.b64encode(f.read_bytes()).decode()})
-    stale = [n for n in tool("get_media_files_names", {"pattern": f"{PREFIX}*"})["files"] if n not in used]
-    for n in stale:
-        tool("delete_media_file", {"filename": n})
     missing = used - set(files)
     if missing:
         print("missing media:", sorted(missing))
-    return len(files), len(stale)
+    return len(files)
+
+
+def _media_in_collection() -> set[str]:
+    """Panko media any note in the open collection uses: this Panko's and another's (the add-on writes a server
+    Panko's cards with the same file names), so a sync never deletes a picture another Panko's card shows."""
+    from panko.anki.export import _note_ids
+    ids = _note_ids('"PankoID:_*"')
+    used: set[str] = set()
+    for i in range(0, len(ids), 200):
+        used |= _media_names(tool("notes_info", {"notes": ids[i:i + 200]}).get("notes", []))
+    return used
+
+
+def clean_media(used: set[str]) -> int:
+    """Delete Panko media no note uses any more (Anki keeps them in its media trash)."""
+    keep = used | _media_in_collection()
+    stale = [n for n in tool("get_media_files_names", {"pattern": f"{PREFIX}*"})["files"] if n not in keep]
+    for n in stale:
+        tool("delete_media_file", {"filename": n})
+    return len(stale)
+
+
+def _right_collection(store: Store, entries: list[dict], sample: int = 25) -> None:
+    """Stop before touching Anki when the open profile isn't the one this Panko syncs to: none of the notes it
+    linked are there (Anki opens on the last profile used, e.g. a test one)."""
+    nids = [link["note_id"] for e in entries if (link := store.link(e["id"]))][:sample]
+    if nids and not tool("notes_info", {"notes": nids}).get("notes"):
+        raise RuntimeError("Anki has a profile open that doesn't hold your Panko cards (none of the notes Panko "
+                           "synced before are in it). Switch to your own profile (File → Switch Profile) and sync "
+                           "again. Nothing was changed.")
 
 
 def plan(store: Store | None = None) -> dict:
@@ -88,12 +119,14 @@ def sync(store: Store | None = None, narrator: audio.Narrator | None = None) -> 
     entries = store.entries("active")
     notes = {e["id"]: B.to_note(e, narrator) for e in entries}   # audio generated here, before Anki is touched
     mcp.init()
+    _right_collection(store, entries)
     push_models()
     from panko.config import deck
     for d in {deck(e["variety"]) for e in entries}:
         tool("create_deck", {"deck_name": d})
-    stored, stale = push_media(list(notes.values()))
+    stored = push_media(list(notes.values()))
     added = updated = same = 0
+    gone: list[str] = []
     for eid, note in notes.items():
         h = B.note_hash(note)
         link = store.link(eid)
@@ -112,13 +145,19 @@ def sync(store: Store | None = None, narrator: audio.Narrator | None = None) -> 
         if link and link["rendered_hash"] == h:
             same += 1
             continue
+        info = tool("notes_info", {"notes": [nid]}).get("notes") or []
+        if not info:                  # deleted in Anki: listed, not added back behind your back
+            gone.append(eid)
+            continue
         fields = {k: v for k, v in note["fields"].items() if k not in ("Spare3", "Spare4")}  # old Front/Back of migrated notes
         tool("update_notes", {"notes": [{"id": nid, "fields": fields}]})
         tool("tag_add", {"note_ids": [nid], "tags": " ".join(note["tags"])})
-        cards = tool("notes_info", {"notes": [nid]})["notes"][0]["cards"]
-        tool("card_change_deck", {"card_ids": cards, "deck": note["deck"]})
+        tool("card_change_deck", {"card_ids": info[0]["cards"], "deck": note["deck"]})
         store.set_link(eid, nid, h)
         updated += 1
+    stale = clean_media(_media_names(list(notes.values())))
     res = {"added": added, "updated": updated, "unchanged": same, "media": stored, "stale_media_removed": stale}
+    if gone:
+        res["deleted_in_anki"] = gone
     print(res)
     return res
