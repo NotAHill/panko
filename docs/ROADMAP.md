@@ -4,7 +4,7 @@ Update the **Now** section at the end of every work session: it's what a fresh s
 (or one after context compaction) reads first. Personal details (names, collection numbers, paid plans) go in
 `data/STATUS.md` (git-ignored), not here: this repo is public.
 
-## Now (2026-11-27)
+## Now (2026-11-28)
 - **Built:** the Panko store (SQLite) with in-place sync to Anki; provider chains for audio (ElevenLabs), pictures
   (real photos from Wikidata, Commons, Openverse, Pexels and Pixabay first; generated drawings otherwise) and the
   language model (Claude by default); migration of studied old-deck notes with their history (`panko migrate`).
@@ -201,7 +201,8 @@ Update the **Now** section at the end of every work session: it's what a fresh s
   launch key changed on every start), the add-on takes `127.0.0.1:8770` as an http address and stays quiet when Anki
   opens while the hub isn't running. Tested with the add-on's own network code against a real local hub into a
   scratch collection. On PyPI as `pankohub` (`panko` there is another project; the command stays `panko`): 0.1.0
-  published 2026-11-27 from the `v0.1.0` tag and installed from PyPI in a throwaway home. Windows not tried.
+  published 2026-11-27 from the `v0.1.0` tag and installed from PyPI in a throwaway home. Windows: see the CI
+  install check below.
 - **Deploys survive a dropped connection (2026-11-27).** `deploy/update.sh` runs detached on the server with a lock
   and a log, and checks the new container answers. `.github/workflows/publish.yml` publishes `pankohub` to PyPI on a
   `v*` tag through trusted publishing (no token in the repo).
@@ -224,7 +225,11 @@ Update the **Now** section at the end of every work session: it's what a fresh s
   one's photo first, and taking it put it on the card with its credit.
 - **Install checked on Windows, macOS and Linux in CI (2026-11-28).** The `install` job builds the wheel, installs it
   with `uv tool install` and runs `.github/scripts/smoke_install.py`: the hub opens in `~/Panko`, chat mode lists its
-  tools, the Claude Desktop extension is written.
+  tools, the Claude Desktop extension is written. Its first Windows run found two crashes, both fixed: the ✻ in the
+  first line printed to a pipe, and every text file read in Windows' own code page, so the first Arabic word (the
+  language presets) failed; every text read and write now names UTF-8, and a test keeps it so. The server's first
+  pool fill after a deploy once took nothing; each fill now logs what it did and tries anyone it couldn't read again
+  in five minutes.
 - **Next:** the last of H5 (invite emails, when inviting more
   than a couple of people); backups before inviting anyone (`deploy/README.md` §5, skipped for now). DODa stays on
   (free and invite-only fits its terms; switched off if its authors object).
