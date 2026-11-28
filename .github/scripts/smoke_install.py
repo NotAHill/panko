@@ -43,7 +43,7 @@ try:
     try:
         meta = json.loads(web.open("http://127.0.0.1:8771/api/meta", timeout=10).read())
     except urllib.error.HTTPError as e:
-        raise SystemExit(f"/api/meta answered {e.code}: {e.read().decode(errors='replace')}")
+        raise SystemExit(f"/api/meta answered {e.code}: {e.read().decode(errors='replace')}") from None
     print("hub: folder", meta["root"], "config:", meta["config"])
     assert Path(meta["root"]).name == "Panko" and Path(meta["root"]).parent == Path.home()
 finally:
