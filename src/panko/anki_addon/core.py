@@ -165,6 +165,7 @@ def run(col, panko, say=lambda text: None, version: int = 1, rounds: int = 200) 
         if not r["notes"]:
             total["unchanged"] += r.get("unchanged", 0) if not (total["added"] or total["updated"]) else 0
             break
+        missing = set()
         for name in r["media"]:
             if col.media.have(name):
                 continue
@@ -172,10 +173,13 @@ def run(col, panko, say=lambda text: None, version: int = 1, rounds: int = 200) 
                 col.media.write_data(name, panko.media(name))
                 total["media"] += 1
             except Exception:  # noqa: BLE001  one missing file doesn't stop the sync; the card shows without it
+                missing.add(name)
                 total["media_missing"] += 1
         w = write(col, r["notes"], models, have)
-        panko.call("/anki/done", {"links": w["links"]})
-        skip += w["failed"]
+        # a note whose file didn't come isn't reported as done, so the next sync sends it (and asks for it) again
+        short = {n["id"] for n in r["notes"] if any(m in v for m in missing for v in n["fields"].values())}
+        panko.call("/anki/done", {"links": {k: v for k, v in w["links"].items() if k not in short}})
+        skip += w["failed"] + sorted(short)
         for k in ("added", "updated"):
             total[k] += w[k]
         total["failed"] += w["failed"]

@@ -267,3 +267,19 @@ def test_an_address_without_a_scheme():
     assert net.Panko("localhost:8770/", "x").base == "http://localhost:8770"
     assert net.Panko("[::1]:8770", "x").base == "http://[::1]:8770"
     assert net.Panko("http://192.168.1.5:8770", "x").base == "http://192.168.1.5:8770"
+
+
+def test_a_picture_that_failed_to_download_is_asked_for_again_next_sync(env):
+    c, s, col = env
+
+    class Restarting(Via):                                    # the server restarts during the first sync
+        def media(self, name):
+            raise OSError("your Panko didn't answer: it's restarting, try again")
+
+    r = core.run(col, Restarting(c))
+    (w,) = notes_of(col, "dw-1")
+    assert r["added"] == 2 and r["media_missing"] >= 1 and PIC in w["Image"] and not col.media.have(PIC)
+    assert not s.link("dw-1") and s.link("dp-1")              # not done: its picture didn't come
+    r = core.run(col, Via(c))
+    assert col.media.have(PIC) and r["added"] == 0 and s.link("dw-1")["note_id"] == w.id
+    assert (core.run(col, Via(c))["updated"], len(notes_of(col, "dw-1"))) == (0, 1)

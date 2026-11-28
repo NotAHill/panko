@@ -5,7 +5,7 @@ import json
 import urllib.error
 import urllib.request
 
-VERSION = 1
+VERSION = 2          # 2: a note whose picture or audio failed to download is fetched again next sync
 
 
 LOCAL = ("localhost", "127.0.0.1", "[::1]")
