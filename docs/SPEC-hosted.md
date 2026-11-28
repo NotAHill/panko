@@ -27,7 +27,7 @@ flowchart LR
     FD -- unix socket --> H2[Panko hub + MCP<br/>PANKO_HOME=/srv/panko/users/friend]
     H1 --- D1[(their folder:<br/>config, .env, store, media)]
     H2 --- D2[(their folder)]
-    D1 & D2 -. nightly, encrypted .-> BK[(backups)]
+    D1 & D2 -. nightly, encrypted, not set up yet .-> BK[(backups)]
 ```
 
 **One Panko process per user.** Panko assumes one folder per process: every path is fixed at startup from
@@ -164,8 +164,10 @@ roadmap: your own domain on Cloudflare with a Cloudflare Tunnel (about $10 a yea
 - **One small server** (2 vCPU, 4 GB or more, with a disk for media), Docker Compose with
   Caddy (HTTPS from Let's Encrypt) and one image holding Panko, the front door, poppler, ffmpeg and CAMeL Tools.
 - **Data:** `/srv/panko/users/<id>/` per user, on the separate disk. The image holds no user data.
-- **Backups:** nightly and encrypted (restic) to separate storage (Oracle's free object storage, or another
-  provider so one account's trouble can't take both), 30 days kept, and a restore tried before anyone is invited.
+- **Backups (not set up yet):** the plan is nightly and encrypted (restic) to separate storage (Oracle's free object
+  storage, or another provider so one account's trouble can't take both), 30 days kept, and a restore tried before
+  anyone is invited. `deploy/backup.sh` and `deploy/README.md` §5 have the steps; the server doesn't run them yet, and
+  the privacy page says so.
 - **Updates:** a new image, then each user's Panko picks it up when it next starts.
 
 **Why not Vercel, Supabase or Cloudflare Workers.** Panko needs long-running Python processes (a source read or a
@@ -212,7 +214,7 @@ everything (their folder as a zip) and how to delete it all. Recording a lesson 
 | Step | What "done" means |
 |---|---|
 | H1 ✅ | **Hosted mode inside Panko.** `PANKO_HOSTED=1`: socket listening, paths kept inside the folder, keys on the setup page, local-only buttons hidden, upload limits and quota, WAL. Tested locally with two folders side by side. |
-| H2 ✅ | **Front door and the server.** Accounts and invites, a Panko per user started and stopped on demand, the proxy, admin, export and delete. Deployed with Caddy and backups (restore tried). You use it first, then one invited person. |
+| H2 ✅ | **Front door and the server.** Accounts and invites, a Panko per user started and stopped on demand, the proxy, admin, export and delete. Deployed with Caddy; backups are written (`deploy/backup.sh`) but not set up on the server yet. You use it first, then one invited person. |
 | H3 ✅ | **The Anki add-on.** The server's add-on routes and the add-on itself, tested on a scratch collection (`tests/test_anki_addon.py`) and the door's device codes (`tests/test_host.py`). Next: tried in a scratch Anki profile; then your own Panko moves to the server if you want it there. |
 | H4 ✅ | **Chat mode remotely.** Each user's MCP server over HTTP behind the front door, with OAuth so their Claude (claude.ai, the desktop app, Claude Code) connects as a custom connector. |
 | H5 | **Polish.** Jobs that survive a restart (✅ 2026-11-27), simple monitoring (✅ 2026-11-27: health on the admin page, alerts, an outside check), quota warnings (✅ 2026-11-27), invite emails. |
