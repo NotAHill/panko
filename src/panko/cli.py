@@ -3,9 +3,13 @@ from __future__ import annotations
 
 import argparse
 import os
+import sys
 
 
 def main(argv=None):
+    for s in (sys.stdout, sys.stderr):   # Windows writes pipes in cp1252: a ✻ or Arabic would crash the print
+        if hasattr(s, "reconfigure"):
+            s.reconfigure(errors="replace")
     try:
         _main(argv)
     except FileNotFoundError as e:
