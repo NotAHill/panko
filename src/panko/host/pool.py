@@ -93,6 +93,7 @@ class Pool:
         self.db.executescript(SCHEMA)                                                          # hourly fill runs in a thread
         self._lock = threading.RLock()
         self._hashes: dict[tuple, str] = {}       # (path, size, mtime) → sha, so an hourly fill hashes only new files
+        self.skipped: dict[str, str] = {}         # user → why the last fill couldn't read their cards
 
     # ---- filling it from people's cards
     def _sha(self, p: Path) -> str | None:
@@ -107,11 +108,13 @@ class Pool:
             self._hashes[k] = hashlib.sha256(p.read_bytes()).hexdigest()
         return self._hashes[k]
 
+    BUSY_WAIT = 5      # seconds to wait for a store another process is writing
+
     def _cards(self, home: Path):
         db = home / "data" / "panko.db"
         if not db.exists():
             return
-        con = sqlite3.connect(f"file:{db}?mode=ro", uri=True, timeout=5)
+        con = sqlite3.connect(f"file:{db}?mode=ro", uri=True, timeout=self.BUSY_WAIT)
         try:
             for eid, data in con.execute("SELECT id, data FROM entries WHERE status != 'retired'"):
                 try:
@@ -121,8 +124,10 @@ class Pool:
         finally:
             con.close()
 
-    def fill_user(self, uid: str, home: Path) -> int:
-        """Bring the pool up to date with one person's cards; returns how many of their pictures it holds."""
+    def fill_user(self, uid: str, home: Path) -> int | None:
+        """Bring the pool up to date with one person's cards; returns how many of their pictures it holds, or None
+        when their store couldn't be read (busy or broken: nothing of theirs changes, `skipped` says why)."""
+        self.skipped.pop(uid, None)
         from panko.media.reuse import _full, key, meaning_of
         p = prefs(home)
         rows: list[tuple] = []
@@ -149,8 +154,9 @@ class Pool:
                         continue
                     rows.append((uid, eid, sha, k, _full(m["gloss"]), m["pos"]))
                     files.setdefault(sha, (src, ext, kind, im))
-            except sqlite3.Error:
-                return 0          # their store is busy or broken: try again next hour, change nothing
+            except sqlite3.Error as ex:
+                self.skipped[uid] = str(ex)
+                return None
         now = time.time()
         held = set()
         with self._lock, self.db:
@@ -176,6 +182,7 @@ class Pool:
 
     def fill(self, users: list[tuple[str, Path]]) -> dict:
         """Everyone's cards: [(user id, their Panko folder)]. Someone not listed (disabled, deleted) is taken out."""
+        self.skipped = {}
         out = {uid: self.fill_user(uid, home) for uid, home in users}
         listed = {uid for uid, _ in users}
         with self._lock, self.db:

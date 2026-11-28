@@ -737,13 +737,21 @@ def app(data: Path | str, **opts) -> Starlette:
 
     async def watch_disk():
         from panko.host.watch import QUOTA_EVERY, WATCH_EVERY
-        n = 0
+        n, pool_again = 0, False
         while True:
             try:
                 await asyncio.to_thread(door.watch.check_disk)
                 if n % QUOTA_EVERY == 0:
                     await asyncio.to_thread(check_quotas)
-                    await asyncio.to_thread(door.fill_pool)       # the picture pool, from everyone's cards
+                if n % QUOTA_EVERY == 0 or pool_again:            # the picture pool, from everyone's cards
+                    pool_again = False
+                    await asyncio.to_thread(door.fill_pool)
+                    st = door.pool.stats()
+                    print(f"pool: {st['pictures']} pictures from {st['people']} people", file=sys.stderr)
+                    if door.pool.skipped:                         # a store busy (a Panko starting): soon, not in an hour
+                        pool_again = True
+                        print("pool: couldn't read " + ", ".join(f"{u} ({why})" for u, why in door.pool.skipped.items())
+                              + f"; again in {WATCH_EVERY // 60} minutes", file=sys.stderr)
             except Exception as ex:  # noqa: BLE001  the watch must keep going
                 print(f"watch: {ex}", file=sys.stderr)
             n += 1

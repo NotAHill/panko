@@ -179,3 +179,24 @@ def test_a_panko_offers_the_pool_and_takes_a_picture_from_it(tmp_path, monkeypat
     assert kind_of(im, True, True) is None                    # taken from the pool: not shared back as new
     monkeypatch.delenv("PANKO_POOL_URL")
     assert "pool" not in [p.name for p in pictures._searchers()]
+
+
+def test_a_busy_store_changes_nothing_and_says_so(data, monkeypatch):
+    """At startup a Panko may be writing its store just as the pool reads it: that person's pictures stay as they
+    were, and `skipped` tells the front door to try again in minutes rather than an hour."""
+    import sqlite3
+    pool = Pool(data)
+    home = data / "users" / "u1"
+    a_panko(home, [("a1", "bread", "noun", BREAD)])
+    a_panko(data / "users" / "u2", [])
+    assert pool.fill([("u1", home), ("u2", data / "users" / "u2")])["u1"] == 1
+    monkeypatch.setattr(Pool, "BUSY_WAIT", 0.1)
+    writer = sqlite3.connect(home / "data" / "panko.db")
+    writer.execute("BEGIN EXCLUSIVE")
+    try:
+        assert pool.fill([("u1", home), ("u2", data / "users" / "u2")])["u1"] is None
+        assert "locked" in pool.skipped["u1"] and len(pool.search("bread", "u2")) == 1
+    finally:
+        writer.rollback()
+        writer.close()
+    assert pool.fill([("u1", home), ("u2", data / "users" / "u2")])["u1"] == 1 and pool.skipped == {}
